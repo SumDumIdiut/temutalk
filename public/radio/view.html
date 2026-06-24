@@ -1,0 +1,29 @@
+  <!-- Map -->
+  <div id="radio-map"></div>
+  <!-- Station list panel (always open) -->
+  <div class="rmap-panel" id="rmap-panel">
+    <div class="rmap-panel-hdr">
+      <span class="rmap-panel-title" style="margin-bottom:2px;">Stations</span>
+      <input class="rmap-panel-search" id="rmap-search" type="text" placeholder="Search…" oninput="filterRadioList(this.value)" autocomplete="off">
+    </div>
+    <div class="rmap-list" id="rmap-list"><div class="rmap-list-dim">Loading…</div></div>
+  </div>
+  <!-- Loading overlay -->
+  <div class="rmap-loading" id="rmap-loading">Loading stations…</div>
+  <!-- Now-playing bar -->
+  <div class="rmap-np" id="rmap-np">
+    <img class="rmap-np-favicon" id="rmap-np-favicon" src="" alt="">
+    <div class="rmap-np-pulse"></div>
+    <div class="rmap-np-info">
+      <div class="rmap-np-name" id="rmap-np-name">—</div>
+      <div class="rmap-np-meta" id="rmap-np-meta"></div>
+    </div>
+    <div class="rmap-np-vol-wrap">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="color:rgba(255,255,255,.4);flex-shrink:0;"><path d="M7 9v6h4l5 5V4l-5 5H7z"/></svg>
+      <input type="range" class="rmap-vol-slider" id="rmap-vol" min="0" max="100" value="80" oninput="setRadioVolume(+this.value)">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="color:rgba(255,255,255,.4);flex-shrink:0;"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+    </div>
+    <button class="rmap-stop-btn" onclick="stopRadio()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h12v12H6z"/></svg>
+    </button>
+  </div>

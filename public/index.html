@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#060810">
+  <title>TemuTalk</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><rect width='40' height='40' rx='10' fill='%23FF6600'/><text x='20' y='28' text-anchor='middle' font-family='sans-serif' font-weight='900' font-size='24' fill='white'>T</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+  <!-- Preload Leaflet so it's ready the moment the radio tab is opened -->
+  <link rel="preload" as="style"  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="preload" as="script" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+  <link rel="preload" as="script" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+  <!-- Per-tab stylesheets -->
+  <link rel="stylesheet" href="/home/style.css">
+  <link rel="stylesheet" href="/music/style.css">
+  <link rel="stylesheet" href="/radio/style.css">
+  <link rel="stylesheet" href="/weather/style.css">
+  <link rel="stylesheet" href="/news/style.css">
+  <link rel="stylesheet" href="/finance/style.css">
+  <link rel="stylesheet" href="/timer/style.css">
+  <link rel="stylesheet" href="/system/style.css">
+  <style>
+    /* ── SPA view system ─────────────────────────────────────────────────── */
+    html, body { height: 100%; overflow: hidden; }
+
+    .view {
+      position: fixed; inset: 0; left: var(--nav-w); z-index: 1;
+      display: none; overflow: hidden;
+      transition: opacity 260ms cubic-bezier(0.4,0,0.2,1),
+                  transform 260ms cubic-bezier(0.4,0,0.2,1);
+    }
+    .view.v-on { will-change: opacity, transform; }
+    .view.v-on { display: block; }
+    #view-weather.v-on, #view-timer.v-on,
+    #view-finance.v-on, #view-system.v-on,
+    #view-news.v-on {
+      overflow-y: auto;
+    }
+    #view-home.v-on { overflow: hidden; display: flex; flex-direction: column; }
+    #view-music.v-on  { display: flex; flex-direction: column; }
+
+    /* weather needs extra scroll room */
+    #view-weather .page {
+      padding-bottom: 60px;
+    }
+
+    /* ── Nav buttons ─────────────────────────────────────────────────────── */
+    button.nav-item { background: none; border: none; font-family: inherit; padding: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+
+    /* ── Page headers ─────────────────────────────────────────────────────────────────── */
+    .page-header { display: flex; align-items: center; gap: 10px; padding-top: 12px; font-size: 22px; font-weight: 600; }
+    .page-header-accent { width: 4px; height: 28px; border-radius: 2px; flex-shrink: 0; }
+  </style>
+</head>
+<body data-tab="home">
+
+<div id="bg">
+  <div class="blob b1"></div>
+  <div class="blob b2"></div>
+  <div class="blob b3"></div>
+  <div class="blob b4"></div>
+</div>
+
+<!-- ══════════════════ HOME VIEW (inline — immediate render) ══════════════════ -->
+<div class="view v-on" id="view-home" style="opacity:1;">
+
+  <!-- Top bar -->
+  <div class="home-topbar">
+    <span class="chip" id="spotify-chip"><span class="dot"></span> Spotify</span>
+    <button class="hub-bar-btn cast-btn" onclick="setCastMode(!castMode)" title="Cast audio from host">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M1 18v3h3c0-1.66-1.34-3-3-3zm0-4v2c2.76 0 5 2.24 5 5h2c0-3.87-3.13-7-7-7zm18-7H5c-1.1 0-2 .9-2 2v3h2v-3h14v10h-5v2h5c1.1 0 2-.9 2-2V9c0-1.1-.9-2-2-2zm-18 11v2h2v-2H1z"/></svg>
+    </button>
+    <button class="hub-bar-btn" id="fs-btn" onclick="toggleFullscreen()" title="Fullscreen">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path id="fs-path" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+    </button>
+  </div>
+
+  <!-- Hero clock -->
+  <div class="home-hero">
+    <div class="home-greeting" id="home-greeting">Good morning</div>
+    <div class="home-time" id="clock">--:--</div>
+    <div class="home-datestr" id="dateline">--</div>
+  </div>
+
+  <!-- Bottom compact widgets -->
+  <div class="home-widgets">
+
+    <!-- Weather card with timer floating above -->
+    <div style="position:relative;display:flex;">
+
+      <!-- Mini timers: floats above the weather card -->
+      <div class="home-mini-card home-mini-timer" id="home-timer-card" style="display:none;" onclick="navigate('timer')">
+        <div class="home-mini-timer-hdr">
+          <span class="home-mini-timer-lbl">Timers</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="color:var(--text-muted);flex-shrink:0;"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg>
+        </div>
+        <div id="home-timer-list"></div>
+      </div>
+
+      <!-- Mini weather -->
+      <div class="home-mini-card home-mini-wx" id="home-wx-card">
+        <div id="home-wx-display" style="width:100%;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <div style="display:flex;align-items:center;gap:8px;cursor:pointer;" onclick="navigate('weather')">
+              <span class="home-mini-wx-icon" id="w-icon">⛅</span>
+              <span class="home-mini-wx-temp" id="w-temp">--°</span>
+            </div>
+            <button class="home-wx-edit-btn" onclick="homeWxEditStart(event)" title="Change city">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+            </button>
+          </div>
+          <div class="home-mini-wx-desc" id="w-desc" style="cursor:pointer;" onclick="navigate('weather')">Loading…</div>
+          <div class="home-mini-wx-city" id="w-city" style="cursor:pointer;" onclick="navigate('weather')"></div>
+        </div>
+        <div class="home-wx-city-form" id="home-wx-edit">
+          <input class="home-wx-city-inp" id="home-wx-city-inp" placeholder="City name…" autocomplete="off"
+            onkeydown="if(event.key==='Enter')homeWxEditDone();if(event.key==='Escape')homeWxEditCancel();">
+          <button class="home-wx-go-btn" onclick="homeWxEditDone()">→</button>
+          <button class="home-wx-go-btn" onclick="homeWxEditCancel()" style="background:none;border-color:transparent;color:var(--text-muted);">✕</button>
+        </div>
+      </div>
+
+    </div><!-- end weather+timer wrapper -->
+
+    <!-- Mini music / radio -->
+    <div class="home-mini-card home-mini-music" id="np-card">
+      <div class="home-mini-music-hdr" id="home-audio-hdr" onclick="homeAudioHdrClick()" style="cursor:pointer;">
+        <span class="home-mini-music-lbl" id="home-music-label">Music</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="color:var(--text-muted);flex-shrink:0;"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg>
+      </div>
+
+      <!-- Spotify: playing -->
+      <div id="home-np-playing" style="display:none;">
+        <div class="home-mini-np-row">
+          <img class="home-mini-art" id="home-np-art" src="" alt="" crossorigin="anonymous">
+          <div style="flex:1;min-width:0;">
+            <div class="home-mini-track" id="home-np-track">—</div>
+            <div class="home-mini-artist" id="home-np-artist">—</div>
+          </div>
+        </div>
+        <div class="home-mini-prog">
+          <div class="home-mini-prog-row">
+            <span class="home-mini-time" id="home-np-cur">0:00</span>
+            <div class="progress-bar" style="margin:0;flex:1;">
+              <div class="progress-fill" id="home-np-bar" style="width:0%"></div>
+            </div>
+            <span class="home-mini-time" id="home-np-tot">0:00</span>
+          </div>
+        </div>
+        <div class="home-mini-ctrls">
+          <button class="home-mini-ctrl" onclick="action('previous')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+          </button>
+          <button class="home-mini-ctrl home-mini-ctrl-play" onclick="togglePlay()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" id="home-play-icon"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+          <button class="home-mini-ctrl" onclick="action('next')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Spotify: recent -->
+      <div id="home-np-recent" onclick="navigate('music')" style="cursor:pointer;">
+        <div id="home-recent-tracks"><div style="font-size:12px;color:var(--text-muted);padding:4px 0;">Loading…</div></div>
+      </div>
+
+      <!-- Radio: playing -->
+      <div id="home-radio-playing-state" style="display:none;" onclick="event.stopPropagation()">
+        <div class="home-mini-np-row">
+          <img class="home-mini-art" id="home-radio-fav" src="" alt="" style="border-radius:8px;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#e879f9;text-transform:uppercase;">Live Radio</div>
+            <div class="home-mini-track" id="home-radio-name">—</div>
+            <div class="home-mini-artist" id="home-radio-meta"></div>
+          </div>
+          <div class="home-radio-pulse" style="flex-shrink:0;"></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+          <button class="home-radio-stop" onclick="stopRadio()" style="flex:1;">■ Stop</button>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="color:var(--text-muted);flex-shrink:0;"><path d="M7 9v6h4l5 5V4l-5 5H7z"/></svg>
+          <input type="range" class="home-np-vol" id="home-radio-vol" min="0" max="100" value="80" oninput="setRadioVolume(+this.value)" style="width:80px;">
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Hidden elements referenced by JS but not shown on this layout -->
+  <div style="display:none;">
+    <div id="home-np-album"></div>
+    <input type="range" id="home-np-vol" min="0" max="100" value="50" oninput="setVolume(+this.value)">
+    <div id="home-sw-display"></div>
+    <div id="home-sw-label"></div>
+    <div id="home-active-timers"></div>
+    <div id="home-markets-card"></div>
+    <div id="home-coins"></div>
+  </div>
+
+</div>
+
+<!-- ══════════════════ OTHER VIEWS (lazy-loaded) ══════════════════ -->
+<div class="view" id="view-music"></div>
+<div class="view" id="view-radio"></div>
+<div class="view" id="view-weather"></div>
+<div class="view" id="view-finance"></div>
+<div class="view" id="view-system"></div>
+<div class="view" id="view-timer"></div>
+<div class="view" id="view-news"></div>
+
+<!-- ══════════════════ NAV ══════════════════ -->
+<nav class="nav">
+  <div class="nav-logo" title="TemuTalk">
+    <svg viewBox="0 0 40 40" width="36" height="36" xmlns="http://www.w3.org/2000/svg">
+      <rect width="40" height="40" rx="10" fill="#FF6600"/>
+      <text x="20" y="27" text-anchor="middle" font-family="'Nunito',sans-serif" font-weight="900" font-size="22" fill="#fff">T</text>
+    </svg>
+  </div>
+  <button class="nav-item active" data-tab="home" onclick="navigate('home')">
+    <div class="nav-pill"><svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></div>
+    <span class="nav-label">Home</span>
+  </button>
+  <button class="nav-item" data-tab="music" onclick="navigate('music')">
+    <div class="nav-pill"><svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg></div>
+    <span class="nav-label">Music</span>
+  </button>
+  <button class="nav-item" data-tab="radio" onclick="navigate('radio')">
+    <div class="nav-pill"><svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M3.24 6.15C2.51 6.43 2 7.17 2 8v12c0 1.1.89 2 2 2h16c1.11 0 2-.9 2-2V8c0-1.11-.89-2-2-2H8.3l8.26-3.34L15.88 1 3.24 6.15zM12 19c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm5-9H4V8h13v2z"/></svg></div>
+    <span class="nav-label">Radio</span>
+  </button>
+  <button class="nav-item" data-tab="news" onclick="navigate('news')">
+    <div class="nav-pill"><svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M20 3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-8 14H5v-2h7v2zm3-4H5v-2h10v2zm0-4H5V7h10v2zm5 8h-3V7h3v10z"/></svg></div>
+    <span class="nav-label">News</span>
+  </button>
+  <button class="nav-item" data-tab="weather" onclick="navigate('weather')">
+    <div class="nav-pill"><svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.79 1.42-1.41zM4 10.5H1v2h3v-2zm9-9.95h-2V3.5h2V.55zm7.45 3.91l-1.41-1.41-1.79 1.79 1.41 1.41 1.79-1.79zm-3.21 13.7l1.79 1.8 1.41-1.41-1.8-1.79-1.4 1.4zM20 10.5v2h3v-2h-3zm-8-5c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm-1 16.95h2V19.5h-2v2.95zm-7.45-3.91l1.41 1.41 1.79-1.8-1.41-1.41-1.79 1.8z"/></svg></div>
+    <span class="nav-label">Weather</span>
+  </button>
+  <button class="nav-item" data-tab="finance" onclick="navigate('finance')">
+    <div class="nav-pill"><svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/></svg></div>
+    <span class="nav-label">Finance</span>
+  </button>
+  <button class="nav-item" data-tab="timer" onclick="navigate('timer')">
+    <div class="nav-pill"><svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61l1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42A7.93 7.93 0 0 0 12 4c-4.42 0-8 3.58-8 8s3.57 8 8 8 8-3.58 8-8c0-1.82-.62-3.5-1.65-4.85l.68-.76zM12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/></svg></div>
+    <span class="nav-label">Timer</span>
+  </button>
+  <button class="nav-item" data-tab="system" onclick="navigate('system')">
+    <div class="nav-pill"><svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M20 18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z"/></svg></div>
+    <span class="nav-label">System</span>
+  </button>
+</nav>
+
+<script>
+// ── Device identity ───────────────────────────────────────────────────────
+if (!localStorage.getItem('deviceId'))
+  localStorage.setItem('deviceId', ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g,c=>(c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4).toString(16)));
+const deviceId = localStorage.getItem('deviceId');
+
+// ── Spotify credentials (localStorage only — never sent to/stored on server) ──
+function getSpotifyCreds() {
+  return {
+    cid:  localStorage.getItem('spotifyClientId')     || '',
+    csec: localStorage.getItem('spotifyClientSecret') || '',
+  };
+}
+function updateAuthScreen() {
+  const { cid, csec } = getSpotifyCreds();
+  const hasCreds = !!(cid && csec);
+  document.getElementById('creds-form').style.display   = hasCreds ? 'none' : '';
+  document.getElementById('connect-form').style.display = hasCreds ? ''     : 'none';
+  if (hasCreds) {
+    document.getElementById('auth-link').href =
+      '/auth/spotify?device=' + encodeURIComponent(deviceId) +
+      '&cid='  + encodeURIComponent(cid) +
+      '&csec=' + encodeURIComponent(csec);
+  }
+}
+
+function showOAuthError(msg) {
+  const el = document.getElementById('oauth-error');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.display = msg ? '' : 'none';
+}
+function saveCreds() {
+  const cid  = document.getElementById('input-cid').value.trim();
+  const csec = document.getElementById('input-csec').value.trim();
+  if (!cid || !csec) return;
+  localStorage.setItem('spotifyClientId',     cid);
+  localStorage.setItem('spotifyClientSecret', csec);
+  updateAuthScreen();
+}
+function clearCreds() {
+  localStorage.removeItem('spotifyClientId');
+  localStorage.removeItem('spotifyClientSecret');
+  updateAuthScreen();
+}
+
+// ── Lazy tab loader ───────────────────────────────────────────────────────
+const _tabLoaded = { home: true }; // home is inline — already loaded
+
+async function ensureTab(tab) {
+  if (_tabLoaded[tab]) return;
+  const r = await fetch('/' + tab + '/view.html');
+  document.getElementById('view-' + tab).innerHTML = await r.text();
+  _tabLoaded[tab] = true;
+}
+
+// ── Navigation ────────────────────────────────────────────────────────────
+const TAB_IDX = { home: 0, music: 1, radio: 2, news: 3, weather: 4, finance: 5, timer: 6, system: 7 };
+let curTab = 'home';
+
+async function navigate(tab) {
+  if (tab === curTab) return;
+  await ensureTab(tab);
+
+  document.body.dataset.tab = tab;
+  const dir = TAB_IDX[tab] > TAB_IDX[curTab] ? 1 : -1;
+  const $old = document.getElementById('view-' + curTab);
+  const $new = document.getElementById('view-' + tab);
+
+  // Set new view off-screen without transition
+  $new.style.transition = 'none';
+  $new.style.opacity = '0';
+  $new.style.transform = 'translateX(' + (dir * 28) + 'px)';
+  $new.classList.add('v-on');
+
+  // Force reflow, then animate both
+  $new.offsetHeight;
+  $new.style.transition = '';
+  $new.style.opacity = '1';
+  $new.style.transform = '';
+  $old.style.opacity = '0';
+  $old.style.transform = 'translateX(' + (-dir * 28) + 'px)';
+
+  const leaving = curTab;
+  curTab = tab;
+
+  setTimeout(() => {
+    const $leaving = document.getElementById('view-' + leaving);
+    $leaving.classList.remove('v-on');
+    $leaving.style.opacity = '';
+    $leaving.style.transform = '';
+  }, 280);
+
+  // Nav active state
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.tab === tab);
+  });
+
+  // Lazy-load tabs on first visit
+  if (tab === 'weather' && !wxLoaded) {
+    wxLoaded = true;
+    if (wxCity) loadWx(wxCity);
+    else fetch('/api/config?device=' + deviceId).then(r => r.json()).then(c => { if (c.weatherCity) loadWx(c.weatherCity); else showWxError('No city set (WEATHER_CITY in .env)'); }).catch(() => showWxError('Could not load config'));
+  }
+  if (tab === 'music')   { if (typeof loadMusicHome === 'function') loadMusicHome(); }
+  if (tab === 'timer')   initTimerView();
+  if (tab === 'finance' && !financeLoaded) { financeLoaded = true; loadCrypto(); }
+  if (tab === 'system')  { renderThemePanel(); }
+  if (tab === 'radio') initRadioMap();
+  if (tab === 'news' && !newsLoaded) loadNews();
+  // Update URL
+  const u = new URL(location.href);
+  tab === 'home' ? u.searchParams.delete('tab') : u.searchParams.set('tab', tab);
+  history.replaceState(null, '', u);
+}
+
+// Deep-link navigation deferred — see bottom of page (avoids TDZ for let vars used inside navigate)
+
+
+// ── Theme settings ────────────────────────────────────────────────────────
+const ACCENT_PRESETS = [
+  { id:'red',      h:4,   s:85, label:'Red'      },
+  { id:'crimson',  h:348, s:80, label:'Crimson'   },
+  { id:'coral',    h:16,  s:82, label:'Coral'     },
+  { id:'orange',   h:25,  s:92, label:'Orange'    },
+  { id:'amber',    h:38,  s:90, label:'Amber'     },
+  { id:'gold',     h:50,  s:85, label:'Gold'      },
+  { id:'yellow',   h:60,  s:88, label:'Yellow'    },
+  { id:'lime',     h:80,  s:72, label:'Lime'      },
+  { id:'green',    h:142, s:68, label:'Green'     },
+  { id:'emerald',  h:160, s:70, label:'Emerald'   },
+  { id:'teal',     h:174, s:72, label:'Teal'      },
+  { id:'cyan',     h:188, s:88, label:'Cyan'      },
+  { id:'sky',      h:200, s:90, label:'Sky'       },
+  { id:'blue',     h:217, s:85, label:'Blue'      },
+  { id:'royal',    h:228, s:82, label:'Royal'     },
+  { id:'indigo',   h:240, s:80, label:'Indigo'    },
+  { id:'violet',   h:262, s:72, label:'Violet'    },
+  { id:'purple',   h:276, s:78, label:'Purple'    },
+  { id:'fuchsia',  h:290, s:82, label:'Fuchsia'   },
+  { id:'magenta',  h:308, s:84, label:'Magenta'   },
+  { id:'pink',     h:326, s:85, label:'Pink'      },
+  { id:'rose',     h:342, s:82, label:'Rose'      },
+  { id:'slate',    h:220, s:22, label:'Slate'     },
+  { id:'silver',   h:220, s:8,  label:'Silver'    },
+  { id:'temu',     h:24,  s:100, label:'Temu'     },
+];
+
+const BLOB_PRESETS = {
+  auto:    null,
+  default: ['rgba(124,108,248,.32)','rgba(248,124,196,.28)','rgba(66,200,255,.22)','rgba(255,159,74,.16)'],
+  sunset:  ['rgba(255,85,45,.32)','rgba(255,55,130,.28)','rgba(255,185,45,.24)','rgba(200,40,80,.18)'],
+  ocean:   ['rgba(20,140,255,.3)','rgba(0,225,200,.26)','rgba(55,90,255,.22)','rgba(0,200,255,.18)'],
+  forest:  ['rgba(45,195,80,.28)','rgba(20,165,120,.26)','rgba(140,215,50,.22)','rgba(0,180,100,.18)'],
+  candy:   ['rgba(255,85,180,.3)','rgba(140,65,255,.26)','rgba(255,205,50,.24)','rgba(85,215,255,.2)'],
+  mono:    ['rgba(200,200,220,.2)','rgba(160,160,185,.18)','rgba(225,225,245,.16)','rgba(180,180,205,.14)'],
+  temu:    ['rgba(255,102,0,.34)','rgba(255,160,30,.28)','rgba(220,50,20,.22)','rgba(255,200,60,.18)'],
+};
+
+let themeAccent       = localStorage.getItem('themeAccent')       || 'violet';
+let themeAutoAccent   = localStorage.getItem('themeAutoAccent')   !== 'false';
+let themeCustomHex    = localStorage.getItem('themeCustomHex')    || '#b09ffc';
+let themeDark         = localStorage.getItem('themeDark')         || 'dark';
+let themeBg           = localStorage.getItem('themeBg')           || 'vivid';
+let themeBlobs        = localStorage.getItem('themeBlobs')        || 'auto';
+let themeDotGrid      = localStorage.getItem('themeDotGrid')      || 'on';
+let themeGlass        = localStorage.getItem('themeGlass')        || 'mid';
+let themeRadius       = localStorage.getItem('themeRadius')       || 'rounded';
+let themeClockSize    = localStorage.getItem('themeClockSize')    || 'xl';
+let themeClock        = localStorage.getItem('themeClock')        || '24';
+let themeFont         = localStorage.getItem('themeFont')         || 'nunito';
+let themeGlow         = localStorage.getItem('themeGlow')         || 'on';
+let themeNavLabels    = localStorage.getItem('themeNavLabels')    || 'show';
+
+function _hexToHsl(hex) {
+  let r=parseInt(hex.slice(1,3),16)/255, g=parseInt(hex.slice(3,5),16)/255, b=parseInt(hex.slice(5,7),16)/255;
+  const max=Math.max(r,g,b), min=Math.min(r,g,b), l=(max+min)/2;
+  if (max===min) return [0,0,Math.round(l*100)];
+  const d=max-min, s=l>.5?d/(2-max-min):d/(max+min);
+  let h;
+  if (max===r) h=((g-b)/d+(g<b?6:0))/6;
+  else if (max===g) h=((b-r)/d+2)/6;
+  else h=((r-g)/d+4)/6;
+  return [Math.round(h*360), Math.round(s*100)];
+}
+
+function _applyBlobColors(preset) {
+  const cols = BLOB_PRESETS[preset];
+  ['b1','b2','b3','b4'].forEach((cls, i) => {
+    document.querySelectorAll('.' + cls).forEach(el => {
+      el.style.background = cols ? `radial-gradient(circle, ${cols[i]} 0%, transparent 58%)` : '';
+    });
+  });
+}
+
+function _applyFont(id) {
+  const fonts = {
+    nunito:  { name:'Nunito',        url:'https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap' },
+    inter:   { name:'Inter',         url:'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap' },
+    poppins: { name:'Poppins',       url:'https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap' },
+    grotesk: { name:'Space Grotesk', url:'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap' },
+  };
+  const f = fonts[id] || fonts.nunito;
+  if (id !== 'nunito' && !document.querySelector(`link[data-font="${id}"]`)) {
+    const lk = document.createElement('link'); lk.rel='stylesheet'; lk.href=f.url; lk.dataset.font=id;
+    document.head.appendChild(lk);
+  }
+  document.body.style.fontFamily = `'${f.name}',-apple-system,BlinkMacSystemFont,sans-serif`;
+}
+
+function applyTheme() {
+  const R = document.documentElement;
+
+  // Accent color
+  if (!themeAutoAccent) {
+    let h, s;
+    if (themeAccent === 'custom') {
+      [h, s] = _hexToHsl(themeCustomHex);
+    } else {
+      const p = ACCENT_PRESETS.find(x => x.id === themeAccent) || ACCENT_PRESETS[16];
+      h = p.h; s = p.s;
+    }
+    R.style.setProperty('--primary',      `hsl(${h},${s}%,73%)`);
+    R.style.setProperty('--primary-dim',  `hsla(${h},${s}%,73%,.16)`);
+    R.style.setProperty('--primary-dark', `hsla(${h},${s}%,73%,.12)`);
+    R.style.setProperty('--primary-glow', `hsla(${h},${s}%,73%,.4)`);
+  }
+
+  // Dark level
+  R.style.setProperty('--bg', { dark:'#08090f', darker:'#030408', amoled:'#000000' }[themeDark] || '#08090f');
+
+  // Blobs visibility
+  const bgEl = document.getElementById('bg');
+  const showBlobs = (themeBg === 'vivid');
+  if (bgEl) bgEl.style.display = showBlobs ? '' : 'none';
+
+  // Blob colors (only relevant when blobs are shown)
+  _applyBlobColors(showBlobs ? themeBlobs : 'auto');
+
+  // Dot grid — always set explicitly so cascade doesn't interfere
+  const showDots = (themeDotGrid !== 'off' && themeBg !== 'clean');
+  document.body.style.backgroundImage = showDots
+    ? 'radial-gradient(circle, rgba(255,255,255,.022) 1px, transparent 1px)'
+    : 'none';
+  document.body.style.backgroundSize = showDots ? '28px 28px' : '';
+
+  // Glass
+  const glass = {
+    clear:   ['.13','.20','.28','.25'],
+    mid:     ['.075','.12','.18','.18'],
+    frosted: ['.04','.07','.11','.12'],
+  }[themeGlass] || ['.075','.12','.18','.18'];
+  R.style.setProperty('--surface',         `rgba(255,255,255,${glass[0]})`);
+  R.style.setProperty('--surface-hi',      `rgba(255,255,255,${glass[1]})`);
+  R.style.setProperty('--surface-highest', `rgba(255,255,255,${glass[2]})`);
+  R.style.setProperty('--glass-border',    `rgba(255,255,255,${glass[3]})`);
+
+  // Radius
+  const rad = { pill:['24px','32px','42px'], rounded:['18px','26px','34px'], sharp:['8px','12px','18px'] }[themeRadius] || ['18px','26px','34px'];
+  R.style.setProperty('--radius-sm', rad[0]);
+  R.style.setProperty('--radius',    rad[1]);
+  R.style.setProperty('--radius-lg', rad[2]);
+
+  // Clock size
+  const clk = document.querySelector('.home-time');
+  if (clk) clk.style.fontSize = { xl:'clamp(80px,12vw,150px)', lg:'clamp(58px,9vw,110px)', md:'clamp(40px,6.5vw,78px)' }[themeClockSize] || 'clamp(80px,12vw,150px)';
+
+  // Font
+  _applyFont(themeFont);
+
+  // Glow
+  document.body.classList.toggle('no-glow', themeGlow === 'off');
+
+  // Nav labels
+  document.body.classList.toggle('no-nav-labels', themeNavLabels === 'hide');
+}
+
+function _setThemeAccent(id) {
+  themeAccent = id; themeAutoAccent = false;
+  localStorage.setItem('themeAccent', id);
+  localStorage.setItem('themeAutoAccent', 'false');
+  applyTheme(); renderThemePanel();
+}
+function _setThemeCustomColor(hex) {
+  themeCustomHex = hex; themeAccent = 'custom'; themeAutoAccent = false;
+  localStorage.setItem('themeCustomHex', hex);
+  localStorage.setItem('themeAccent', 'custom');
+  localStorage.setItem('themeAutoAccent', 'false');
+  applyTheme(); renderThemePanel();
+}
+function _setThemeAuto(val) {
+  themeAutoAccent = val;
+  localStorage.setItem('themeAutoAccent', val);
+  applyTheme(); renderThemePanel();
+}
+function _th(k,v,lk) { window[k]=v; localStorage.setItem(lk,v); applyTheme(); renderThemePanel(); }
+function _setThemeDark(v)      { themeDark=v;      localStorage.setItem('themeDark',v);      applyTheme(); renderThemePanel(); }
+function _setThemeBg(v)        { themeBg=v;        localStorage.setItem('themeBg',v);        applyTheme(); renderThemePanel(); }
+function _setThemeBlobs(v)     { themeBlobs=v;     localStorage.setItem('themeBlobs',v);     applyTheme(); renderThemePanel(); }
+function _setThemeDotGrid(v)   { themeDotGrid=v;   localStorage.setItem('themeDotGrid',v);   applyTheme(); renderThemePanel(); }
+function _setThemeGlass(v)     { themeGlass=v;     localStorage.setItem('themeGlass',v);     applyTheme(); renderThemePanel(); }
+function _setThemeRadius(v)    { themeRadius=v;    localStorage.setItem('themeRadius',v);    applyTheme(); renderThemePanel(); }
+function _setThemeClockSize(v) { themeClockSize=v; localStorage.setItem('themeClockSize',v); applyTheme(); renderThemePanel(); }
+function _setThemeClock(v)     { themeClock=v;     localStorage.setItem('themeClock',v);     tick(); renderThemePanel(); }
+function _setThemeFont(v)      { themeFont=v;      localStorage.setItem('themeFont',v);      applyTheme(); renderThemePanel(); }
+function _setThemeGlow(v)      { themeGlow=v;      localStorage.setItem('themeGlow',v);      applyTheme(); renderThemePanel(); }
+function _setThemeNavLabels(v) { themeNavLabels=v; localStorage.setItem('themeNavLabels',v); applyTheme(); renderThemePanel(); }
+
+function renderThemePanel() {
+  const el = document.getElementById('theme-panel');
+  if (!el) return;
+
+  const pill = (label, val, cur, fn) =>
+    `<button class="th-pill ${cur===val?'active':''}" onclick="${fn}('${val}')">${label}</button>`;
+  const toggle = (val, fn, label) =>
+    `<div class="th-toggle-row" onclick="${fn}(${typeof val==='boolean'?!val:''})">
+      <div class="th-toggle ${val?'on':''}"><div class="th-toggle-knob"></div></div>
+      <span>${label}</span></div>`;
+
+  const swatches = ACCENT_PRESETS.map(p =>
+    `<button class="th-swatch ${!themeAutoAccent&&themeAccent===p.id?'active':''} ${themeAutoAccent?'muted':''}"
+      style="background:hsl(${p.h},${p.s}%,62%);" title="${p.label}"
+      onclick="_setThemeAccent('${p.id}')"></button>`
+  ).join('');
+
+  el.innerHTML = `
+    <div class="th-sec">
+      <div class="th-label">Accent colour</div>
+      <div class="th-swatches">
+        ${swatches}
+        <div class="th-custom-btn ${!themeAutoAccent&&themeAccent==='custom'?'active':''} ${themeAutoAccent?'muted':''}" title="Custom colour">
+          <input type="color" value="${themeCustomHex}" oninput="_setThemeCustomColor(this.value)">
+        </div>
+      </div>
+      <div class="th-toggle-row" onclick="_setThemeAuto(!themeAutoAccent)">
+        <div class="th-toggle ${themeAutoAccent?'on':''}"><div class="th-toggle-knob"></div></div>
+        <span>Auto-colour from album art</span>
+      </div>
+    </div>
+    <div class="th-divider"></div>
+    <div class="th-sec">
+      <div class="th-label">Dark level</div>
+      <div class="th-pills">
+        ${pill('Dark',   'dark',   themeDark, '_setThemeDark')}
+        ${pill('Darker', 'darker', themeDark, '_setThemeDark')}
+        ${pill('Amoled', 'amoled', themeDark, '_setThemeDark')}
+      </div>
+    </div>
+    <div class="th-divider"></div>
+    <div class="th-sec">
+      <div class="th-label">Background</div>
+      <div class="th-pills" style="margin-bottom:10px;">
+        ${pill('Vivid',   'vivid',   themeBg, '_setThemeBg')}
+        ${pill('Minimal', 'minimal', themeBg, '_setThemeBg')}
+        ${pill('Clean',   'clean',   themeBg, '_setThemeBg')}
+      </div>
+      <div class="th-label" style="margin-top:10px;">Blob colours</div>
+      <div class="th-pills" style="margin-bottom:10px;">
+        ${pill('Auto',    'auto',    themeBlobs, '_setThemeBlobs')}
+        ${pill('Default', 'default', themeBlobs, '_setThemeBlobs')}
+        ${pill('Sunset',  'sunset',  themeBlobs, '_setThemeBlobs')}
+        ${pill('Ocean',   'ocean',   themeBlobs, '_setThemeBlobs')}
+        ${pill('Forest',  'forest',  themeBlobs, '_setThemeBlobs')}
+        ${pill('Candy',   'candy',   themeBlobs, '_setThemeBlobs')}
+        ${pill('Mono',    'mono',    themeBlobs, '_setThemeBlobs')}
+      </div>
+      <div class="th-toggle-row" onclick="_setThemeDotGrid(themeDotGrid==='on'?'off':'on')">
+        <div class="th-toggle ${themeDotGrid==='on'?'on':''}"><div class="th-toggle-knob"></div></div>
+        <span>Dot grid</span>
+      </div>
+    </div>
+    <div class="th-divider"></div>
+    <div class="th-sec">
+      <div class="th-label">Glass opacity</div>
+      <div class="th-pills">
+        ${pill('Clear',   'clear',   themeGlass, '_setThemeGlass')}
+        ${pill('Glass',   'mid',     themeGlass, '_setThemeGlass')}
+        ${pill('Frosted', 'frosted', themeGlass, '_setThemeGlass')}
+      </div>
+    </div>
+    <div class="th-divider"></div>
+    <div class="th-sec">
+      <div class="th-label">Corner style</div>
+      <div class="th-pills">
+        ${pill('Pill',    'pill',    themeRadius, '_setThemeRadius')}
+        ${pill('Rounded', 'rounded', themeRadius, '_setThemeRadius')}
+        ${pill('Sharp',   'sharp',   themeRadius, '_setThemeRadius')}
+      </div>
+    </div>
+    <div class="th-divider"></div>
+    <div class="th-sec">
+      <div class="th-label">Clock</div>
+      <div class="th-pills" style="margin-bottom:8px;">
+        ${pill('XL',   'xl', themeClockSize, '_setThemeClockSize')}
+        ${pill('Large','lg', themeClockSize, '_setThemeClockSize')}
+        ${pill('Medium','md',themeClockSize, '_setThemeClockSize')}
+        ${pill('12h',  '12', themeClock,     '_setThemeClock')}
+        ${pill('24h',  '24', themeClock,     '_setThemeClock')}
+      </div>
+    </div>
+    <div class="th-divider"></div>
+    <div class="th-sec">
+      <div class="th-label">Font</div>
+      <div class="th-pills">
+        ${pill('Nunito',  'nunito',  themeFont, '_setThemeFont')}
+        ${pill('Inter',   'inter',   themeFont, '_setThemeFont')}
+        ${pill('Poppins', 'poppins', themeFont, '_setThemeFont')}
+        ${pill('Grotesk', 'grotesk', themeFont, '_setThemeFont')}
+      </div>
+    </div>
+    <div class="th-divider"></div>
+    <div class="th-sec" style="margin-bottom:0;">
+      <div class="th-label">Effects</div>
+      <div class="th-pills">
+        ${pill('Glow on',  'on',  themeGlow,      '_setThemeGlow')}
+        ${pill('Glow off', 'off', themeGlow,      '_setThemeGlow')}
+        ${pill('Labels on', 'show', themeNavLabels, '_setThemeNavLabels')}
+        ${pill('Labels off','hide', themeNavLabels, '_setThemeNavLabels')}
+      </div>
+    </div>
+    <div class="th-divider"></div>
+    <div class="th-sec" style="margin-bottom:0;">
+      <div class="th-label">Presets</div>
+      <div class="th-pills">
+        <button class="th-pill" onclick="_applyTemuTheme()" style="background:linear-gradient(135deg,#ff6600,#ff9900);color:#fff;border-color:#ff6600;">🛍️ Temu</button>
+      </div>
+    </div>
+  `;
+}
+
+function _applyTemuTheme() {
+  themeAutoAccent = false; localStorage.setItem('themeAutoAccent', 'false');
+  themeAccent = 'temu';    localStorage.setItem('themeAccent', 'temu');
+  themeBlobs  = 'temu';   localStorage.setItem('themeBlobs', 'temu');
+  themeDark   = 'dark';   localStorage.setItem('themeDark', 'dark');
+  themeBg     = 'vivid';  localStorage.setItem('themeBg', 'vivid');
+  applyTheme(); renderThemePanel();
+}
+
+// Apply saved theme immediately (before first render)
+applyTheme();
+
+// ── Clock ─────────────────────────────────────────────────────────────────
+const DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+function tick() {
+  const n = new Date();
+  let   h = n.getHours();
+  const m = n.getMinutes().toString().padStart(2,'0');
+  const greetEl = document.getElementById('home-greeting');
+  if (greetEl) greetEl.textContent = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+  const clk = document.getElementById('clock');
+  if (themeClock === '12') {
+    const ampm = h >= 12 ? 'pm' : 'am';
+    h = h % 12 || 12;
+    clk.innerHTML = h + ':' + m + '<span style="font-size:.32em;letter-spacing:0;margin-left:8px;vertical-align:middle;opacity:.7;">' + ampm + '</span>';
+  } else {
+    clk.textContent = h.toString().padStart(2,'0') + ':' + m;
+  }
+  document.getElementById('dateline').textContent =
+    DAYS[n.getDay()] + ', ' + MONTHS[n.getMonth()] + ' ' + n.getDate();
+}
+tick(); setInterval(tick, 15000);
+
+// ── Weather code map ──────────────────────────────────────────────────────
+const WX_MAP = {113:'☀️',116:'⛅',119:'☁️',122:'☁️',143:'🌫️',176:'🌦️',185:'🌨️',200:'⛈️',227:'🌨️',230:'❄️',248:'🌫️',260:'🌫️',263:'🌦️',266:'🌦️',281:'🌧️',284:'🌧️',293:'🌦️',296:'🌦️',299:'🌧️',302:'🌧️',305:'🌧️',308:'🌧️',311:'🌨️',314:'🌨️',317:'🌨️',320:'🌨️',323:'❄️',326:'❄️',329:'❄️',332:'❄️',335:'❄️',338:'❄️',350:'🌨️',353:'🌦️',356:'🌧️',359:'🌧️',362:'🌨️',365:'🌨️',368:'❄️',371:'❄️',374:'🌨️',377:'🌨️',386:'⛈️',389:'⛈️',392:'⛈️',395:'⛈️'};
+function wxEmoji(code) { return WX_MAP[+code] || '🌤️'; }
+
+// ── Home weather widget ───────────────────────────────────────────────────
+let wxCity = localStorage.getItem('wxCity') || '';
+fetch('/api/config?device=' + deviceId)
+  .then(r => r.json())
+  .then(cfg => {
+    if (!wxCity) wxCity = cfg.weatherCity || '';
+    if (!wxCity) { document.getElementById('w-desc').textContent = 'No city configured'; return; }
+    fetch('/api/weather?city=' + encodeURIComponent(wxCity))
+      .then(r => r.json()).then(d => {
+        if (!d.current_condition) return;
+        const c = d.current_condition[0];
+        document.getElementById('w-temp').textContent = c.temp_C + '°';
+        document.getElementById('w-desc').textContent = c.weatherDesc[0].value;
+        document.getElementById('w-city').textContent = d.nearest_area?.[0]?.areaName?.[0]?.value || wxCity;
+        document.getElementById('w-icon').textContent = wxEmoji(c.weatherCode);
+        const wxCard = document.getElementById('home-wx-card');
+        if (wxCard) {
+          const code = +c.weatherCode;
+          wxCard.classList.remove('wx-sunny','wx-cloudy','wx-rain','wx-storm','wx-snow');
+          if ([113,116].includes(code)) wxCard.classList.add('wx-sunny');
+          else if ([119,122,143,248,260].includes(code)) wxCard.classList.add('wx-cloudy');
+          else if ([200,386,389,392,395].includes(code)) wxCard.classList.add('wx-storm');
+          else if ([227,230,323,326,329,332,335,338,368,371,395].includes(code)) wxCard.classList.add('wx-snow');
+          else wxCard.classList.add('wx-rain');
+        }
+      }).catch(() => { document.getElementById('w-desc').textContent = 'Unavailable'; });
+  })
+  .catch(() => { document.getElementById('w-desc').textContent = 'Unavailable'; });
+
+// ── Shared helpers ────────────────────────────────────────────────────────
+function api(path, opts = {}) {
+  return fetch(path + (path.includes('?') ? '&' : '?') + 'device=' + deviceId, opts).then(r => r.json());
+}
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fmt(ms) { const s = Math.floor(ms / 1000); return Math.floor(s / 60) + ':' + (s % 60).toString().padStart(2, '0'); }
+function showToast(msg) {} // stub — no toast UI
+
+// ── Player state (global — cross-tab references) ──────────────────────────
+let playing = false, hasTrack = false, shuffled = false, repeatState = 'off';
+let progMs = 0, durMs = 1, ticker = null, volTimer = null, searchTimer = null;
+let _serverVolume = false;
+let lastArtSrc = '', lastArtistIds = '', musicHomeLoaded = false;
+const artistCache = {};
+let viewStack = [], vplUri = '', varUri = '', valbUri = '', allPlaylists = [];
+
+// ── Home snippets ─────────────────────────────────────────────────────────
+function loadHomeSnippets() {
+  // Markets — 6 coins
+  fetch('/api/crypto?ids=bitcoin,ethereum,solana,binancecoin,ripple,cardano&device=' + deviceId)
+    .then(r => r.json()).then(data => {
+      const el = document.getElementById('home-coins');
+      if (!el || !Array.isArray(data)) return;
+      const coins = data.slice(0, 6);
+      el.innerHTML = coins.map(c => {
+        const chg = c.price_change_percentage_24h || 0;
+        const up  = chg >= 0;
+        const p   = c.current_price >= 1000
+          ? '$' + c.current_price.toLocaleString(undefined, {maximumFractionDigits: 0})
+          : '$' + c.current_price.toLocaleString(undefined, {maximumFractionDigits: 4});
+        return '<div class="home-coin-row">' +
+          '<span class="home-coin-sym">' + esc(c.symbol.toUpperCase()) + '</span>' +
+          '<span class="home-coin-price">' + p + '</span>' +
+          '<span class="home-coin-chg ' + (up ? 'up' : 'down') + '">' + (up ? '+' : '') + chg.toFixed(2) + '%</span>' +
+          '</div>';
+      }).join('');
+      const mktCard = document.getElementById('home-markets-card');
+      if (mktCard && coins.length) {
+        const avgChg = coins.reduce((s, c) => s + (c.price_change_percentage_24h || 0), 0) / coins.length;
+        mktCard.classList.remove('mkt-up','mkt-down');
+        mktCard.classList.add(avgChg >= 0 ? 'mkt-up' : 'mkt-down');
+      }
+    }).catch(() => { const el = document.getElementById('home-coins'); if (el) el.innerHTML = '<div class="home-snip-dim">Unavailable</div>'; });
+
+  // Recently played music
+  fetch('/api/recently-played?device=' + deviceId)
+    .then(r => r.json()).then(data => {
+      const el = document.getElementById('home-recent-tracks');
+      if (!el) return;
+      const items = (data.items || [])
+        .filter((v, i, a) => a.findIndex(x => x.track?.id === v.track?.id) === i)
+        .slice(0, 4);
+      if (!items.length) { el.innerHTML = '<div style="font-size:12px;color:var(--text-muted);padding:4px 0;">Nothing played recently</div>'; return; }
+      el.innerHTML = items.slice(0, 3).map(item => {
+        const t = item.track || {};
+        const name   = t.name || '—';
+        const artist = (t.artists || []).map(a => a.name).join(', ') || '—';
+        const img    = (t.album?.images?.[2] || t.album?.images?.[1] || t.album?.images?.[0])?.url || '';
+        return '<div class="home-mini-recent-row">' +
+          '<img class="home-mini-recent-art" src="' + esc(img) + '" alt="">' +
+          '<div style="min-width:0;"><div class="home-mini-recent-name">' + esc(name) + '</div>' +
+          '<div class="home-mini-recent-sub">' + esc(artist) + '</div></div>' +
+          '</div>';
+      }).join('');
+    }).catch(() => {});
+}
+loadHomeSnippets();
+
+// ── Music card art tinting ────────────────────────────────────────────────
+function tintMusicCard(src) {
+  const card = document.getElementById('np-card');
+  if (!card) return;
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = () => {
+    try {
+      const cv = document.createElement('canvas');
+      cv.width = cv.height = 8;
+      const ctx = cv.getContext('2d');
+      ctx.drawImage(img, 0, 0, 8, 8);
+      const d = ctx.getImageData(0, 0, 8, 8).data;
+      let r = 0, g = 0, b = 0, count = 0;
+      for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i+1]; b += d[i+2]; count++; }
+      r = Math.round(r / count * 0.35);
+      g = Math.round(g / count * 0.35);
+      b = Math.round(b / count * 0.35);
+      card.style.background = 'linear-gradient(140deg,rgb(' + r + ',' + g + ',' + b + ') 0%,var(--surface) 60%)';
+    } catch(_) {}
+  };
+  img.src = src;
+}
+
+// Update active timers mini-card on home
+function updateHomeTimers() {
+  if (typeof timers === 'undefined') return;
+  const card = document.getElementById('home-timer-card');
+  const list = document.getElementById('home-timer-list');
+  const active = timers.filter(t => !t.done);
+  if (card) card.style.display = active.length ? '' : 'none';
+  if (list) list.innerHTML = active.map(t => {
+    const m = Math.floor(t.remaining / 60), s = t.remaining % 60;
+    return '<div class="home-timer-row">' +
+      '<span class="home-timer-row-name">' + esc(t.label || 'Timer') + '</span>' +
+      '<span class="home-timer-row-val' + (t.running ? '' : ' home-timer-row-paused') + '">' +
+      String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0') + '</span>' +
+      '</div>';
+  }).join('');
+}
+
+// ── Spotify WebSocket ─────────────────────────────────────────────────────
+const chip = document.getElementById('spotify-chip');
+function setChip(ok) {
+  chip.className = 'chip ' + (ok ? 'ok' : 'err');
+  chip.innerHTML = '<span class="dot"></span> Spotify ' + (ok ? 'connected' : 'disconnected');
+}
+
+const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+let ws, wsReady = false;
+function wsConnect() {
+  ws = new WebSocket(wsProto + '//' + location.host);
+  ws.onopen = () => {
+    wsReady = true;
+    ws.send(JSON.stringify({ type: 'join', deviceId }));
+  };
+  ws.binaryType = 'arraybuffer';
+  ws.onmessage = e => {
+    if (e.data instanceof ArrayBuffer) {
+      if (mseSBuffer) { msePending.push(e.data); mseFlush(); }
+      return;
+    }
+    try {
+      const m = JSON.parse(e.data);
+      if (m.type === 'status') {
+        setChip(m.authenticated);
+        ensureTab('music').then(() => {
+          updateAuthScreen();
+          if (m.authenticated) { showApp(); loadMusicHome(); api('/api/player').then(onPlayer).catch(() => {}); }
+          else showAuth();
+        });
+      }
+      if (m.type === 'player') {
+        setChip(m.authenticated);
+        ensureTab('music').then(() => {
+          if (m.authenticated) { showApp(); onPlayer(m); } else showAuth();
+        });
+      }
+      if (m.type === 'mse-broadcaster-status') mseSetBroadcasterOnline(m.online, m.mimeType);
+    } catch {}
+  };
+  ws.onclose = ws.onerror = () => {
+    wsReady = false;
+    setChip(false);
+    setTimeout(wsConnect, 3000);
+  };
+}
+wsConnect();
+
+// ── MSE cast listener ─────────────────────────────────────────────────────
+let mseAudio   = null;
+let mseSource  = null;
+let mseSBuffer = null;
+let msePending = [];
+let mseMime    = null;
+let castMode   = false;
+let broadcasterOnline = false;
+
+function mseFlush() {
+  if (!mseSBuffer || mseSBuffer.updating || !msePending.length) return;
+  try { mseSBuffer.appendBuffer(msePending.shift()); } catch {}
+}
+
+function mseSetup() {
+  mseTeardown();
+  mseAudio = new Audio('/stream');
+  mseAudio.play().catch(() => {});
+}
+
+function getCastDelay() {
+  if (!castMode || !mseAudio || !mseAudio.buffered.length) return 0;
+  const buf = mseAudio.buffered.end(mseAudio.buffered.length - 1) - mseAudio.currentTime;
+  return Math.round((buf + 1.5) * 1000);
+}
+
+function mseTeardown() {
+  if (mseAudio) { mseAudio.pause(); mseAudio.src = ''; mseAudio = null; }
+  if (mseSource?.readyState === 'open') try { mseSource.endOfStream(); } catch {}
+  mseSource = null; mseSBuffer = null; msePending = [];
+}
+
+function mseGc() {
+  if (!mseSBuffer || mseSBuffer.updating || !mseAudio) return;
+  const b = mseAudio.buffered;
+  if (!b.length) return;
+  const cur = mseAudio.currentTime;
+  if (cur > 30) try { mseSBuffer.remove(0, cur - 10); } catch {}
+}
+
+setInterval(() => {
+  if (!mseAudio || mseAudio.paused || !mseAudio.buffered.length) return;
+  const end = mseAudio.buffered.end(mseAudio.buffered.length - 1);
+  if (end - mseAudio.currentTime > 5) mseAudio.currentTime = end - 1;
+}, 2000);
+
+setInterval(mseGc, 10000);
+
+function mseSetBroadcasterOnline(online, mimeType) {
+  broadcasterOnline = online;
+  if (mimeType) mseMime = mimeType;
+}
+
+function setCastMode(on) {
+  castMode = on;
+  document.querySelectorAll('.cast-btn').forEach(b => {
+    b.classList.toggle('cast-active',    on);
+    b.classList.toggle('cast-available', !on);
+    const lbl = b.querySelector('.cast-lbl');
+    if (lbl) lbl.textContent = on ? 'Connected' : 'Cast';
+  });
+  if (on) {
+    mseSetup();
+  } else {
+    mseTeardown();
+    if (radioStation) {
+      ws.send(JSON.stringify({ type: 'host-stop-radio' }));
+      radioStation = null;
+      document.getElementById('rmap-np')?.classList.remove('vis');
+      updateHomeRadio();
+      renderRadioList(radioListFilter);
+    }
+  }
+}
+
+// ── Fullscreen ────────────────────────────────────────────────────────────
+const FS_EXPAND = 'M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z';
+const FS_SHRINK = 'M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z';
+function toggleFullscreen() {
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+  else document.exitFullscreen();
+}
+document.addEventListener('fullscreenchange', () => {
+  document.getElementById('fs-path').setAttribute('d', document.fullscreenElement ? FS_SHRINK : FS_EXPAND);
+});
+
+</script>
+
+<!-- Per-tab scripts (loaded eagerly, execute on first navigate) -->
+<script src="/music/script.js"></script>
+<script src="/weather/script.js"></script>
+<script src="/timer/script.js"></script>
+<script src="/finance/script.js"></script>
+<script src="/system/script.js"></script>
+<script src="/radio/script.js"></script>
+<script src="/news/script.js"></script>
+
+<!-- Deep-link (after all tab scripts are loaded) -->
+<script>
+const _qs      = new URLSearchParams(location.search);
+const _initTab = _qs.get('tab');
+const _oauthErr = _qs.get('error');
+
+if (['music','timer','finance','system','radio','weather','news'].includes(_initTab)) navigate(_initTab);
+
+// Pre-warm music view in background so it's ready when user taps
+ensureTab('music').then(() => {
+  if (_oauthErr) {
+    const msg = _oauthErr === 'invalid_client'    ? 'Invalid Client ID or Redirect URI mismatch — check your Spotify app settings.' :
+                _oauthErr === 'state_mismatch'    ? 'Auth session expired — please try again.' :
+                _oauthErr === 'auth_failed'       ? 'Spotify authorisation failed — check your Client ID and Secret.' :
+                'Auth error: ' + _oauthErr.replace(/_/g, ' ');
+    showOAuthError(msg);
+    // Switch to connect-form so the error is visible
+    const { cid, csec } = getSpotifyCreds();
+    if (cid && csec) navigate('music');
+  }
+  // Clean the URL so the error doesn't persist on reload
+  if (_oauthErr) history.replaceState(null, '', '/');
+});
+</script>
+</body>
+</html>

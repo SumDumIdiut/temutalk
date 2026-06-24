@@ -1,0 +1,37 @@
+  <main class="page">
+    <div class="timer-page-header">
+      <span style="font-size:22px;font-weight:600;color:#fb923c;">Timers</span>
+    </div>
+
+    <!-- Stopwatch card -->
+    <div class="card timer-sw-card">
+      <div class="timer-sw-top">
+        <div class="timer-sw-label">Stopwatch</div>
+        <div class="sw-btns">
+          <button class="sw-btn" onclick="swReset()">Reset</button>
+          <button class="sw-btn" onclick="swLap()">Lap</button>
+          <button class="sw-btn go" id="sw-start-btn" onclick="swToggle()">Start</button>
+        </div>
+      </div>
+      <div id="sw-display">00:00<span style="font-size:36px;letter-spacing:0;">.0</span></div>
+      <div id="sw-laps"></div>
+    </div>
+
+    <!-- Countdown section -->
+    <div class="timer-section-hdr">Countdown Timers</div>
+    <div class="timer-add-row mt-8">
+      <button class="timer-preset" onclick="addTimer(60,'1 min')">1 min</button>
+      <button class="timer-preset" onclick="addTimer(180,'3 min')">3 min</button>
+      <button class="timer-preset" onclick="addTimer(300,'5 min')">5 min</button>
+      <button class="timer-preset" onclick="addTimer(600,'10 min')">10 min</button>
+      <button class="timer-preset" onclick="addTimer(900,'15 min')">15 min</button>
+      <button class="timer-preset" onclick="addTimer(1500,'Pomodoro')">25 min</button>
+      <button class="timer-preset" onclick="addTimer(1800,'30 min')">30 min</button>
+      <button class="timer-preset" onclick="addTimer(3600,'1 hour')">1 hour</button>
+    </div>
+    <div class="timer-custom-row mt-8">
+      <input class="timer-custom-input" id="timer-custom-val" type="text" placeholder="Custom: mm:ss or seconds" onkeydown="if(event.key==='Enter')addCustomTimer()">
+      <button class="timer-custom-btn" onclick="addCustomTimer()">Add</button>
+    </div>
+    <div id="timers-list" style="margin-top:10px;"></div>
+  </main>

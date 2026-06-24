@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#111318">
+  <title>TemuTalk Config</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    /* ── Rich hub cards ─────────────────────────────────── */
+    .hc { background:var(--surface); border-radius:var(--radius); border:1px solid var(--border); overflow:hidden; margin-bottom:14px; }
+    .hc-main { display:flex; gap:16px; padding:18px 18px 14px; align-items:flex-start; }
+    .hc-avatar { width:68px; height:68px; border-radius:18px; background:var(--surface-hi); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:36px; flex-shrink:0; cursor:default; user-select:none; }
+    .hc-info { flex:1; min-width:0; }
+    .hc-name { font-size:18px; font-weight:500; line-height:1.2; }
+    .hc-desc { font-size:14px; color:var(--text-dim); margin-top:4px; line-height:1.45; }
+    .hc-tags { display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; align-items:center; }
+    .hc-tag { font-size:12px; color:var(--text-muted); background:var(--surface-hi); padding:3px 9px; border-radius:999px; }
+    .hc-actions { display:flex; gap:8px; padding:0 18px 14px; flex-wrap:wrap; border-top:1px solid var(--border); padding-top:12px; }
+    .hc-edit-panel { border-top:1px solid var(--border); padding:20px 18px; display:none; background:rgba(0,0,0,.15); }
+    .hc-edit-panel.open { display:block; }
+
+    /* ── Avatar picker ──────────────────────────────────── */
+    .av-big { font-size:72px; line-height:1; text-align:center; padding:8px 0 4px; }
+    .av-input { width:90px; text-align:center; font-size:28px; padding:8px 6px; margin:6px auto 0; display:block; }
+
+    /* ── Room chips ─────────────────────────────────────── */
+    .room-grid { display:flex; gap:6px; flex-wrap:wrap; margin:8px 0; }
+    .room-chip { padding:6px 12px; border-radius:999px; background:var(--surface-hi); border:1.5px solid var(--border); font-size:13px; cursor:pointer; transition:all .15s; color:var(--text-dim); user-select:none; }
+    .room-chip:hover { border-color:var(--primary); }
+    .room-chip.sel { border-color:var(--primary); color:var(--primary); background:rgba(158,202,255,.1); }
+
+    /* ── Edit form sections ─────────────────────────────── */
+    .ef-title { font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--text-muted); margin:20px 0 8px; }
+    .ef-title:first-child { margin-top:0; }
+    .ef-row { display:flex; gap:10px; }
+    .ef-row .form-group { flex:1; }
+
+    /* ── Spotify setup box ──────────────────────────────── */
+    .spotify-hint { background:var(--surface-hi); border-radius:var(--radius-sm); padding:12px 14px; font-size:13px; color:var(--text-muted); line-height:1.6; margin-bottom:14px; }
+
+    /* ── Network info ───────────────────────────────────── */
+    .net-row { display:flex; align-items:flex-start; gap:12px; padding:12px 0; border-bottom:1px solid var(--border); }
+    .net-row:last-child { border-bottom:none; padding-bottom:0; }
+    .net-row:first-child { padding-top:0; }
+    .net-icon { width:36px; height:36px; border-radius:10px; background:var(--surface-hi); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .net-label { font-size:12px; color:var(--text-muted); margin-bottom:3px; }
+    .net-value { font-size:13px; color:var(--primary); font-family:monospace; word-break:break-all; }
+    .net-actions { margin-top:6px; }
+
+    /* ── Section header row ─────────────────────────────── */
+    .section-hdr { display:flex; align-items:center; justify-content:space-between; margin:24px 0 12px; }
+    .section-hdr .section-title { margin:0; }
+
+    /* ── Add form wrapper ───────────────────────────────── */
+    #add-wrap { display:none; }
+    #add-wrap.open { display:block; }
+
+    /* ── Hub ID badge ───────────────────────────────────── */
+    .hub-id { font-size:10px; color:var(--text-muted); font-family:monospace; margin-top:2px; opacity:.6; }
+  </style>
+</head>
+<body>
+
+<main class="config-page">
+
+  <div class="config-header">
+    <a id="back-btn" href="#" class="hub-bar-btn" title="Back" style="margin-left:-8px;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+    </a>
+    <div class="config-title">TemuTalk Configuration</div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <!-- ── Network Access ──────────────────────────────────── -->
+  <div class="form-card" style="margin-bottom:0;">
+    <div class="form-card-title" style="margin-bottom:14px;">Network Access</div>
+
+    <div class="net-row">
+      <div class="net-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="opacity:.7"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4 2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></svg>
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div class="net-label">TemuTalk URL — share with devices on your network</div>
+        <div class="net-value" id="hub-url">loading…</div>
+        <div class="net-actions">
+          <button onclick="copyEl('hub-url')" class="btn btn-surface" style="font-size:12px;padding:4px 12px;">Copy</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="net-row">
+      <div class="net-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="opacity:.7"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div class="net-label">Spotify redirect URI — paste into your Spotify app settings</div>
+        <div class="net-value" id="redirect-hint">loading…</div>
+        <div class="net-actions">
+          <button onclick="copyEl('redirect-hint')" class="btn btn-surface" style="font-size:12px;padding:4px 12px;">Copy</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="font-size:12px;color:var(--text-muted);margin-top:12px;background:var(--surface-hi);border-radius:var(--radius-sm);padding:10px 12px;line-height:1.6;">
+      New device? Open the TemuTalk URL above and accept the certificate warning once per browser.
+    </div>
+  </div>
+
+  <!-- ── Hub list ────────────────────────────────────────── -->
+  <div class="section-hdr">
+    <div class="section-title">Your Hubs</div>
+    <button class="btn btn-primary" style="font-size:13px;padding:8px 18px;" onclick="openAddForm()">+ Add Hub</button>
+  </div>
+
+  <div id="hub-list">
+    <div style="color:var(--text-muted);padding:24px 0;text-align:center;">Loading…</div>
+  </div>
+
+  <!-- ── Add Hub form ────────────────────────────────────── -->
+  <div id="add-wrap">
+    <div class="form-card mt-4">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+        <div class="form-card-title" style="margin:0;">Add New Hub</div>
+        <button class="hub-bar-btn" onclick="closeAddForm()" title="Close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+
+      <!-- Avatar -->
+      <div class="av-big" id="add-av-preview">🏠</div>
+      <input class="form-input av-input" id="add-avatar-custom" maxlength="8" placeholder="🏠"
+             oninput="document.getElementById('add-av-preview').textContent=this.value||'🏠'"
+             style="margin-bottom:4px;">
+      <div style="font-size:12px;color:var(--text-muted);text-align:center;margin-bottom:20px;">Type or paste any emoji</div>
+
+      <!-- Name -->
+      <div class="form-group">
+        <label class="form-label">Hub Name *</label>
+        <input class="form-input" id="add-name" placeholder="e.g. Living Room">
+      </div>
+
+      <!-- Room -->
+      <div class="ef-title">Room</div>
+      <div class="room-grid" id="add-room-grid"></div>
+      <input class="form-input" id="add-room" placeholder="Custom room name…" style="margin-bottom:4px;">
+
+      <!-- Weather -->
+      <div class="ef-title" style="margin-top:18px;">Default Weather City</div>
+      <input class="form-input" id="add-city" placeholder="e.g. London" style="margin-bottom:4px;">
+
+      <!-- Spotify -->
+      <div class="ef-title" style="margin-top:18px;">Spotify</div>
+      <div class="spotify-hint" id="add-spotify-hint">
+        Redirect URI to register in your Spotify app → Settings:<br>
+        <code style="color:var(--primary);user-select:all;" id="add-redirect-hint">loading…</code>
+      </div>
+      <div class="ef-row">
+        <div class="form-group">
+          <label class="form-label">Client ID *</label>
+          <input class="form-input" id="add-cid" placeholder="Paste from developer.spotify.com" autocomplete="off">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Client Secret *</label>
+        <input class="form-input" id="add-csecret" type="password" placeholder="Paste from developer.spotify.com" autocomplete="new-password">
+      </div>
+
+      <button class="btn btn-primary" style="width:100%;margin-top:8px;" onclick="addHub()">Create Hub</button>
+    </div>
+  </div>
+
+</main>
+
+<nav class="nav">
+  <a data-main="/" href="#" class="nav-item">
+    <div class="nav-pill"><svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></div>
+    <span class="nav-label">Home</span>
+  </a>
+  <a data-main="/music.html" href="#" class="nav-item">
+    <div class="nav-pill"><svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg></div>
+    <span class="nav-label">Music</span>
+  </a>
+  <a data-main="/weather.html" href="#" class="nav-item">
+    <div class="nav-pill"><svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.79 1.42-1.41zM4 10.5H1v2h3v-2zm9-9.95h-2V3.5h2V.55zm7.45 3.91l-1.41-1.41-1.79 1.79 1.41 1.41 1.79-1.79zm-3.21 13.7l1.79 1.8 1.41-1.41-1.8-1.79-1.4 1.4zM20 10.5v2h3v-2h-3zm-8-5c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm-1 16.95h2V19.5h-2v2.95zm-7.45-3.91l1.41 1.41 1.79-1.8-1.41-1.41-1.79 1.8z"/></svg></div>
+    <span class="nav-label">Weather</span>
+  </a>
+  <a href="/config.html" class="nav-item active">
+    <div class="nav-pill"><svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a6.97 6.97 0 0 0-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.37 1.04.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.57 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></div>
+    <span class="nav-label">Config</span>
+  </a>
+</nav>
+
+<script>
+  // ── Cross-port nav ──────────────────────────────────────────────────────────
+  const MAIN = `https://${location.hostname}:3000`;
+  document.getElementById('back-btn').href = MAIN + '/';
+  document.querySelectorAll('[data-main]').forEach(a => {
+    a.href = MAIN + a.getAttribute('data-main');
+  });
+
+  // ── Constants ───────────────────────────────────────────────────────────────
+  const AVATARS = ['🏠','🛋️','🛏️','🍳','💼','🚗','🎙️','🌿','🚪','🎮','📺','🎵','🌊','🏋️','📚'];
+  const ROOMS = [
+    { label:'Living Room', emoji:'🛋️' },
+    { label:'Bedroom',     emoji:'🛏️' },
+    { label:'Kitchen',     emoji:'🍳' },
+    { label:'Office',      emoji:'💼' },
+    { label:'Garage',      emoji:'🚗' },
+    { label:'Studio',      emoji:'🎙️' },
+    { label:'Garden',      emoji:'🌿' },
+    { label:'Gym',         emoji:'🏋️' },
+  ];
+
+  function esc(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Server info ─────────────────────────────────────────────────────────────
+  fetch('/api/server-info').then(r => r.json()).then(info => {
+    document.getElementById('hub-url').textContent          = info.mainUrl;
+    document.getElementById('redirect-hint').textContent    = info.callbackUri;
+    document.getElementById('add-redirect-hint').textContent = info.callbackUri;
+  }).catch(() => {
+    ['hub-url','redirect-hint','add-redirect-hint'].forEach(id =>
+      document.getElementById(id).textContent = '(unavailable)');
+  });
+
+  function copyEl(id) {
+    navigator.clipboard.writeText(document.getElementById(id).textContent)
+      .then(() => toast('Copied!', 'var(--green)')).catch(() => {});
+  }
+
+  // ── Build room chips (edit panel only) ──────────────────────────────────────
+  function buildRoomGrid(containerId, inputId, current) {
+    const grid = document.getElementById(containerId);
+    grid.innerHTML = ROOMS.map(r => `
+      <div class="room-chip${r.label === current ? ' sel' : ''}"
+           onclick="pickRoom('${containerId}','${inputId}','${r.label}',this)">${r.emoji} ${r.label}</div>
+    `).join('');
+  }
+
+  function pickRoom(gridId, inputId, label, el) {
+    document.getElementById(gridId).querySelectorAll('.room-chip').forEach(e => e.classList.remove('sel'));
+    el.classList.add('sel');
+    document.getElementById(inputId).value = label;
+  }
+
+  // ── Load hubs ────────────────────────────────────────────────────────────────
+  function loadHubs() {
+    fetch('/api/hubs').then(r => r.json()).then(renderHubs).catch(() => {
+      document.getElementById('hub-list').innerHTML =
+        '<p style="color:var(--red);padding:12px 0;">Could not load hubs</p>';
+    });
+  }
+
+  function renderHubs(list) {
+    const el = document.getElementById('hub-list');
+    if (!list.length) {
+      el.innerHTML = '<p style="color:var(--text-muted);padding:8px 0 4px;">No hubs yet — add one above.</p>';
+      return;
+    }
+    el.innerHTML = list.map(h => {
+      const img    = esc(h.image || '🏠');
+      const joined = h.createdAt ? new Date(h.createdAt).toLocaleDateString() : null;
+      return `
+        <div class="hc" id="card-${esc(h.id)}">
+          <div class="hc-main">
+            <div class="hc-avatar">${img}</div>
+            <div class="hc-info">
+              <div class="hc-name">${esc(h.name)}</div>
+              <div class="hub-id">${esc(h.id)}</div>
+              <div class="hc-tags">
+                ${h.room        ? `<span class="hc-tag">📍 ${esc(h.room)}</span>` : ''}
+                ${h.weatherCity ? `<span class="hc-tag">🌤 ${esc(h.weatherCity)}</span>` : ''}
+                ${joined        ? `<span class="hc-tag">📅 ${esc(joined)}</span>` : ''}
+                <span class="chip ${h.connected ? 'ok' : 'err'}" style="font-size:12px;">
+                  <span class="dot"></span>${h.connected ? 'Spotify connected' : 'Spotify offline'}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="hc-actions">
+            <a href="/auth/spotify/${esc(h.id)}" class="btn btn-surface"
+               style="flex:1;min-width:120px;font-size:13px;text-align:center;">
+              ${h.connected ? '↺ Reconnect Spotify' : '🎵 Connect Spotify'}
+            </a>
+            <button class="btn btn-surface" style="font-size:13px;"
+              onclick="toggleEdit('${h.id}')">✏️ Edit</button>
+            <button class="btn btn-surface" style="font-size:13px;color:var(--red);"
+              data-hid="${esc(h.id)}" data-hname="${esc(h.name)}"
+              onclick="deleteHub(this)">Delete</button>
+          </div>
+          <div class="hc-edit-panel" id="ep-${esc(h.id)}">
+            ${editPanel(h)}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Build room chips after DOM is updated
+    list.forEach(h => buildRoomGrid(`rg-${h.id}`, `er-${h.id}`, h.room || ''));
+  }
+
+  function editPanel(h) {
+    return `
+      <div class="av-big" id="av-preview-${esc(h.id)}">${esc(h.image || '🏠')}</div>
+      <input class="form-input av-input" id="ac-${esc(h.id)}" maxlength="8"
+             value="${esc(h.image || '🏠')}" placeholder="🏠"
+             oninput="document.getElementById('av-preview-${esc(h.id)}').textContent=this.value||'🏠'">
+      <div style="font-size:12px;color:var(--text-muted);text-align:center;margin-bottom:20px;">Type or paste any emoji</div>
+
+      <div class="form-group">
+        <label class="form-label">Hub Name</label>
+        <input class="form-input" id="en-${esc(h.id)}" value="${esc(h.name)}">
+      </div>
+
+      <div class="ef-title">Room</div>
+      <div class="room-grid" id="rg-${esc(h.id)}"></div>
+      <input class="form-input" id="er-${esc(h.id)}" value="${esc(h.room)}"
+             placeholder="Custom room name…" style="margin-bottom:4px;">
+
+      <div class="ef-title" style="margin-top:18px;">Weather</div>
+      <div class="form-group">
+        <label class="form-label">Default City</label>
+        <input class="form-input" id="ew-${esc(h.id)}" value="${esc(h.weatherCity)}"
+               placeholder="e.g. London">
+      </div>
+
+      <div class="ef-title" style="margin-top:18px;">Spotify</div>
+      <div class="form-group">
+        <label class="form-label">Client ID</label>
+        <input class="form-input" id="ec-${esc(h.id)}" value="${esc(h.clientId)}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Client Secret</label>
+        <input class="form-input" type="password" id="es-${esc(h.id)}"
+               placeholder="Leave blank to keep current">
+      </div>
+
+      <div style="display:flex;gap:8px;margin-top:18px;">
+        <button class="btn btn-primary" style="flex:1;"
+          onclick="saveEdit('${h.id}')">Save changes</button>
+        <button class="btn btn-surface"
+          onclick="toggleEdit('${h.id}')">Cancel</button>
+      </div>
+    `;
+  }
+
+  function toggleEdit(id) {
+    const panel  = document.getElementById(`ep-${id}`);
+    const isOpen = panel.classList.contains('open');
+    document.querySelectorAll('.hc-edit-panel.open').forEach(p => p.classList.remove('open'));
+    if (!isOpen) panel.classList.add('open');
+  }
+
+  async function saveEdit(id) {
+    const body = {
+      name:        document.getElementById(`en-${id}`).value.trim(),
+      image:       document.getElementById(`ac-${id}`).value.trim() || '🏠',
+      room:        document.getElementById(`er-${id}`).value.trim(),
+      weatherCity: document.getElementById(`ew-${id}`).value.trim(),
+      clientId:    document.getElementById(`ec-${id}`).value.trim(),
+    };
+    const secret = document.getElementById(`es-${id}`).value.trim();
+    if (secret) body.clientSecret = secret;
+    if (!body.name) { toast('Name is required', 'var(--red)'); return; }
+    await fetch(`/api/hubs/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    toast('Saved', 'var(--green)');
+    loadHubs();
+  }
+
+  // ── Add form ─────────────────────────────────────────────────────────────────
+  function openAddForm() {
+    const wrap = document.getElementById('add-wrap');
+    wrap.classList.add('open');
+    buildRoomGrid('add-room-grid', 'add-room', '');
+    wrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  function closeAddForm() {
+    document.getElementById('add-wrap').classList.remove('open');
+  }
+
+  function addHub() {
+    const name   = document.getElementById('add-name').value.trim();
+    const cid    = document.getElementById('add-cid').value.trim();
+    const secret = document.getElementById('add-csecret').value.trim();
+    if (!name || !cid || !secret) { toast('Name, Client ID and Secret are required', 'var(--red)'); return; }
+    fetch('/api/hubs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name, clientId: cid, clientSecret: secret,
+        image:       document.getElementById('add-avatar-custom').value.trim() || '🏠',
+        room:        document.getElementById('add-room').value.trim(),
+        weatherCity: document.getElementById('add-city').value.trim(),
+      }),
+    }).then(r => r.json()).then(data => {
+      if (data.error) { toast(data.error, 'var(--red)'); return; }
+      ['add-name','add-cid','add-csecret','add-desc','add-room','add-city'].forEach(id =>
+        document.getElementById(id).value = '');
+      closeAddForm();
+      toast(`Hub "${name}" created`, 'var(--green)');
+      loadHubs();
+    });
+  }
+
+  // ── Delete ───────────────────────────────────────────────────────────────────
+  function deleteHub(el) {
+    const id   = el.dataset.hid;
+    const name = el.dataset.hname;
+    if (!confirm(`Delete hub "${name}"?\nThis cannot be undone.`)) return;
+    fetch(`/api/hubs/${id}`, { method: 'DELETE' }).then(() => {
+      if (localStorage.getItem('hub') === id) localStorage.removeItem('hub');
+      toast(`"${name}" deleted`, 'var(--text-muted)');
+      loadHubs();
+    });
+  }
+
+  // ── Toast ────────────────────────────────────────────────────────────────────
+  let toastTimer;
+  function toast(msg, color = 'var(--text)') {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.style.color = color;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+  }
+
+  // ── Auto-refresh ─────────────────────────────────────────────────────────────
+  async function autoRefresh() {
+    try {
+      const list = await fetch('/api/hubs').then(r => r.json());
+      const anyEditing = document.querySelectorAll('.hc-edit-panel.open').length > 0;
+
+      if (!anyEditing) {
+        // Safe to fully re-render without losing any input state
+        renderHubs(list);
+      } else {
+        // Edit panel open — only patch the parts that don't touch the form
+        list.forEach(h => {
+          const card = document.getElementById(`card-${h.id}`);
+          if (!card) return;
+
+          // Spotify status chip
+          const chip = card.querySelector('.hc-tags .chip');
+          if (chip) {
+            chip.className = `chip ${h.connected ? 'ok' : 'err'}`;
+            chip.style.fontSize = '12px';
+            chip.innerHTML = `<span class="dot"></span>${h.connected ? 'Spotify connected' : 'Spotify offline'}`;
+          }
+
+          // Connect / Reconnect button label
+          const spotifyBtn = card.querySelector('.hc-actions a');
+          if (spotifyBtn) {
+            spotifyBtn.textContent = h.connected ? '↺ Reconnect Spotify' : '🎵 Connect Spotify';
+          }
+        });
+      }
+    } catch (_) {}
+  }
+  setInterval(autoRefresh, 5000);
+
+  // ── Init ─────────────────────────────────────────────────────────────────────
+  const params = new URLSearchParams(location.search);
+  if (params.get('success')) toast(`✓ ${params.get('success')} connected to Spotify`, 'var(--green)');
+  if (params.get('error'))   toast(`✗ Auth failed: ${params.get('error')}`, 'var(--red)');
+
+  loadHubs();
+</script>
+</body>
+</html>
