@@ -20,7 +20,7 @@ const zlib       = require('zlib');
 const fs         = require('fs');
 const os         = require('os');
 const path       = require('path');
-const { exec }   = require('child_process');
+const { exec, spawn: spawnProc, execFileSync } = require('child_process');
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 const MAIN_PORT    = parseInt(process.env.PORT || '3000', 10);
@@ -694,7 +694,7 @@ async function refreshRadioCache() {
         limit: String(limit), offset: String(offset),
       });
       const r = await axios.get(
-        `https://de1.api.radio-browser.info/json/stations/search?${params}`,
+        `http://all.api.radio-browser.info/json/stations/search?${params}`,
         { headers: { 'User-Agent': 'TemuTalk/1.0' }, timeout: 30000 }
       );
       const page = (r.data || []).map(mapStation);
@@ -756,6 +756,29 @@ app.get('/api/radio', async (req, res) => {
   }
   res.write('event: done\ndata: {}\n\n');
   res.end();
+});
+
+// ─── Radio stream proxy (avoids mixed-content HTTPS→HTTP block) ───────────────
+app.get('/api/radio/proxy', (req, res) => {
+  const url = req.query.url;
+  if (!url || !/^https?:\/\//i.test(url)) return res.status(400).end();
+  const mod = url.startsWith('https') ? require('https') : http;
+  const upstream = mod.get(url, { headers: { 'User-Agent': 'TemuTalk/1.0', 'Icy-MetaData': '0' }, timeout: 10000 }, up => {
+    if (up.statusCode >= 300 && up.statusCode < 400 && up.headers.location) {
+      res.redirect('/api/radio/proxy?url=' + encodeURIComponent(up.headers.location));
+      up.destroy(); return;
+    }
+    res.writeHead(200, {
+      'Content-Type': up.headers['content-type'] || 'audio/mpeg',
+      'Cache-Control': 'no-cache',
+      'Access-Control-Allow-Origin': '*',
+      'Transfer-Encoding': 'chunked',
+    });
+    up.pipe(res);
+    req.on('close', () => up.destroy());
+  });
+  upstream.on('error', () => res.status(502).end());
+  upstream.setTimeout(10000, () => { upstream.destroy(); res.status(504).end(); });
 });
 
 // ─── Lyrics ───────────────────────────────────────────────────────────────────
@@ -840,13 +863,17 @@ app.get('/stream', (req, res) => {
 let ffmpegProc = null;
 
 function getPulseMonitor() {
+  const uid = process.getuid ? process.getuid() : 1000;
+  const xdgDir = process.env.XDG_RUNTIME_DIR || `/run/user/${uid}`;
   try {
-    const { execFileSync } = require('child_process');
-    const out = execFileSync('pactl', ['list', 'short', 'sources'], { encoding: 'utf8' });
+    const out = execFileSync('pactl', ['list', 'short', 'sources'], {
+      encoding: 'utf8',
+      env: { ...process.env, XDG_RUNTIME_DIR: xdgDir, PULSE_SERVER: `unix:${xdgDir}/pulse/native` },
+    });
     const line = out.split('\n').find(l => l.includes('.monitor') && !l.includes('auto_null'));
-    if (line) return line.split('\t')[1];
-  } catch {}
-  return 'default';
+    if (line) { const name = line.split('\t')[1]; console.log('[ffmpeg] monitor source:', name); return name; }
+  } catch (e) { console.error('[ffmpeg] pactl failed:', e.message); }
+  return 'alsa_output.pci-0000_00_1f.3.analog-stereo.monitor';
 }
 
 function startFfmpeg() {
@@ -856,9 +883,18 @@ function startFfmpeg() {
     '-f', 'pulse', '-i', source,
     '-acodec', 'libmp3lame', '-ab', '192k', '-ar', '44100', '-ac', '2',
     '-f', 'mp3',
-    'icy://source:hackme@localhost:8000/stream',
+    'icecast://source:hackme@localhost:8000/stream',
   ];
-  ffmpegProc = spawn('ffmpeg', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+  // PipeWire/PulseAudio require XDG_RUNTIME_DIR — systemd services don't inherit it
+  const uid = process.getuid ? process.getuid() : 1000;
+  const xdgDir = `/run/user/${uid}`;
+  const env = {
+    ...process.env,
+    XDG_RUNTIME_DIR: process.env.XDG_RUNTIME_DIR || xdgDir,
+    PULSE_SERVER:    process.env.PULSE_SERVER    || `unix:${xdgDir}/pulse/native`,
+  };
+  ffmpegProc = spawnProc('ffmpeg', args, { stdio: ['ignore', 'pipe', 'pipe'], env });
+  ffmpegProc.stderr.on('data', d => console.log('[ffmpeg]', d.toString().trim().split('\n').pop()));
   ffmpegProc.on('close', code => {
     console.log(`[ffmpeg] exited ${code}`);
     ffmpegProc = null;
@@ -891,10 +927,11 @@ app.post('/api/broadcast/stop', (req, res) => {
 
 // ─── Broadcast control page ───────────────────────────────────────────────────
 app.get('/broadcast', (req, res) => {
-  res.setHeader('Content-Type', 'text/html');
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.end(`<!DOCTYPE html>
 <html>
 <head>
+  <meta charset="utf-8">
   <title>TemuTalk Broadcast</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <style>
@@ -918,15 +955,19 @@ app.get('/broadcast', (req, res) => {
 </head>
 <body>
   <h1>TemuTalk Broadcast</h1>
-  <p class="sub">Controls the ffmpeg → Icecast audio pipeline on the server.</p>
+  <p class="sub">Controls the ffmpeg + Icecast audio pipeline on the server.</p>
   <div id="status"><div class="dot off" id="dot"></div><span id="stxt">Checking...</span></div>
-  <button id="btn-start">▶ Start Broadcasting</button>
-  <button id="btn-stop" style="display:none">■ Stop Broadcasting</button>
-  <audio id="player" controls style="display:none"></audio>
+  <button id="btn-start">Start Broadcasting</button>
+  <button id="btn-stop" style="display:none">Stop Broadcasting</button>
+  <audio id="player" style="display:none"></audio>
+  <div id="vol-row" style="display:none;margin-top:10px;display:none">
+    <label style="font-size:11px;color:#7b82a8;display:block;margin-bottom:4px">VOLUME</label>
+    <input id="vol" type="range" min="0" max="1" step="0.05" value="1" style="width:100%;accent-color:#7c6cf8">
+  </div>
   <div class="info">
     Stream URL: <span class="stream-link">/stream</span><br>
     Icecast: <span class="stream-link">http://localhost:8000/stream</span><br>
-    Source: PulseAudio monitor (system audio — Spotify, etc.)
+    Source: PulseAudio monitor (system audio - Spotify, etc.)
   </div>
   <script>
     const dot=document.getElementById('dot');
@@ -935,33 +976,66 @@ app.get('/broadcast', (req, res) => {
     const btnStop=document.getElementById('btn-stop');
     const player=document.getElementById('player');
 
+    let playerRunning = false;
+    const volRow = document.getElementById('vol-row');
+    document.getElementById('vol').oninput = function(){ player.volume = this.value; };
+    function startPlayer() {
+      if(playerRunning) return;
+      playerRunning = true;
+      player.src = '/stream?t=' + Date.now();
+      player.style.display = 'none';
+      volRow.style.display = 'block';
+      player.play().catch(()=>{});
+    }
+    function stopPlayer() {
+      playerRunning = false;
+      player.pause();
+      player.src = '';
+      volRow.style.display = 'none';
+    }
+    // Reconnect on stall/error without resetting to 1s
+    function reconnect() {
+      if(!playerRunning) return;
+      player.pause();
+      player.src = '/stream?t=' + Date.now();
+      player.load();
+      player.play().catch(()=>{});
+    }
+    player.addEventListener('error', () => setTimeout(reconnect, 1000));
+    player.addEventListener('stalled', () => setTimeout(reconnect, 2000));
+    player.addEventListener('ended', reconnect);
+
     function setUI(running, msg) {
       dot.className='dot '+(running?'live':'off');
       stxt.textContent=msg;
       btnStart.style.display=running?'none':'block';
       btnStop.style.display=running?'block':'none';
-      if(running){ player.src='/stream'; player.style.display='block'; }
-      else{ player.pause(); player.src=''; player.style.display='none'; }
+      if(running) startPlayer(); else stopPlayer();
     }
 
     async function checkStatus() {
       try {
-        const r=await fetch('/api/broadcast/status').then(x=>x.json());
-        setUI(r.running, r.running ? 'Live — streaming via ffmpeg (PID '+r.pid+')' : 'Idle — not streaming');
-      } catch { dot.className='dot warn'; stxt.textContent='Cannot reach server'; }
+        const res=await fetch('/api/broadcast/status');
+        if(!res.ok) throw new Error('HTTP '+res.status);
+        const r=await res.json();
+        setUI(r.running, r.running ? 'Live - streaming via ffmpeg (PID '+r.pid+')' : 'Idle - not streaming');
+      } catch(e) { dot.className='dot warn'; stxt.textContent='Server error: '+e.message; }
     }
 
     btnStart.onclick = async () => {
       btnStart.disabled=true;
       dot.className='dot warn'; stxt.textContent='Starting ffmpeg...';
-      const r=await fetch('/api/broadcast/start',{method:'POST'}).then(x=>x.json()).catch(()=>({}));
-      if(r.ok) setTimeout(checkStatus, 1500);
-      else { stxt.textContent='Error: '+(r.error||'unknown'); btnStart.disabled=false; }
+      try {
+        const res=await fetch('/api/broadcast/start',{method:'POST'});
+        const r=await res.json();
+        if(r.ok) setTimeout(checkStatus, 1500);
+        else { stxt.textContent='Failed: '+(r.error||'unknown'); btnStart.disabled=false; }
+      } catch(e) { stxt.textContent='Error: '+e.message; btnStart.disabled=false; }
     };
 
     btnStop.onclick = async () => {
       btnStop.disabled=true;
-      await fetch('/api/broadcast/stop',{method:'POST'});
+      await fetch('/api/broadcast/stop',{method:'POST'}).catch(()=>{});
       setTimeout(checkStatus, 500);
     };
 

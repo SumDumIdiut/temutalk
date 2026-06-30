@@ -261,9 +261,9 @@ function playStation(s) {
       ws.send(JSON.stringify({ type: 'host-play-radio', url: s.url_resolved, name: s.name }));
   } else {
     let streamUrl = s.url_resolved || '';
-    // Upgrade http → https when page is on HTTPS to avoid mixed-content block
+    // Proxy HTTP streams through server to avoid mixed-content block on HTTPS
     if (streamUrl.startsWith('http:') && location.protocol === 'https:')
-      streamUrl = 'https' + streamUrl.slice(4);
+      streamUrl = '/api/radio/proxy?url=' + encodeURIComponent(streamUrl);
     radioAudio = new Audio(streamUrl);
     const vol = document.getElementById('rmap-vol');
     radioAudio.volume = vol ? vol.value / 100 : 0.8;

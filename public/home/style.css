@@ -44,12 +44,12 @@
     .home-mini-music.radio-active { border-top-color: #e879f9; }
     .home-mini-music.radio-active:hover { border-color: rgba(232,121,249,.5); box-shadow: 0 10px 36px rgba(232,121,249,.18), 0 4px 8px rgba(0,0,0,.2); }
     .home-mini-music-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-    .home-mini-music-lbl { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--text-muted); }
+    .home-mini-music-lbl { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--text-dim); }
     /* Mini now-playing */
     .home-mini-np-row { display: flex; align-items: center; gap: 10px; }
-    .home-mini-art { width: 42px; height: 42px; border-radius: 8px; object-fit: cover; flex-shrink: 0; background: var(--surface-hi); }
-    .home-mini-track { font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .home-mini-artist { font-size: 12px; color: var(--text-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .home-mini-art { width: 52px; height: 52px; border-radius: 10px; object-fit: cover; flex-shrink: 0; background: var(--surface-hi); box-shadow: 0 4px 16px rgba(0,0,0,.4); }
+    .home-mini-track { font-size: 17px; font-weight: 800; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .home-mini-artist { font-size: 14px; color: var(--text-dim); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     /* Flat now-playing row (fills card width) */
     .home-np-flat { display: flex; align-items: center; gap: 14px; width: 100%; }
     .home-np-flat-art { width: 48px !important; height: 48px !important; flex-shrink: 0; }
