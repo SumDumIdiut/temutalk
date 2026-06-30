@@ -4,8 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#060810">
-  <title>TemuTalk</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><rect width='40' height='40' rx='10' fill='%23FF6600'/><text x='20' y='28' text-anchor='middle' font-family='sans-serif' font-weight='900' font-size='24' fill='white'>T</text></svg>">
+  <title>Hub</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css">
@@ -72,7 +71,11 @@
 
   <!-- Top bar -->
   <div class="home-topbar">
-    <span class="chip" id="spotify-chip"><span class="dot"></span> Spotify</span>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <img src="/logo.svg" width="32" height="32" style="border-radius:9px;flex-shrink:0;" alt="TemuTalk">
+      <span style="font-size:18px;font-weight:900;letter-spacing:-0.5px;color:#ff6900;text-shadow:0 0 24px rgba(255,105,0,0.5);">TemuTalk</span>
+      <span class="chip" id="spotify-chip" style="display:none;"><span class="dot"></span> Spotify</span>
+    </div>
     <button class="hub-bar-btn cast-btn" onclick="setCastMode(!castMode)" title="Cast audio from host">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M1 18v3h3c0-1.66-1.34-3-3-3zm0-4v2c2.76 0 5 2.24 5 5h2c0-3.87-3.13-7-7-7zm18-7H5c-1.1 0-2 .9-2 2v3h2v-3h14v10h-5v2h5c1.1 0 2-.9 2-2V9c0-1.1-.9-2-2-2zm-18 11v2h2v-2H1z"/></svg>
     </button>
@@ -163,6 +166,8 @@
           <button class="home-mini-ctrl" onclick="action('next')">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
           </button>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="color:var(--text-muted);margin-left:6px;flex-shrink:0;"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+          <input type="range" id="home-np-vol" min="0" max="100" value="80" oninput="if(castAudio)castAudio.volume=this.value/100;" style="flex:1;accent-color:#7c6cf8;height:3px;cursor:pointer;">
         </div>
       </div>
 
@@ -195,7 +200,7 @@
   <!-- Hidden elements referenced by JS but not shown on this layout -->
   <div style="display:none;">
     <div id="home-np-album"></div>
-    <input type="range" id="home-np-vol" min="0" max="100" value="50" oninput="setVolume(+this.value)">
+    <span id="home-np-vol-placeholder"></span>
     <div id="home-sw-display"></div>
     <div id="home-sw-label"></div>
     <div id="home-active-timers"></div>
@@ -216,12 +221,6 @@
 
 <!-- ══════════════════ NAV ══════════════════ -->
 <nav class="nav">
-  <div class="nav-logo" title="TemuTalk">
-    <svg viewBox="0 0 40 40" width="36" height="36" xmlns="http://www.w3.org/2000/svg">
-      <rect width="40" height="40" rx="10" fill="#FF6600"/>
-      <text x="20" y="27" text-anchor="middle" font-family="'Nunito',sans-serif" font-weight="900" font-size="22" fill="#fff">T</text>
-    </svg>
-  </div>
   <button class="nav-item active" data-tab="home" onclick="navigate('home')">
     <div class="nav-pill"><svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></div>
     <span class="nav-label">Home</span>
@@ -401,7 +400,6 @@ const ACCENT_PRESETS = [
   { id:'rose',     h:342, s:82, label:'Rose'      },
   { id:'slate',    h:220, s:22, label:'Slate'     },
   { id:'silver',   h:220, s:8,  label:'Silver'    },
-  { id:'temu',     h:24,  s:100, label:'Temu'     },
 ];
 
 const BLOB_PRESETS = {
@@ -412,7 +410,6 @@ const BLOB_PRESETS = {
   forest:  ['rgba(45,195,80,.28)','rgba(20,165,120,.26)','rgba(140,215,50,.22)','rgba(0,180,100,.18)'],
   candy:   ['rgba(255,85,180,.3)','rgba(140,65,255,.26)','rgba(255,205,50,.24)','rgba(85,215,255,.2)'],
   mono:    ['rgba(200,200,220,.2)','rgba(160,160,185,.18)','rgba(225,225,245,.16)','rgba(180,180,205,.14)'],
-  temu:    ['rgba(255,102,0,.34)','rgba(255,160,30,.28)','rgba(220,50,20,.22)','rgba(255,200,60,.18)'],
 };
 
 let themeAccent       = localStorage.getItem('themeAccent')       || 'violet';
@@ -676,23 +673,7 @@ function renderThemePanel() {
         ${pill('Labels off','hide', themeNavLabels, '_setThemeNavLabels')}
       </div>
     </div>
-    <div class="th-divider"></div>
-    <div class="th-sec" style="margin-bottom:0;">
-      <div class="th-label">Presets</div>
-      <div class="th-pills">
-        <button class="th-pill" onclick="_applyTemuTheme()" style="background:linear-gradient(135deg,#ff6600,#ff9900);color:#fff;border-color:#ff6600;">🛍️ Temu</button>
-      </div>
-    </div>
   `;
-}
-
-function _applyTemuTheme() {
-  themeAutoAccent = false; localStorage.setItem('themeAutoAccent', 'false');
-  themeAccent = 'temu';    localStorage.setItem('themeAccent', 'temu');
-  themeBlobs  = 'temu';   localStorage.setItem('themeBlobs', 'temu');
-  themeDark   = 'dark';   localStorage.setItem('themeDark', 'dark');
-  themeBg     = 'vivid';  localStorage.setItem('themeBg', 'vivid');
-  applyTheme(); renderThemePanel();
 }
 
 // Apply saved theme immediately (before first render)
@@ -910,58 +891,26 @@ function wsConnect() {
 }
 wsConnect();
 
-// ── MSE cast listener ─────────────────────────────────────────────────────
-let mseAudio   = null;
-let mseSource  = null;
-let mseSBuffer = null;
-let msePending = [];
-let mseMime    = null;
-let castMode   = false;
-let broadcasterOnline = false;
+// ── Icecast stream player ─────────────────────────────────────────────────
+let castAudio = null;
+let castMode  = false;
 
-function mseFlush() {
-  if (!mseSBuffer || mseSBuffer.updating || !msePending.length) return;
-  try { mseSBuffer.appendBuffer(msePending.shift()); } catch {}
+function castConnect() {
+  if (castAudio) { castAudio.pause(); castAudio.src = ''; }
+  castAudio = new Audio('/stream?t=' + Date.now());
+  castAudio.volume = (document.getElementById('home-np-vol')?.value ?? 80) / 100;
+  castAudio.addEventListener('error',   () => { if (castMode) setTimeout(castConnect, 2000); });
+  castAudio.addEventListener('stalled', () => { if (castMode) setTimeout(castConnect, 2000); });
+  castAudio.addEventListener('ended',   () => { if (castMode) setTimeout(castConnect, 500); });
+  castAudio.play().catch(e => console.warn('[cast]', e.message));
 }
 
-function mseSetup() {
-  mseTeardown();
-  mseAudio = new Audio('/stream');
-  mseAudio.play().catch(() => {});
+function castTeardown() {
+  if (castAudio) { castAudio.pause(); castAudio.src = ''; castAudio = null; }
 }
 
-function getCastDelay() {
-  if (!castMode || !mseAudio || !mseAudio.buffered.length) return 0;
-  const buf = mseAudio.buffered.end(mseAudio.buffered.length - 1) - mseAudio.currentTime;
-  return Math.round((buf + 1.5) * 1000);
-}
-
-function mseTeardown() {
-  if (mseAudio) { mseAudio.pause(); mseAudio.src = ''; mseAudio = null; }
-  if (mseSource?.readyState === 'open') try { mseSource.endOfStream(); } catch {}
-  mseSource = null; mseSBuffer = null; msePending = [];
-}
-
-function mseGc() {
-  if (!mseSBuffer || mseSBuffer.updating || !mseAudio) return;
-  const b = mseAudio.buffered;
-  if (!b.length) return;
-  const cur = mseAudio.currentTime;
-  if (cur > 30) try { mseSBuffer.remove(0, cur - 10); } catch {}
-}
-
-setInterval(() => {
-  if (!mseAudio || mseAudio.paused || !mseAudio.buffered.length) return;
-  const end = mseAudio.buffered.end(mseAudio.buffered.length - 1);
-  if (end - mseAudio.currentTime > 5) mseAudio.currentTime = end - 1;
-}, 2000);
-
-setInterval(mseGc, 10000);
-
-function mseSetBroadcasterOnline(online, mimeType) {
-  broadcasterOnline = online;
-  if (mimeType) mseMime = mimeType;
-}
+function getCastDelay() { return 0; }
+function mseSetBroadcasterOnline() {}
 
 function setCastMode(on) {
   castMode = on;
@@ -972,9 +921,9 @@ function setCastMode(on) {
     if (lbl) lbl.textContent = on ? 'Connected' : 'Cast';
   });
   if (on) {
-    mseSetup();
+    castConnect();
   } else {
-    mseTeardown();
+    castTeardown();
     if (radioStation) {
       ws.send(JSON.stringify({ type: 'host-stop-radio' }));
       radioStation = null;

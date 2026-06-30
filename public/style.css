@@ -241,16 +241,6 @@ body[data-tab="weather"] .b3 { background: radial-gradient(circle, rgba(62,245,1
 .nav-icon  { width: 21px; height: 21px; }
 .nav-label { font-size: 9px; font-weight: 900; letter-spacing: .7px; text-transform: uppercase; }
 
-.nav-logo {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 8px;
-  padding-bottom: 10px;
-  border-bottom: 1.5px solid rgba(255,255,255,.08);
-  width: 100%;
-}
-
 /* ── Buttons ────────────────────────────────────────────────────────────── */
 .btn {
   display: inline-flex;
