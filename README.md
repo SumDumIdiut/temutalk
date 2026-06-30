@@ -47,6 +47,12 @@ Or, if you already have a copy of the repo:
 
 Starting the server backgrounds everything (PIDs tracked in `.run/`), so you can keep using the menu while it runs.
 
+### Web control panel
+
+`install.sh` also starts a small HTTPS control panel, reachable from any device on the same LAN at `https://<this machine's IP>:9090/` (option 7 toggles it, or it's printed on the TUI status line). It lets you start/stop icecast, ffmpeg, and the Node server+tunnel independently, instead of only as a bundled "start everything."
+
+It's gated behind a per-install access token, auto-generated on first start and saved to `.run/panel-token` (gitignored, never leaves the device). Traffic is TLS-encrypted, sessions are HMAC-signed cookies that reset on every panel restart, and repeated wrong-token attempts get rate-limited and temporarily locked out. No setup is "unbreachable," but this is real auth + real encryption, not security theater — see the comment at the top of `control-panel.js` for the exact model.
+
 ### Windows
 
 ```cmd
@@ -109,6 +115,7 @@ See [CLAUDE.md](CLAUDE.md) for the full internals reference (file-by-file breakd
 | Path | Purpose |
 |---|---|
 | `install.sh` | One-stop installer + TUI control panel (recommended entry point) |
+| `control-panel.js` | HTTPS web control panel (token auth), started by `install.sh` |
 | `server.js` | Entire backend |
 | `launcher.js` | Production wrapper: process supervision, tunnel, auto-update |
 | `public/` | The SPA — shell, per-tab views/scripts/styles |
