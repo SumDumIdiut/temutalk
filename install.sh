@@ -8,6 +8,7 @@ set -uo pipefail
 
 REPO_URL="https://github.com/SumDumIdiut/temutalk.git"
 CF_DOMAIN="codecade.co.za"
+PANEL_PORT="${PANEL_PORT:-9090}"
 
 # ─── Colour helpers ─────────────────────────────────────────────────────────
 if [ -t 1 ]; then
@@ -138,54 +139,97 @@ configure_audio_source() {
 # ─── Status helpers ──────────────────────────────────────────────────────────
 server_pid() { [ -f .run/launcher.pid ] && cat .run/launcher.pid; }
 server_running() { local p; p="$(server_pid)"; [ -n "$p" ] && kill -0 "$p" 2>/dev/null; }
+panel_pid() { [ -f .run/panel.pid ] && cat .run/panel.pid; }
+panel_running() { local p; p="$(panel_pid)"; [ -n "$p" ] && kill -0 "$p" 2>/dev/null; }
 
 base_url() {
   if [ -f .env ]; then
-    local u; u=$(grep -E '^BASE_URL=' .env | head -1 | cut -d= -f2-)
+    local u; u=$(grep -E '^BASE_URL=' .env | head -1 | cut -d= -f2- | tr -d '\r')
     [ -n "$u" ] && { echo "$u"; return; }
   fi
   echo "https://${CF_DOMAIN}"
 }
 
-# ─── Start / stop ────────────────────────────────────────────────────────────
-do_start() {
-  if server_running; then
-    warn "Already running (PID $(server_pid))."
+local_ip() {
+  local ip
+  ip=$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if ($i=="src") print $(i+1)}' | head -1)
+  [ -z "$ip" ] && ip=$(hostname -I 2>/dev/null | awk '{print $1}')
+  [ -z "$ip" ] && ip=$(ip -4 -o addr show scope global 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -1)
+  [ -z "$ip" ] && ip="127.0.0.1"
+  echo "$ip"
+}
+
+# ─── Start / stop — individual components ───────────────────────────────────
+start_icecast() {
+  if ! command -v icecast2 >/dev/null 2>&1 || [ ! -f icecast.xml ]; then
+    warn "icecast2 not installed or icecast.xml missing — skipping."
+    return
+  fi
+  if pgrep icecast2 >/dev/null 2>&1; then
+    warn "icecast2 already running."
     return
   fi
   [ -n "$SUDO" ] && $SUDO -v
-
-  if command -v icecast2 >/dev/null 2>&1 && [ -f icecast.xml ]; then
-    mkdir -p /tmp/speaker-icecast
-    $SUDO systemctl stop icecast2    2>/dev/null || true
-    $SUDO systemctl disable icecast2 2>/dev/null || true
-    $SUDO fuser -k 8000/tcp           2>/dev/null || true
-    sleep 1
-    icecast2 -b -c "$DIR/icecast.xml"
-    sleep 1
-    if pgrep icecast2 > /dev/null; then
-      ok "icecast2 started → :8000/stream"
-    else
-      err "icecast2 failed to start — check /tmp/speaker-icecast/icecast.log"
-    fi
+  mkdir -p /tmp/speaker-icecast
+  $SUDO systemctl stop icecast2    2>/dev/null || true
+  $SUDO systemctl disable icecast2 2>/dev/null || true
+  $SUDO fuser -k 8000/tcp           2>/dev/null || true
+  sleep 1
+  icecast2 -b -c "$DIR/icecast.xml"
+  sleep 1
+  if pgrep icecast2 > /dev/null; then
+    ok "icecast2 started → :8000/stream"
   else
-    warn "icecast2 not installed or icecast.xml missing — skipping audio cast."
+    err "icecast2 failed to start — check /tmp/speaker-icecast/icecast.log"
   fi
+}
 
-  if [ -f audio-source.conf ] && command -v ffmpeg >/dev/null 2>&1; then
-    local monitor; monitor=$(cat audio-source.conf)
-    pkill -f "ffmpeg.*icecast" 2>/dev/null; sleep 0.5
-    ffmpeg -f pulse -i "$monitor" \
-      -ac 2 -ar 48000 -c:a libmp3lame -b:a 192k -f mp3 \
-      -content_type audio/mpeg \
-      "icecast://source:hackme@localhost:8000/stream" \
-      > /tmp/speaker-ffmpeg.log 2>&1 &
-    echo $! > .run/ffmpeg.pid
-    ok "ffmpeg stream started."
+stop_icecast() {
+  if pgrep icecast2 >/dev/null 2>&1; then
+    [ -n "$SUDO" ] && $SUDO -v
+    $SUDO fuser -k 8000/tcp 2>/dev/null
+    ok "icecast2 stopped."
   else
+    warn "icecast2 wasn't running."
+  fi
+}
+
+start_ffmpeg() {
+  if [ ! -f audio-source.conf ]; then
     warn "No audio-source.conf — run 'Configure audio source' first."
+    return
   fi
+  if ! command -v ffmpeg >/dev/null 2>&1; then
+    err "ffmpeg not installed."
+    return
+  fi
+  local monitor; monitor=$(cat audio-source.conf)
+  pkill -f "ffmpeg.*icecast" 2>/dev/null; sleep 0.5
+  ffmpeg -f pulse -i "$monitor" \
+    -ac 2 -ar 48000 -c:a libmp3lame -b:a 192k -f mp3 \
+    -content_type audio/mpeg \
+    "icecast://source:hackme@localhost:8000/stream" \
+    > /tmp/speaker-ffmpeg.log 2>&1 &
+  echo $! > .run/ffmpeg.pid
+  ok "ffmpeg stream started."
+}
 
+stop_ffmpeg() {
+  local stopped=0
+  if [ -f .run/ffmpeg.pid ] && kill -0 "$(cat .run/ffmpeg.pid)" 2>/dev/null; then
+    kill "$(cat .run/ffmpeg.pid)" 2>/dev/null
+    stopped=1
+  fi
+  pkill -f "ffmpeg.*icecast" 2>/dev/null && stopped=1
+  rm -f .run/ffmpeg.pid
+  if [ "$stopped" -eq 1 ]; then ok "ffmpeg stream stopped."; else warn "ffmpeg wasn't running."; fi
+}
+
+start_node() {
+  if server_running; then
+    warn "Server already running (PID $(server_pid))."
+    return
+  fi
   local node_bin; node_bin="$(find_node_bin)"
   if [ -z "$node_bin" ]; then
     err "No Node.js binary available. Run dependency setup again."
@@ -202,27 +246,70 @@ do_start() {
   fi
 }
 
-do_stop() {
-  local stopped=0
+stop_node() {
   if server_running; then
     kill "$(server_pid)" 2>/dev/null
-    stopped=1
+    rm -f .run/launcher.pid
+    ok "Server stopped."
+  else
+    warn "Server wasn't running."
   fi
-  rm -f .run/launcher.pid
+}
 
-  if [ -f .run/ffmpeg.pid ] && kill -0 "$(cat .run/ffmpeg.pid)" 2>/dev/null; then
-    kill "$(cat .run/ffmpeg.pid)" 2>/dev/null
-    stopped=1
+start_panel() {
+  if panel_running; then
+    warn "Web panel already running (PID $(panel_pid))."
+    return
   fi
-  pkill -f "ffmpeg.*icecast" 2>/dev/null && stopped=1
-  rm -f .run/ffmpeg.pid
-
-  if pgrep icecast2 >/dev/null 2>&1; then
-    $SUDO fuser -k 8000/tcp 2>/dev/null
-    stopped=1
+  local node_bin; node_bin="$(find_node_bin)"
+  if [ -z "$node_bin" ]; then
+    err "No Node.js binary available for the web panel."
+    return
   fi
+  PANEL_PORT="$PANEL_PORT" INSTALL_SH="$DIR/install.sh" nohup "$node_bin" control-panel.js > logs/panel.log 2>&1 &
+  echo $! > .run/panel.pid
+  sleep 1
+  if panel_running; then
+    ok "Web panel → https://$(local_ip):${PANEL_PORT}/"
+    info "Login token saved to .run/panel-token (also printed in logs/panel.log)"
+  else
+    err "Web panel failed to start — check logs/panel.log"
+  fi
+}
 
-  if [ "$stopped" -eq 1 ]; then ok "Stopped."; else warn "Nothing was running."; fi
+stop_panel() {
+  if panel_running; then
+    kill "$(panel_pid)" 2>/dev/null
+    rm -f .run/panel.pid
+    ok "Web panel stopped."
+  else
+    warn "Web panel wasn't running."
+  fi
+}
+
+# ─── Start / stop — everything ──────────────────────────────────────────────
+do_start() {
+  [ -n "$SUDO" ] && $SUDO -v
+  start_icecast
+  start_ffmpeg
+  start_node
+}
+
+do_stop() {
+  stop_node
+  stop_ffmpeg
+  stop_icecast
+}
+
+status_json() {
+  local icecast_run=false ffmpeg_run=false node_run=false panel_run=false audio_conf=false audio_src=""
+  pgrep icecast2 >/dev/null 2>&1 && icecast_run=true
+  pgrep -f "ffmpeg.*icecast" >/dev/null 2>&1 && ffmpeg_run=true
+  server_running && node_run=true
+  panel_running && panel_run=true
+  if [ -f audio-source.conf ]; then audio_conf=true; audio_src=$(tr -d '\r' < audio-source.conf); fi
+  printf '{"icecast":%s,"ffmpeg":%s,"node":%s,"panel":%s,"audioConfigured":%s,"audioSource":"%s","url":"%s"}\n' \
+    "$icecast_run" "$ffmpeg_run" "$node_run" "$panel_run" "$audio_conf" "$audio_src" "$(base_url)"
 }
 
 do_open_browser() {
@@ -271,6 +358,31 @@ do_view_logs() {
   tail -n 40 -f logs/server.log /tmp/speaker-ffmpeg.log 2>/dev/null
 }
 
+# ─── Non-interactive CLI dispatch (used by control-panel.js) ────────────────
+# install.sh start|stop {icecast|ffmpeg|node|all}
+# install.sh status
+if [ "${1:-}" = "start" ] || [ "${1:-}" = "stop" ]; then
+  case "${2:-}" in
+    icecast|ffmpeg|node|all) ;;
+    *) err "Usage: install.sh {start|stop} {icecast|ffmpeg|node|all}"; exit 1 ;;
+  esac
+  case "$1-$2" in
+    start-icecast) start_icecast ;;
+    start-ffmpeg)  start_ffmpeg ;;
+    start-node)    start_node ;;
+    start-all)     do_start ;;
+    stop-icecast)  stop_icecast ;;
+    stop-ffmpeg)   stop_ffmpeg ;;
+    stop-node)     stop_node ;;
+    stop-all)      do_stop ;;
+  esac
+  exit 0
+fi
+if [ "${1:-}" = "status" ]; then
+  status_json
+  exit 0
+fi
+
 # ─── First-run setup (idempotent) ───────────────────────────────────────────
 echo ""
 echo "  ${C_BOLD}TemuTalk Speaker — Setup${C_RESET}"
@@ -280,6 +392,8 @@ ensure_portable_bins
 [ -f audio-source.conf ] || configure_audio_source
 echo ""
 ok "Setup complete."
+
+start_panel
 
 # ─── TUI ─────────────────────────────────────────────────────────────────────
 menu() {
@@ -294,6 +408,11 @@ menu() {
     else
       echo "  Server : ${C_DIM}stopped${C_RESET}"
     fi
+    if panel_running; then
+      echo "  Panel  : ${C_GREEN}running${C_RESET} → https://$(local_ip):${PANEL_PORT}/ (token: .run/panel-token)"
+    else
+      echo "  Panel  : ${C_DIM}stopped${C_RESET}"
+    fi
     if [ -f audio-source.conf ]; then
       echo "  Audio  : $(cat audio-source.conf)"
     else
@@ -307,7 +426,8 @@ menu() {
     echo "   4) Configure audio source"
     echo "   5) Check for updates"
     echo "   6) View logs"
-    echo "   7) Exit"
+    echo "   7) Toggle web control panel (start each piece individually)"
+    echo "   8) Exit"
     echo ""
     read -rp "  Select an option: " choice
     echo ""
@@ -318,10 +438,15 @@ menu() {
       4) configure_audio_source ;;
       5) do_check_updates ;;
       6) do_view_logs ;;
-      7)
+      7) if panel_running; then stop_panel; else start_panel; fi ;;
+      8)
         if server_running; then
           read -rp "  Server is still running — leave it running? [Y/n] " yn
           [[ "$yn" =~ ^[Nn]$ ]] && do_stop
+        fi
+        if panel_running; then
+          read -rp "  Web panel is still running — leave it running? [Y/n] " yn2
+          [[ "$yn2" =~ ^[Nn]$ ]] && stop_panel
         fi
         echo "  Bye."
         exit 0
