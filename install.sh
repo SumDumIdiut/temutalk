@@ -52,6 +52,16 @@ else
   fi
 fi
 cd "$DIR" || exit 1
+
+# If we're running from outside the repo (e.g. the USB copy), re-exec the
+# repo's own install.sh so all functions come from the latest pulled version.
+_SELF_REAL=$(readlink -f "${BASH_SOURCE[0]:-$0}" 2>/dev/null || echo "")
+_REPO_SELF=$(readlink -f "$DIR/install.sh" 2>/dev/null || echo "")
+if [ -n "$_REPO_SELF" ] && [ "$_SELF_REAL" != "$_REPO_SELF" ]; then
+  exec bash "$_REPO_SELF" "$@"
+fi
+unset _SELF_REAL _REPO_SELF
+
 mkdir -p logs .run bin/linux
 
 # ─── System package dependencies (icecast2, ffmpeg) ─────────────────────────
