@@ -148,7 +148,9 @@ setup_usb_key() {
     warn "USB drive not found — plug in the TemuTalk USB and re-run install.sh to enroll the key."
     return
   fi
-  local key_file="$usb/temutalk.key"
+  # Migrate old filename if present
+  [ -f "$usb/temutalk.key" ] && [ ! -f "$usb/life.key" ] && mv "$usb/temutalk.key" "$usb/life.key"
+  local key_file="$usb/life.key"
   if [ -f "$key_file" ]; then
     info "Existing key found on USB — enrolling..."
   else
@@ -347,6 +349,71 @@ stop_panel() {
   fi
 }
 
+# ─── PC login via life.key ──────────────────────────────────────────────────
+PAM_KEY_AUTH=/usr/local/bin/temutalk-key-auth
+PAM_KEY_HASH=/etc/temutalk/key-hash
+
+setup_pc_login() {
+  if [ -z "$SUDO" ]; then
+    err "sudo is required for PC login setup."
+    return
+  fi
+  if [ ! -f "$KEY_HASH_FILE" ] || [ ! -s "$KEY_HASH_FILE" ]; then
+    err "No key enrolled yet — run setup (or plug in USB) first."
+    return
+  fi
+
+  info "Installing PAM auth script at $PAM_KEY_AUTH ..."
+  $SUDO mkdir -p /etc/temutalk
+  $SUDO cp "$KEY_HASH_FILE" "$PAM_KEY_HASH"
+  $SUDO chmod 600 "$PAM_KEY_HASH"
+
+  $SUDO tee "$PAM_KEY_AUTH" > /dev/null <<'PAMSCRIPT'
+#!/bin/bash
+# TemuTalk: authenticate by reading life.key from a USB drive.
+# Returns 0 (success) when the key file's SHA-256 matches the stored hash.
+HASH_FILE="/etc/temutalk/key-hash"
+USB_LABEL="${USB_LABEL:-C98E-49E1}"
+[ -f "$HASH_FILE" ] || exit 1
+stored_hash=$(cat "$HASH_FILE")
+user="${PAM_USER:-$USER}"
+for p in \
+    "/media/$user/$USB_LABEL" \
+    "/run/media/$user/$USB_LABEL" \
+    "/mnt/$USB_LABEL" \
+    "/media/$USB_LABEL"; do
+  key_file="$p/life.key"
+  if [ -f "$key_file" ]; then
+    actual_hash=$(sha256sum < "$key_file" | cut -c1-64)
+    [ "$actual_hash" = "$stored_hash" ] && exit 0
+  fi
+done
+exit 1
+PAMSCRIPT
+  $SUDO chmod 755 "$PAM_KEY_AUTH"
+
+  # Insert pam_exec line into /etc/pam.d/common-auth if not already there
+  if ! grep -q "temutalk-key-auth" /etc/pam.d/common-auth 2>/dev/null; then
+    $SUDO sed -i '1s;^;auth sufficient pam_exec.so quiet '"$PAM_KEY_AUTH"'\n;' /etc/pam.d/common-auth
+    ok "PAM rule added to /etc/pam.d/common-auth"
+  else
+    ok "PAM rule already present."
+  fi
+
+  ok "Done — plug life.key USB in to log into this PC without a password."
+  warn "Password still works as fallback when USB is absent."
+}
+
+remove_pc_login() {
+  if [ -z "$SUDO" ]; then
+    err "sudo is required."
+    return
+  fi
+  $SUDO sed -i '/temutalk-key-auth/d' /etc/pam.d/common-auth 2>/dev/null && ok "PAM rule removed."
+  $SUDO rm -f "$PAM_KEY_AUTH" "$PAM_KEY_HASH"
+  ok "PC login via USB key disabled."
+}
+
 # ─── Start / stop — everything ──────────────────────────────────────────────
 do_start() {
   [ -n "$SUDO" ] && $SUDO -v
@@ -425,6 +492,14 @@ if [ "${1:-}" = "enroll" ]; then
   setup_usb_key
   exit 0
 fi
+if [ "${1:-}" = "pc-login" ]; then
+  case "${2:-}" in
+    enable)  setup_pc_login ;;
+    disable) remove_pc_login ;;
+    *) err "Usage: install.sh pc-login {enable|disable}"; exit 1 ;;
+  esac
+  exit 0
+fi
 if [ "${1:-}" = "start" ] || [ "${1:-}" = "stop" ]; then
   case "${2:-}" in
     icecast|ffmpeg|node|all) ;;
@@ -492,7 +567,8 @@ menu() {
     echo "   5) Check for updates"
     echo "   6) View logs"
     echo "   7) Toggle web control panel (start each piece individually)"
-    echo "   8) Exit"
+    echo "   8) PC login setup (log in with life.key USB)"
+    echo "   9) Exit"
     echo ""
     read -rp "  Select an option: " choice
     echo ""
@@ -505,6 +581,19 @@ menu() {
       6) do_view_logs ;;
       7) if panel_running; then stop_panel; else start_panel; fi ;;
       8)
+        echo "  ${C_BOLD}PC login via life.key USB${C_RESET}"
+        echo "  a) Enable (USB plug-in = logged in, password still works as fallback)"
+        echo "  b) Disable"
+        echo ""
+        read -rp "  Select: " pcchoice
+        echo ""
+        case "$pcchoice" in
+          a) setup_pc_login ;;
+          b) remove_pc_login ;;
+          *) warn "Cancelled." ;;
+        esac
+        ;;
+      9)
         if server_running; then
           read -rp "  Server is still running — leave it running? [Y/n] " yn
           [[ "$yn" =~ ^[Nn]$ ]] && do_stop
