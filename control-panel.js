@@ -16,72 +16,24 @@ const https = require('https');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
 
 const PORT = parseInt(process.env.PANEL_PORT || '9090', 10);
 const INSTALL_SH = process.env.INSTALL_SH || path.join(__dirname, 'install.sh');
 const RUN_DIR = path.join(__dirname, '.run');
 const COMPONENTS = new Set(['icecast', 'ffmpeg', 'node', 'all']);
 
-// ─── USB key-file gate ───────────────────────────────────────────────────────
-// Every request is checked against a 1000-character random key stored in
-// temutalk.key at the root of the USB drive. The server only stores a
-// SHA-256 hash of that key (.run/panel-key-hash) — the raw key never
-// leaves the USB. Unplugging the drive locks the panel immediately.
-// Result cached 5 s to avoid hammering the filesystem on every request.
-const USB_LABEL = process.env.USB_LABEL || 'C98E-49E1';
-const KEY_FILENAME = 'temutalk.key';
+// ─── Key-file gate ───────────────────────────────────────────────────────────
+// The browser reads temutalk.key from wherever it lives (USB on any device)
+// via a file picker and sends the content to /api/login. The server stores
+// only the SHA-256 hash — the raw key never persists server-side.
 const KEY_HASH_FILE = path.join(RUN_DIR, 'panel-key-hash');
-const USB_SEARCH_PATHS = [
-  process.env.USB_MOUNT || '',
-  `/media/${os.userInfo().username}/${USB_LABEL}`,
-  `/run/media/${os.userInfo().username}/${USB_LABEL}`,
-  `/mnt/${USB_LABEL}`,
-  `/media/${USB_LABEL}`,
-].filter(Boolean);
 
-let _keyCache = { ok: false, reason: 'unchecked', ts: 0 };
-
-function checkUsbKey() {
-  const now = Date.now();
-  if (now - _keyCache.ts < 5000) return _keyCache;
-
-  // Find the key file on any candidate mount
-  let keyPath = null;
-  for (const p of USB_SEARCH_PATHS) {
-    const candidate = path.join(p, KEY_FILENAME);
-    try { if (fs.statSync(candidate).isFile()) { keyPath = candidate; break; } } catch {}
-  }
-
-  if (!keyPath) {
-    return (_keyCache = { ok: false, reason: 'no_usb', ts: now });
-  }
-
-  let key;
-  try { key = fs.readFileSync(keyPath, 'utf8').trim(); } catch {
-    return (_keyCache = { ok: false, reason: 'read_error', ts: now });
-  }
-
-  if (key.length < 100) {
-    return (_keyCache = { ok: false, reason: 'key_too_short', ts: now });
-  }
-
-  const keyHash = crypto.createHash('sha256').update(key).digest('hex');
-
-  // First-time enrollment: store the hash (TOFU — whoever has the USB first wins)
+function verifyKeyContent(content) {
+  if (!content || content.trim().length < 100) return false;
+  const keyHash = crypto.createHash('sha256').update(content.trim()).digest('hex');
   let storedHash;
-  try { storedHash = fs.readFileSync(KEY_HASH_FILE, 'utf8').trim(); } catch {
-    try {
-      fs.writeFileSync(KEY_HASH_FILE, keyHash, { mode: 0o600 });
-      console.log(`USB key enrolled from ${keyPath}`);
-      storedHash = keyHash;
-    } catch {
-      return (_keyCache = { ok: false, reason: 'enroll_error', ts: now });
-    }
-  }
-
-  const ok = timingSafeEqualStr(keyHash, storedHash);
-  return (_keyCache = { ok, reason: ok ? 'ok' : 'key_mismatch', ts: now });
+  try { storedHash = fs.readFileSync(KEY_HASH_FILE, 'utf8').trim(); } catch { return false; }
+  return timingSafeEqualStr(keyHash, storedHash);
 }
 
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12h
@@ -90,17 +42,6 @@ const ATTEMPT_WINDOW_MS = 5 * 60 * 1000;
 const LOCKOUT_MS = 10 * 60 * 1000;
 
 fs.mkdirSync(RUN_DIR, { recursive: true });
-
-// ─── Token (gates the panel) ────────────────────────────────────────────────
-const TOKEN_FILE = path.join(RUN_DIR, 'panel-token');
-let TOKEN;
-if (fs.existsSync(TOKEN_FILE)) {
-  TOKEN = fs.readFileSync(TOKEN_FILE, 'utf8').trim();
-} else {
-  TOKEN = crypto.randomBytes(24).toString('base64url');
-  fs.writeFileSync(TOKEN_FILE, TOKEN, { mode: 0o600 });
-}
-console.log(`Panel token (also saved to ${TOKEN_FILE}): ${TOKEN}`);
 
 // Session signing secret — fresh every start, so a restart logs everyone out.
 const SESSION_SECRET = crypto.randomBytes(32);
@@ -144,11 +85,7 @@ function parseCookies(req) {
 }
 
 function isAuthed(req) {
-  const cookies = parseCookies(req);
-  if (verifySession(cookies.panel_session)) return true;
-  const auth = req.headers.authorization || '';
-  if (auth.startsWith('Bearer ') && timingSafeEqualStr(auth.slice(7), TOKEN)) return true;
-  return false;
+  return verifySession(parseCookies(req).panel_session);
 }
 
 // ─── Login rate limiting ────────────────────────────────────────────────────
@@ -243,46 +180,90 @@ function securityHeaders(res) {
 }
 
 const LOGIN_PAGE = `<!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TemuTalk Control Panel — Login</title>
 <style>
-  body { font-family: system-ui, sans-serif; background: #0f1115; color: #e6e8ec; display: flex;
-    align-items: center; justify-content: center; height: 100vh; margin: 0; }
-  .box { background: #181b22; border: 1px solid #262b36; border-radius: 12px; padding: 28px; width: 320px; }
-  h1 { font-size: 1.1rem; margin: 0 0 16px; }
-  input { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #2c3242; background: #0a0c10;
-    color: #e6e8ec; font-family: ui-monospace, monospace; margin-bottom: 10px; }
-  button { width: 100%; padding: 10px; border: none; border-radius: 8px; background: #2e7d4f; color: #eafff3;
-    font-weight: 600; cursor: pointer; }
-  .err { color: #ff8080; font-size: 0.82rem; min-height: 1.2em; margin-bottom: 8px; }
-  .hint { color: #8b93a3; font-size: 0.78rem; margin-top: 14px; }
+  body { font-family: system-ui, sans-serif; background: #0f1115; color: #e6e8ec;
+    display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+  .box { background: #181b22; border: 1px solid #262b36; border-radius: 14px; padding: 30px; width: 340px; }
+  h1 { font-size: 1.1rem; margin: 0 0 6px; }
+  .sub { color: #8b93a3; font-size: 0.82rem; margin-bottom: 22px; }
+  .drop {
+    border: 2px dashed #2c3242; border-radius: 10px; padding: 28px 16px;
+    text-align: center; cursor: pointer; transition: border-color .15s, background .15s;
+    margin-bottom: 14px;
+  }
+  .drop:hover, .drop.over { border-color: #3ddc84; background: #0f1e16; }
+  .drop.ready { border-color: #3ddc84; border-style: solid; background: #0f1e16; }
+  .drop-icon { font-size: 2rem; margin-bottom: 8px; }
+  .drop-label { font-size: 0.88rem; color: #8b93a3; }
+  .drop-name { font-size: 0.85rem; color: #3ddc84; margin-top: 6px; font-family: ui-monospace, monospace; }
+  input[type=file] { display: none; }
+  button { width: 100%; padding: 11px; border: none; border-radius: 9px; background: #2e7d4f;
+    color: #eafff3; font-weight: 600; font-size: 0.95rem; cursor: pointer; }
+  button:disabled { opacity: 0.4; cursor: default; }
+  .err { color: #ff8080; font-size: 0.82rem; min-height: 1.2em; margin-bottom: 10px; text-align: center; }
+  .hint { color: #3a3f4a; font-size: 0.75rem; margin-top: 14px; text-align: center; }
 </style></head>
 <body>
-  <form class="box" id="f">
-    <h1>TemuTalk Control Panel</h1>
-    <div class="err" id="err"></div>
-    <input type="password" id="token" placeholder="Access token" autofocus autocomplete="off">
-    <button type="submit">Unlock</button>
-    <div class="hint">Token is on the host at .run/panel-token</div>
-  </form>
+<div class="box">
+  <h1>TemuTalk Control Panel</h1>
+  <div class="sub">Select your key file to unlock</div>
+  <div class="drop" id="drop" onclick="document.getElementById('fi').click()">
+    <div class="drop-icon">&#128190;</div>
+    <div class="drop-label">Click to select <strong>temutalk.key</strong></div>
+    <div class="drop-label" style="margin-top:4px;font-size:0.76rem">or drag and drop</div>
+    <div class="drop-name" id="fname"></div>
+  </div>
+  <input type="file" id="fi" accept=".key,*">
+  <div class="err" id="err"></div>
+  <button id="btn" disabled onclick="doLogin()">Unlock</button>
+  <div class="hint">Key file lives on the TemuTalk USB drive as temutalk.key</div>
+</div>
 <script>
-document.getElementById('f').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const token = document.getElementById('token').value;
-  const err = document.getElementById('err');
+let keyContent = '';
+const drop = document.getElementById('drop');
+const btn  = document.getElementById('btn');
+const err  = document.getElementById('err');
+
+function readFile(file) {
+  const r = new FileReader();
+  r.onload = e => {
+    keyContent = e.target.result;
+    document.getElementById('fname').textContent = file.name;
+    drop.classList.add('ready');
+    btn.disabled = false;
+    err.textContent = '';
+  };
+  r.readAsText(file);
+}
+
+document.getElementById('fi').addEventListener('change', e => {
+  if (e.target.files[0]) readFile(e.target.files[0]);
+});
+drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+drop.addEventListener('drop', e => {
+  e.preventDefault(); drop.classList.remove('over');
+  if (e.dataTransfer.files[0]) readFile(e.dataTransfer.files[0]);
+});
+
+async function doLogin() {
   err.textContent = '';
+  btn.disabled = true;
   try {
     const r = await fetch('/api/login', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token }),
+      body: JSON.stringify({ keyContent }),
     });
     if (r.ok) { location.reload(); return; }
     const j = await r.json().catch(() => ({}));
-    err.textContent = j.error || ('Login failed (' + r.status + ')');
+    err.textContent = j.error || 'Login failed (' + r.status + ')';
   } catch (e2) {
     err.textContent = 'Request failed: ' + e2.message;
   }
-});
+  btn.disabled = false;
+}
 </script>
 </body></html>`;
 
@@ -422,37 +403,6 @@ setInterval(refresh, 2000);
 </body>
 </html>`;
 
-function usbBlockedPage(reason) {
-  const messages = {
-    no_usb:       ['&#128190;', 'USB drive not found',   'Plug in the TemuTalk USB drive to access the control panel.'],
-    key_mismatch: ['&#10060;',  'Wrong USB drive',        'The key file on this drive does not match the enrolled key.'],
-    key_too_short:['&#9888;',   'Invalid key file',       'temutalk.key on the drive is too short or corrupt.'],
-    read_error:   ['&#9888;',   'Could not read key',     'Failed to read temutalk.key from the USB drive.'],
-    enroll_error: ['&#9888;',   'Enrollment failed',      'Could not store the key hash — check server permissions.'],
-  };
-  const [icon, title, detail] = messages[reason] || messages.no_usb;
-  return `<!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>TemuTalk Control Panel — Locked</title>
-<style>
-  body { font-family: system-ui, sans-serif; background: #0f1115; color: #e6e8ec;
-    display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-  .box { text-align: center; max-width: 360px; }
-  .icon { font-size: 3rem; margin-bottom: 16px; }
-  h1 { font-size: 1.1rem; margin: 0 0 8px; }
-  p { color: #8b93a3; font-size: 0.88rem; margin: 0; }
-  .sub { margin-top: 10px; font-size: 0.75rem; color: #3a3f4a; }
-</style>
-<meta http-equiv="refresh" content="4">
-</head><body>
-  <div class="box">
-    <div class="icon">${icon}</div>
-    <h1>${title}</h1>
-    <p>${detail}</p>
-    <p class="sub">Checking again in 4 s&hellip;</p>
-  </div>
-</body></html>`;
-}
 
 const tls = loadOrCreateCert();
 
@@ -461,14 +411,6 @@ const server = https.createServer(tls, async (req, res) => {
   const url = new URL(req.url, 'https://localhost');
   const ip = req.socket.remoteAddress || 'unknown';
 
-  // USB key-file gate — every request requires the correct key on the drive
-  const usbCheck = checkUsbKey();
-  if (!usbCheck.ok) {
-    res.writeHead(503, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(usbBlockedPage(usbCheck.reason));
-    return;
-  }
-
   if (req.method === 'POST' && url.pathname === '/api/login') {
     const limit = checkRateLimit(ip);
     if (!limit.allowed) {
@@ -476,11 +418,11 @@ const server = https.createServer(tls, async (req, res) => {
       return;
     }
     let body = '';
-    req.on('data', (c) => { body += c; if (body.length > 1024) req.destroy(); });
+    req.on('data', (c) => { body += c; if (body.length > 8192) req.destroy(); });
     req.on('end', () => {
-      let token = '';
-      try { token = JSON.parse(body).token || ''; } catch { /* ignore */ }
-      if (typeof token === 'string' && timingSafeEqualStr(token, TOKEN)) {
+      let keyContent = '';
+      try { keyContent = JSON.parse(body).keyContent || ''; } catch { /* ignore */ }
+      if (verifyKeyContent(keyContent)) {
         recordSuccess(ip);
         const payload = `s:${Date.now() + SESSION_TTL_MS}`;
         const session = signSession(payload);
@@ -488,7 +430,7 @@ const server = https.createServer(tls, async (req, res) => {
         sendJson(res, 200, { ok: true });
       } else {
         recordFailure(ip);
-        sendJson(res, 401, { error: 'Invalid token' });
+        sendJson(res, 401, { error: 'Invalid key file' });
       }
     });
     return;
