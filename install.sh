@@ -296,6 +296,14 @@ start_panel() {
     warn "Web panel already running (PID $(panel_pid))."
     return
   fi
+  # If something is already on the port (e.g. started by launcher.js), adopt it
+  local existing_pid
+  existing_pid=$(fuser "${PANEL_PORT}/tcp" 2>/dev/null | tr -d ' ')
+  if [ -n "$existing_pid" ]; then
+    echo "$existing_pid" > .run/panel.pid
+    ok "Web panel already running (PID $existing_pid) — synced PID file."
+    return
+  fi
   local node_bin; node_bin="$(find_node_bin)"
   if [ -z "$node_bin" ]; then
     err "No Node.js binary available for the web panel."
