@@ -125,6 +125,28 @@ if (!fs.existsSync(path.join(DIR, 'node_modules')))
 fs.mkdirSync(path.join(DIR, 'logs'), { recursive: true });
 fs.mkdirSync(path.join(DIR, '.run'), { recursive: true });
 
+// ── USB-based log directory ───────────────────────────────────────────────────
+const USB_LABEL = process.env.USB_LABEL || 'C98E-49E1';
+const USB_CANDIDATES = [
+  `/media/${os.hostname()}/${USB_LABEL}`,
+  `/media/${process.env.USER || ''}/${USB_LABEL}`,
+  `/run/media/${process.env.USER || ''}/${USB_LABEL}`,
+  `/mnt/${USB_LABEL}`,
+  process.env.USB_MOUNT || '',
+].filter(Boolean);
+
+function findUsbMount() {
+  return USB_CANDIDATES.find(p => { try { return fs.statSync(p).isDirectory(); } catch { return false; } }) || null;
+}
+
+const usbMount = findUsbMount();
+const LOGS_DIR = usbMount ? (() => {
+  const d = path.join(usbMount, 'temutalk-logs');
+  fs.mkdirSync(d, { recursive: true });
+  log(`logs → ${d}`);
+  return d;
+})() : path.join(DIR, 'logs');
+
 const cfCfg = writeCfConfig();
 
 // ── Start server ──────────────────────────────────────────────────────────────
@@ -136,9 +158,15 @@ let panel  = null;
 function startPanel() {
   if (!fs.existsSync(path.join(DIR, 'control-panel.js'))) return null;
   const port = process.env.PANEL_PORT || '9090';
+  const logFile = fs.openSync(path.join(LOGS_DIR, 'panel.log'), 'a');
   const proc = spawn(process.execPath, [path.join(DIR, 'control-panel.js')], {
-    cwd: DIR, stdio: 'inherit',
-    env: { ...process.env, PANEL_PORT: port, INSTALL_SH: path.join(DIR, 'install.sh') },
+    cwd: DIR, stdio: ['ignore', logFile, logFile],
+    env: {
+      ...process.env,
+      PANEL_PORT: port,
+      INSTALL_SH: path.join(DIR, 'install.sh'),
+      USB_MOUNT: usbMount || '',
+    },
   });
   try { fs.writeFileSync(path.join(DIR, '.run', 'panel.pid'), String(proc.pid)); } catch {}
   return proc;

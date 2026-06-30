@@ -16,11 +16,37 @@ const https = require('https');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
 const PORT = parseInt(process.env.PANEL_PORT || '9090', 10);
 const INSTALL_SH = process.env.INSTALL_SH || path.join(__dirname, 'install.sh');
 const RUN_DIR = path.join(__dirname, '.run');
 const COMPONENTS = new Set(['icecast', 'ffmpeg', 'node', 'all']);
+
+// ─── USB drive gate ─────────────────────────────────────────────────────────
+// The panel is only accessible when the labelled USB drive is mounted.
+// Checked every 5 s (cached) using fast synchronous stat — no subprocess.
+const USB_LABEL = process.env.USB_LABEL || 'C98E-49E1';
+const USB_PATHS = [
+  `/media/${os.userInfo().username}/${USB_LABEL}`,
+  `/run/media/${os.userInfo().username}/${USB_LABEL}`,
+  `/mnt/${USB_LABEL}`,
+  `/media/${USB_LABEL}`,
+  process.env.USB_MOUNT || '',
+].filter(Boolean);
+
+let _usbCache = { ok: false, ts: 0 };
+function isUsbMounted() {
+  const now = Date.now();
+  if (now - _usbCache.ts < 5000) return _usbCache.ok;
+  const ok = USB_PATHS.some(p => { try { return fs.statSync(p).isDirectory(); } catch { return false; } });
+  _usbCache = { ok, ts: now };
+  return ok;
+}
+
+function usbMountPath() {
+  return USB_PATHS.find(p => { try { return fs.statSync(p).isDirectory(); } catch { return false; } }) || null;
+}
 
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12h
 const MAX_ATTEMPTS = 5;
@@ -360,12 +386,40 @@ setInterval(refresh, 2000);
 </body>
 </html>`;
 
+const USB_REQUIRED_PAGE = `<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TemuTalk Control Panel — USB Required</title>
+<style>
+  body { font-family: system-ui, sans-serif; background: #0f1115; color: #e6e8ec;
+    display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+  .box { text-align: center; }
+  .icon { font-size: 3rem; margin-bottom: 16px; }
+  h1 { font-size: 1.2rem; margin: 0 0 8px; }
+  p { color: #8b93a3; font-size: 0.9rem; margin: 0; }
+</style>
+<meta http-equiv="refresh" content="4">
+</head><body>
+  <div class="box">
+    <div class="icon">&#128190;</div>
+    <h1>USB drive required</h1>
+    <p>Plug in the TemuTalk USB drive to access the control panel.</p>
+    <p style="margin-top:8px;font-size:0.78rem;color:#4a4f5c">Checking again in 4 s...</p>
+  </div>
+</body></html>`;
+
 const tls = loadOrCreateCert();
 
 const server = https.createServer(tls, async (req, res) => {
   securityHeaders(res);
   const url = new URL(req.url, 'https://localhost');
   const ip = req.socket.remoteAddress || 'unknown';
+
+  // USB gate — every request requires the drive to be mounted
+  if (!isUsbMounted()) {
+    res.writeHead(503, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(USB_REQUIRED_PAGE);
+    return;
+  }
 
   if (req.method === 'POST' && url.pathname === '/api/login') {
     const limit = checkRateLimit(ip);
