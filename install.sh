@@ -302,23 +302,36 @@ stop_node() {
 }
 
 start_panel() {
+  # Sync PID file with whatever process actually holds the port right now
+  local port_pid
+  port_pid=$(fuser "${PANEL_PORT}/tcp" 2>/dev/null | tr -d ' ')
+  if [ -n "$port_pid" ]; then
+    echo "$port_pid" > .run/panel.pid
+  fi
+
   if panel_running; then
-    warn "Web panel already running (PID $(panel_pid))."
+    ok "Web panel already running (PID $(panel_pid)) → https://$(local_ip):${PANEL_PORT}/"
     return
   fi
-  # Kill whatever is on the port so we always get a clean start
-  fuser -k "${PANEL_PORT}/tcp" 2>/dev/null; sleep 0.5
+
   local node_bin; node_bin="$(find_node_bin)"
   if [ -z "$node_bin" ]; then
     err "No Node.js binary available for the web panel."
     return
   fi
+
   PANEL_PORT="$PANEL_PORT" INSTALL_SH="$DIR/install.sh" nohup "$node_bin" control-panel.js > logs/panel.log 2>&1 &
   echo $! > .run/panel.pid
-  sleep 1
+  sleep 1.5
+
+  # Our process may have lost a port race with launcher.js — adopt whichever won
+  if ! panel_running; then
+    port_pid=$(fuser "${PANEL_PORT}/tcp" 2>/dev/null | tr -d ' ')
+    [ -n "$port_pid" ] && echo "$port_pid" > .run/panel.pid
+  fi
+
   if panel_running; then
     ok "Web panel → https://$(local_ip):${PANEL_PORT}/"
-    info "Login token saved to .run/panel-token (also printed in logs/panel.log)"
   else
     err "Web panel failed to start — check logs/panel.log"
   fi
