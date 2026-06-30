@@ -23,29 +23,65 @@ const INSTALL_SH = process.env.INSTALL_SH || path.join(__dirname, 'install.sh');
 const RUN_DIR = path.join(__dirname, '.run');
 const COMPONENTS = new Set(['icecast', 'ffmpeg', 'node', 'all']);
 
-// ─── USB drive gate ─────────────────────────────────────────────────────────
-// The panel is only accessible when the labelled USB drive is mounted.
-// Checked every 5 s (cached) using fast synchronous stat — no subprocess.
+// ─── USB key-file gate ───────────────────────────────────────────────────────
+// Every request is checked against a 1000-character random key stored in
+// temutalk.key at the root of the USB drive. The server only stores a
+// SHA-256 hash of that key (.run/panel-key-hash) — the raw key never
+// leaves the USB. Unplugging the drive locks the panel immediately.
+// Result cached 5 s to avoid hammering the filesystem on every request.
 const USB_LABEL = process.env.USB_LABEL || 'C98E-49E1';
-const USB_PATHS = [
+const KEY_FILENAME = 'temutalk.key';
+const KEY_HASH_FILE = path.join(RUN_DIR, 'panel-key-hash');
+const USB_SEARCH_PATHS = [
+  process.env.USB_MOUNT || '',
   `/media/${os.userInfo().username}/${USB_LABEL}`,
   `/run/media/${os.userInfo().username}/${USB_LABEL}`,
   `/mnt/${USB_LABEL}`,
   `/media/${USB_LABEL}`,
-  process.env.USB_MOUNT || '',
 ].filter(Boolean);
 
-let _usbCache = { ok: false, ts: 0 };
-function isUsbMounted() {
-  const now = Date.now();
-  if (now - _usbCache.ts < 5000) return _usbCache.ok;
-  const ok = USB_PATHS.some(p => { try { return fs.statSync(p).isDirectory(); } catch { return false; } });
-  _usbCache = { ok, ts: now };
-  return ok;
-}
+let _keyCache = { ok: false, reason: 'unchecked', ts: 0 };
 
-function usbMountPath() {
-  return USB_PATHS.find(p => { try { return fs.statSync(p).isDirectory(); } catch { return false; } }) || null;
+function checkUsbKey() {
+  const now = Date.now();
+  if (now - _keyCache.ts < 5000) return _keyCache;
+
+  // Find the key file on any candidate mount
+  let keyPath = null;
+  for (const p of USB_SEARCH_PATHS) {
+    const candidate = path.join(p, KEY_FILENAME);
+    try { if (fs.statSync(candidate).isFile()) { keyPath = candidate; break; } } catch {}
+  }
+
+  if (!keyPath) {
+    return (_keyCache = { ok: false, reason: 'no_usb', ts: now });
+  }
+
+  let key;
+  try { key = fs.readFileSync(keyPath, 'utf8').trim(); } catch {
+    return (_keyCache = { ok: false, reason: 'read_error', ts: now });
+  }
+
+  if (key.length < 100) {
+    return (_keyCache = { ok: false, reason: 'key_too_short', ts: now });
+  }
+
+  const keyHash = crypto.createHash('sha256').update(key).digest('hex');
+
+  // First-time enrollment: store the hash (TOFU — whoever has the USB first wins)
+  let storedHash;
+  try { storedHash = fs.readFileSync(KEY_HASH_FILE, 'utf8').trim(); } catch {
+    try {
+      fs.writeFileSync(KEY_HASH_FILE, keyHash, { mode: 0o600 });
+      console.log(`USB key enrolled from ${keyPath}`);
+      storedHash = keyHash;
+    } catch {
+      return (_keyCache = { ok: false, reason: 'enroll_error', ts: now });
+    }
+  }
+
+  const ok = timingSafeEqualStr(keyHash, storedHash);
+  return (_keyCache = { ok, reason: ok ? 'ok' : 'key_mismatch', ts: now });
 }
 
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12h
@@ -386,26 +422,37 @@ setInterval(refresh, 2000);
 </body>
 </html>`;
 
-const USB_REQUIRED_PAGE = `<!DOCTYPE html>
+function usbBlockedPage(reason) {
+  const messages = {
+    no_usb:       ['&#128190;', 'USB drive not found',   'Plug in the TemuTalk USB drive to access the control panel.'],
+    key_mismatch: ['&#10060;',  'Wrong USB drive',        'The key file on this drive does not match the enrolled key.'],
+    key_too_short:['&#9888;',   'Invalid key file',       'temutalk.key on the drive is too short or corrupt.'],
+    read_error:   ['&#9888;',   'Could not read key',     'Failed to read temutalk.key from the USB drive.'],
+    enroll_error: ['&#9888;',   'Enrollment failed',      'Could not store the key hash — check server permissions.'],
+  };
+  const [icon, title, detail] = messages[reason] || messages.no_usb;
+  return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>TemuTalk Control Panel — USB Required</title>
+<title>TemuTalk Control Panel — Locked</title>
 <style>
   body { font-family: system-ui, sans-serif; background: #0f1115; color: #e6e8ec;
     display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-  .box { text-align: center; }
+  .box { text-align: center; max-width: 360px; }
   .icon { font-size: 3rem; margin-bottom: 16px; }
-  h1 { font-size: 1.2rem; margin: 0 0 8px; }
-  p { color: #8b93a3; font-size: 0.9rem; margin: 0; }
+  h1 { font-size: 1.1rem; margin: 0 0 8px; }
+  p { color: #8b93a3; font-size: 0.88rem; margin: 0; }
+  .sub { margin-top: 10px; font-size: 0.75rem; color: #3a3f4a; }
 </style>
 <meta http-equiv="refresh" content="4">
 </head><body>
   <div class="box">
-    <div class="icon">&#128190;</div>
-    <h1>USB drive required</h1>
-    <p>Plug in the TemuTalk USB drive to access the control panel.</p>
-    <p style="margin-top:8px;font-size:0.78rem;color:#4a4f5c">Checking again in 4 s...</p>
+    <div class="icon">${icon}</div>
+    <h1>${title}</h1>
+    <p>${detail}</p>
+    <p class="sub">Checking again in 4 s&hellip;</p>
   </div>
 </body></html>`;
+}
 
 const tls = loadOrCreateCert();
 
@@ -414,10 +461,11 @@ const server = https.createServer(tls, async (req, res) => {
   const url = new URL(req.url, 'https://localhost');
   const ip = req.socket.remoteAddress || 'unknown';
 
-  // USB gate — every request requires the drive to be mounted
-  if (!isUsbMounted()) {
+  // USB key-file gate — every request requires the correct key on the drive
+  const usbCheck = checkUsbKey();
+  if (!usbCheck.ok) {
     res.writeHead(503, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(USB_REQUIRED_PAGE);
+    res.end(usbBlockedPage(usbCheck.reason));
     return;
   }
 
