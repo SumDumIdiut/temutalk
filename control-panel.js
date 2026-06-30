@@ -23,7 +23,7 @@ const RUN_DIR = path.join(__dirname, '.run');
 const COMPONENTS = new Set(['icecast', 'ffmpeg', 'node', 'all']);
 
 // ─── Key-file gate ───────────────────────────────────────────────────────────
-// The browser reads life.key from wherever it lives (USB on any device)
+// The browser reads temutalk.key from wherever it lives (USB on any device)
 // via a file picker and sends the content to /api/login. The server stores
 // only the SHA-256 hash — the raw key never persists server-side.
 const KEY_HASH_FILE = path.join(RUN_DIR, 'panel-key-hash');
@@ -211,14 +211,14 @@ const LOGIN_PAGE = `<!DOCTYPE html>
   <div class="sub">Select your key file to unlock</div>
   <div class="drop" id="drop" onclick="document.getElementById('fi').click()">
     <div class="drop-icon">&#128190;</div>
-    <div class="drop-label">Click to select <strong>life.key</strong></div>
+    <div class="drop-label">Click to select <strong>temutalk.key</strong></div>
     <div class="drop-label" style="margin-top:4px;font-size:0.76rem">or drag and drop</div>
     <div class="drop-name" id="fname"></div>
   </div>
   <input type="file" id="fi" accept=".key,*">
   <div class="err" id="err"></div>
   <button id="btn" disabled onclick="doLogin()">Unlock</button>
-  <div class="hint">Key file lives on the TemuTalk USB drive as life.key</div>
+  <div class="hint">Key file lives on the TemuTalk USB drive as temutalk.key</div>
 </div>
 <script>
 let keyContent = '';
