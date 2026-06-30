@@ -234,8 +234,19 @@ setInterval(() => {
     tunnel = startTunnel(cfCfg);
   }
   if (panel && panel.exitCode !== null) {
-    log('control panel crashed — restarting');
-    panel = startPanel();
+    const port = process.env.PANEL_PORT || '9090';
+    try {
+      // If something else already grabbed the port (e.g. TUI restart), adopt it
+      const pid = parseInt(execFileSync('fuser', [`${port}/tcp`], { encoding: 'utf8' }).trim(), 10);
+      if (pid) {
+        log(`control panel: port ${port} held by PID ${pid} — adopting`);
+        try { fs.writeFileSync(path.join(DIR, '.run', 'panel.pid'), String(pid)); } catch {}
+        panel = { pid, exitCode: null, kill: () => { try { process.kill(pid); } catch {} } };
+      } else { throw new Error(); }
+    } catch {
+      log('control panel crashed — restarting');
+      panel = startPanel();
+    }
   }
 }, 5000);
 
