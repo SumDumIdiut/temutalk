@@ -117,6 +117,41 @@ find_node_bin() {
   command -v node 2>/dev/null
 }
 
+# ─── USB key setup ──────────────────────────────────────────────────────────
+USB_LABEL="${USB_LABEL:-C98E-49E1}"
+KEY_HASH_FILE=".run/panel-key-hash"
+
+find_usb_mount() {
+  local user; user=$(whoami)
+  for p in "/media/$user/$USB_LABEL" "/run/media/$user/$USB_LABEL" "/mnt/$USB_LABEL" "/media/$USB_LABEL"; do
+    [ -d "$p" ] && { echo "$p"; return; }
+  done
+}
+
+setup_usb_key() {
+  if [ -f "$KEY_HASH_FILE" ] && [ -s "$KEY_HASH_FILE" ]; then
+    ok "USB key already enrolled."
+    return
+  fi
+  local usb; usb=$(find_usb_mount)
+  if [ -z "$usb" ]; then
+    warn "USB drive not found — plug in the TemuTalk USB and re-run install.sh to enroll the key."
+    return
+  fi
+  local key_file="$usb/temutalk.key"
+  if [ -f "$key_file" ]; then
+    info "Existing key found on USB — enrolling..."
+  else
+    info "Generating 1000-character key on USB..."
+    tr -dc 'A-Za-z0-9+/=' < /dev/urandom 2>/dev/null | head -c 1000 > "$key_file"
+    ok "Key written to $key_file"
+  fi
+  # Store only the SHA-256 hash server-side — raw key stays on USB only
+  sha256sum < "$key_file" | cut -c1-64 > "$KEY_HASH_FILE"
+  chmod 600 "$KEY_HASH_FILE"
+  ok "Key hash enrolled. Panel now requires this USB to be plugged in."
+}
+
 # ─── Audio source detection ─────────────────────────────────────────────────
 configure_audio_source() {
   local monitor
@@ -361,6 +396,10 @@ do_view_logs() {
 # ─── Non-interactive CLI dispatch (used by control-panel.js) ────────────────
 # install.sh start|stop {icecast|ffmpeg|node|all}
 # install.sh status
+if [ "${1:-}" = "enroll" ]; then
+  setup_usb_key
+  exit 0
+fi
 if [ "${1:-}" = "start" ] || [ "${1:-}" = "stop" ]; then
   case "${2:-}" in
     icecast|ffmpeg|node|all) ;;
@@ -390,6 +429,7 @@ echo ""
 install_system_deps
 ensure_portable_bins
 [ -f audio-source.conf ] || configure_audio_source
+setup_usb_key
 echo ""
 ok "Setup complete."
 
