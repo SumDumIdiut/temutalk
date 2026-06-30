@@ -122,17 +122,41 @@ console.log(`  ${os.platform()} — ${DIR}\n`);
 if (!fs.existsSync(path.join(DIR, 'node_modules')))
   die('node_modules missing — copy the full Speaker folder including node_modules');
 
+fs.mkdirSync(path.join(DIR, 'logs'), { recursive: true });
+fs.mkdirSync(path.join(DIR, '.run'), { recursive: true });
+
 const cfCfg = writeCfConfig();
 
 // ── Start server ──────────────────────────────────────────────────────────────
 inf('starting server...');
 let server = startServer();
 let tunnel = null;
+let panel  = null;
+
+function startPanel() {
+  if (!fs.existsSync(path.join(DIR, 'control-panel.js'))) return null;
+  const port = process.env.PANEL_PORT || '9090';
+  const proc = spawn(process.execPath, [path.join(DIR, 'control-panel.js')], {
+    cwd: DIR, stdio: 'inherit',
+    env: { ...process.env, PANEL_PORT: port, INSTALL_SH: path.join(DIR, 'install.sh') },
+  });
+  try { fs.writeFileSync(path.join(DIR, '.run', 'panel.pid'), String(proc.pid)); } catch {}
+  return proc;
+}
 
 setTimeout(() => {
   if (server.exitCode !== null)
     die('server.js exited immediately — check the output above');
   log(`server running  PID ${server.pid}`);
+
+  inf('starting control panel...');
+  panel = startPanel();
+  if (panel) {
+    setTimeout(() => {
+      if (panel && panel.exitCode === null) ok(`control panel running  PID ${panel.pid}`);
+      else log('control panel failed to start — check control-panel.js');
+    }, 1500);
+  }
 
   if (!cfCfg) {
     log('no tunnel credentials — running local only');
@@ -159,10 +183,12 @@ function checkForUpdate() {
     log(`update detected (${local.slice(0,7)} → ${remote.slice(0,7)}) — pulling and restarting...`);
     const pullOut = execFileSync('git', ['pull'], { cwd: DIR, encoding: 'utf8' });
     if (pullOut.trim()) pullOut.trim().split('\n').forEach(l => log(l));
-    log('pull complete — restarting server');
+    log('pull complete — restarting server + panel');
     server.kill();
     server = startServer();
     log(`server restarted  PID ${server.pid}`);
+    if (panel) { try { panel.kill(); } catch {} }
+    panel = startPanel();
   } catch {}
 }
 
@@ -179,6 +205,10 @@ setInterval(() => {
     log('tunnel died — restarting');
     tunnel = startTunnel(cfCfg);
   }
+  if (panel && panel.exitCode !== null) {
+    log('control panel crashed — restarting');
+    panel = startPanel();
+  }
 }, 5000);
 
 setInterval(checkForUpdate, 60_000);
@@ -188,6 +218,8 @@ function shutdown() {
   console.log('\n  Shutting down...');
   try { server?.kill(); } catch {}
   try { tunnel?.kill(); } catch {}
+  try { panel?.kill(); } catch {}
+  try { fs.unlinkSync(path.join(DIR, '.run', 'panel.pid')); } catch {}
   console.log('  Done.\n');
   process.exit(0);
 }
