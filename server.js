@@ -170,7 +170,7 @@ app.use('/panel', (req, res) => {
     pr.pipe(res);
   });
   proxy.on('error', () => res.status(502).send('Control panel offline'));
-  if (bodyBuf) { proxy.end(bodyBuf); } else { req.pipe(proxy); }
+  if (bodyBuf) { proxy.end(bodyBuf); } else { proxy.end(); }
 });
 
 app.use(express.static(path.join(__dirname, 'public'), {
