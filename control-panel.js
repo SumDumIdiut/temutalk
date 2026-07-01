@@ -798,7 +798,7 @@ async function handleRequest(req, res) {
   if (req.method === 'POST' && url.pathname === '/api/login') {
     const limit = checkRateLimit(ip);
     if (!limit.allowed) {
-      sendJson(res, 429, { error: \`Too many attempts — try again in \${Math.ceil(limit.retryAfterMs / 1000)}s\` });
+      sendJson(res, 429, { error: `Too many attempts — try again in ${Math.ceil(limit.retryAfterMs / 1000)}s` });
       return;
     }
     let body = '';
@@ -808,9 +808,9 @@ async function handleRequest(req, res) {
       try { keyContent = JSON.parse(body).keyContent || ''; } catch {}
       if (verifyKeyContent(keyContent)) {
         recordSuccess(ip);
-        const payload = \`s:\${Date.now() + SESSION_TTL_MS}\`;
+        const payload = `s:${Date.now() + SESSION_TTL_MS}`;
         const session = signSession(payload);
-        res.setHeader('Set-Cookie', \`panel_session=\${session}; Path=\${cookiePath}; HttpOnly; Secure; SameSite=Strict; Max-Age=\${Math.floor(SESSION_TTL_MS / 1000)}\`);
+        res.setHeader('Set-Cookie', `panel_session=${session}; Path=${cookiePath}; HttpOnly; Secure; SameSite=Strict; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}`);
         sendJson(res, 200, { ok: true });
       } else {
         recordFailure(ip);
@@ -821,7 +821,7 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'POST' && url.pathname === '/api/logout') {
-    res.setHeader('Set-Cookie', \`panel_session=; Path=\${cookiePath}; HttpOnly; Secure; SameSite=Strict; Max-Age=0\`);
+    res.setHeader('Set-Cookie', `panel_session=; Path=${cookiePath}; HttpOnly; Secure; SameSite=Strict; Max-Age=0`);
     sendJson(res, 200, { ok: true });
     return;
   }
@@ -895,7 +895,7 @@ async function handleRequest(req, res) {
     req.on('end', () => {
       let level = 50;
       try { level = Math.min(150, Math.max(0, parseInt(JSON.parse(body).level, 10))); } catch {}
-      exec(\`pactl set-sink-volume @DEFAULT_SINK@ \${level}%\`, err => {
+      exec(`pactl set-sink-volume @DEFAULT_SINK@ ${level}%`, err => {
         sendJson(res, err ? 500 : 200, { ok: !err, volume: level });
       });
     });
@@ -957,7 +957,7 @@ async function handleRequest(req, res) {
       ffmpeg: '/tmp/speaker-ffmpeg.log',
     };
     const file = logFiles[source] || logFiles.server;
-    exec(\`tail -n \${lines} "\${file}" 2>&1\`, (err, stdout) => {
+    exec(`tail -n ${lines} "${file}" 2>&1`, (err, stdout) => {
       sendJson(res, 200, { content: stdout || '(empty or not found)', source });
     });
     return;
@@ -972,16 +972,16 @@ const tls = loadOrCreateCert();
 const server = https.createServer(tls, handleRequest);
 server.on('upgrade', handleUpgrade);
 server.on('error', err => {
-  if (err.code === 'EADDRINUSE') console.error(\`Port \${PORT} already in use\`);
+  if (err.code === 'EADDRINUSE') console.error(`Port ${PORT} already in use`);
   else console.error('Server error:', err);
   process.exit(1);
 });
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(\`Control panel listening on https://0.0.0.0:\${PORT}\`);
+  console.log(`Control panel listening on https://0.0.0.0:${PORT}`);
 });
 
 const internalServer = http.createServer(handleRequest);
 internalServer.on('upgrade', handleUpgrade);
 internalServer.listen(PORT + 1, '127.0.0.1', () => {
-  console.log(\`Control panel internal proxy listener on http://127.0.0.1:\${PORT + 1}\`);
+  console.log(`Control panel internal proxy listener on http://127.0.0.1:${PORT + 1}`);
 });
