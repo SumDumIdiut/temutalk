@@ -13,6 +13,7 @@
 //    lockout) and compared with a timing-safe equality check.
 
 const https = require('https');
+const http  = require('http');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
@@ -179,7 +180,7 @@ function securityHeaders(res) {
   res.setHeader('Strict-Transport-Security', 'max-age=31536000');
 }
 
-const LOGIN_PAGE = `<!DOCTYPE html>
+function loginPage(base) { return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TemuTalk Control Panel — Login</title>
 <style>
@@ -221,6 +222,7 @@ const LOGIN_PAGE = `<!DOCTYPE html>
   <div class="hint">Key file lives on the TemuTalk USB drive as temutalk.key</div>
 </div>
 <script>
+const P = '${base}';
 let keyContent = '';
 const drop = document.getElementById('drop');
 const btn  = document.getElementById('btn');
@@ -252,7 +254,7 @@ async function doLogin() {
   err.textContent = '';
   btn.disabled = true;
   try {
-    const r = await fetch('/api/login', {
+    const r = await fetch(P + '/api/login', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ keyContent }),
     });
@@ -265,9 +267,9 @@ async function doLogin() {
   btn.disabled = false;
 }
 </script>
-</body></html>`;
+</body></html>`; }
 
-const PAGE = `<!DOCTYPE html>
+function page(base) { return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -357,6 +359,7 @@ const PAGE = `<!DOCTYPE html>
   <div id="log">Loading status...</div>
 
 <script>
+const P = '${base}';
 function setDot(id, on) {
   const el = document.getElementById('dot-' + id);
   if (el) el.className = 'dot ' + (on ? 'on' : 'off');
@@ -367,7 +370,7 @@ function log(msg) {
 }
 async function refresh() {
   try {
-    const r = await fetch('/api/status');
+    const r = await fetch(P + '/api/status');
     if (r.status === 401) { location.reload(); return; }
     const s = await r.json();
     setDot('icecast', s.icecast);
@@ -384,7 +387,7 @@ async function refresh() {
 async function act(component, action) {
   log((action === 'start' ? 'Starting ' : 'Stopping ') + component + '...');
   try {
-    const r = await fetch('/api/' + action + '/' + component, { method: 'POST' });
+    const r = await fetch(P + '/api/' + action + '/' + component, { method: 'POST' });
     if (r.status === 401) { location.reload(); return; }
     const j = await r.json();
     if (j.output) log(j.output);
@@ -394,20 +397,24 @@ async function act(component, action) {
   }
 }
 async function logout() {
-  await fetch('/api/logout', { method: 'POST' });
+  await fetch(P + '/api/logout', { method: 'POST' });
   location.reload();
 }
 refresh();
 setInterval(refresh, 2000);
 </script>
 </body>
-</html>`;
-
+</html>`; }
 
 const tls = loadOrCreateCert();
 
-const server = https.createServer(tls, async (req, res) => {
+async function handleRequest(req, res) {
   securityHeaders(res);
+  // When proxied via server.js the X-Panel-Base header tells us the public prefix
+  const base = req.socket.localAddress === '127.0.0.1'
+    ? (req.headers['x-panel-base'] || '')
+    : '';
+  const cookiePath = base || '/';
   const url = new URL(req.url, 'https://localhost');
   const ip = req.socket.remoteAddress || 'unknown';
 
@@ -426,7 +433,7 @@ const server = https.createServer(tls, async (req, res) => {
         recordSuccess(ip);
         const payload = `s:${Date.now() + SESSION_TTL_MS}`;
         const session = signSession(payload);
-        res.setHeader('Set-Cookie', `panel_session=${session}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}`);
+        res.setHeader('Set-Cookie', `panel_session=${session}; Path=${cookiePath}; HttpOnly; Secure; SameSite=Strict; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}`);
         sendJson(res, 200, { ok: true });
       } else {
         recordFailure(ip);
@@ -437,7 +444,7 @@ const server = https.createServer(tls, async (req, res) => {
   }
 
   if (req.method === 'POST' && url.pathname === '/api/logout') {
-    res.setHeader('Set-Cookie', 'panel_session=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0');
+    res.setHeader('Set-Cookie', `panel_session=; Path=${cookiePath}; HttpOnly; Secure; SameSite=Strict; Max-Age=0`);
     sendJson(res, 200, { ok: true });
     return;
   }
@@ -445,11 +452,11 @@ const server = https.createServer(tls, async (req, res) => {
   if (url.pathname === '/') {
     if (!isAuthed(req)) {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      res.end(LOGIN_PAGE);
+      res.end(loginPage(base));
       return;
     }
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(PAGE);
+    res.end(page(base));
     return;
   }
 
@@ -478,7 +485,9 @@ const server = https.createServer(tls, async (req, res) => {
 
   res.writeHead(404, { 'Content-Type': 'text/plain' });
   res.end('not found');
-});
+}
+
+const server = https.createServer(tls, handleRequest);
 
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
@@ -491,4 +500,9 @@ server.on('error', (err) => {
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Control panel listening on https://0.0.0.0:${PORT}`);
+});
+
+// Internal HTTP listener on PORT+1 (127.0.0.1 only) — used by server.js proxy
+http.createServer(handleRequest).listen(PORT + 1, '127.0.0.1', () => {
+  console.log(`Control panel internal proxy listener on http://127.0.0.1:${PORT + 1}`);
 });
