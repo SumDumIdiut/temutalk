@@ -35,6 +35,17 @@ function findBin(name) {
 function writeCfConfig() {
   const cfDir = path.join(DIR, '.cloudflared');
   if (!fs.existsSync(cfDir)) return null;
+
+  // Token-based auth: look for token.txt in project dir or ~/.cloudflared/
+  const tokenCandidates = [
+    path.join(cfDir, 'token.txt'),
+    path.join(os.homedir(), '.cloudflared', 'token.txt'),
+  ];
+  for (const tf of tokenCandidates) {
+    if (fs.existsSync(tf)) return { tokenFile: tf };
+  }
+
+  // Credentials-file auth: need a <uuid>.json
   const jsons = fs.readdirSync(cfDir).filter(f => /^[0-9a-f-]{36}\.json$/i.test(f));
   if (!jsons.length) return null;
   const tunnelId   = jsons[0].replace('.json', '');
@@ -102,10 +113,17 @@ function executableBin(src) {
 function startTunnel(cfg) {
   const cfBin = findBin('cloudflared');
   if (!cfBin || !cfg) return null;
-  const certFile = path.join(DIR, '.cloudflared', 'cert.pem');
-  const args = [];
-  if (fs.existsSync(certFile)) args.push('--origincert', certFile);
-  args.push('--config', cfg.configFile, 'tunnel', 'run');
+  let args;
+  if (cfg.tokenFile) {
+    // Token-based: cloudflared tunnel run --token <token>
+    const token = fs.readFileSync(cfg.tokenFile, 'utf8').trim();
+    args = ['tunnel', 'run', '--token', token];
+  } else {
+    const certFile = path.join(DIR, '.cloudflared', 'cert.pem');
+    args = [];
+    if (fs.existsSync(certFile)) args.push('--origincert', certFile);
+    args.push('--config', cfg.configFile, 'tunnel', 'run');
+  }
   const proc = spawn(executableBin(cfBin), args, { stdio: ['ignore', 'ignore', 'pipe'] });
   proc.on('error', err => {
     log(`tunnel spawn error: ${err.message}`);
