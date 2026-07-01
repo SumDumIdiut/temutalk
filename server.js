@@ -136,9 +136,32 @@ async function getDeviceToken(deviceId) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // EXPRESS APP
 // ═══════════════════════════════════════════════════════════════════════════════
+const net        = require('net');
 const app        = express();
 const mainServer = https.createServer(tlsOpts, app);
-const wss        = new WebSocket.Server({ server: mainServer });
+const wss        = new WebSocket.Server({ noServer: true });
+
+// Route WebSocket upgrades: /panel/* → panel internal server; everything else → wss
+mainServer.on('upgrade', (req, socket, head) => {
+  if (req.url.startsWith('/panel/')) {
+    const panelPort = parseInt(process.env.PANEL_PORT || '9090', 10) + 1;
+    const targetPath = req.url.replace(/^\/panel/, '') || '/';
+    const upstream = net.connect(panelPort, '127.0.0.1', () => {
+      let hdrs = '';
+      for (const [k, v] of Object.entries(req.headers)) hdrs += `${k}: ${v}\r\n`;
+      upstream.write(`GET ${targetPath} HTTP/1.1\r\n${hdrs}x-panel-base: /panel\r\n\r\n`);
+      if (head && head.length) upstream.write(head);
+      upstream.pipe(socket);
+      socket.pipe(upstream);
+    });
+    upstream.on('error', () => socket.destroy());
+    socket.on('error', () => upstream.destroy());
+    socket.on('close', () => upstream.destroy());
+    upstream.on('close', () => socket.destroy());
+    return;
+  }
+  wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
+});
 
 // Redirect broadcast subdomain to /broadcast page
 app.use((req, res, next) => {

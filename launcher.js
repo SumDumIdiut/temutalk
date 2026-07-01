@@ -152,6 +152,7 @@ if (!fs.existsSync(path.join(DIR, 'node_modules')))
 
 fs.mkdirSync(path.join(DIR, 'logs'), { recursive: true });
 fs.mkdirSync(path.join(DIR, '.run'), { recursive: true });
+try { fs.writeFileSync(path.join(DIR, '.run', 'launcher.pid'), String(process.pid)); } catch {}
 
 // ── USB-based log directory ───────────────────────────────────────────────────
 const USB_LABEL = process.env.USB_LABEL || 'C98E-49E1';
@@ -293,3 +294,14 @@ function shutdown() {
 }
 process.on('SIGINT',  shutdown);
 process.on('SIGTERM', shutdown);
+
+// ── SIGUSR1: hot-restart server + panel (used by control panel "Restart" button)
+process.on('SIGUSR1', () => {
+  log('SIGUSR1 — restarting server and panel...');
+  if (server) { try { server.kill(); } catch {} }
+  server = startServer();
+  log(`server restarted  PID ${server.pid}`);
+  if (panel) { try { panel.kill(); } catch {} }
+  panel = startPanel();
+  if (panel) log(`panel restarted  PID ${panel.pid}`);
+});
