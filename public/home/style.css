@@ -6,7 +6,7 @@
     /* ── Hero clock ── */
     .home-hero { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 0 20px; }
     .home-greeting { font-size: 13px; font-weight: 600; letter-spacing: 2.5px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; }
-    .home-time { font-size: clamp(80px, 12vw, 150px); font-weight: 200; letter-spacing: -6px; line-height: 1; background: linear-gradient(135deg, var(--text) 0%, var(--primary) 60%, var(--pink) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .home-time { font-size: clamp(80px, 12vw, 150px); font-weight: 200; letter-spacing: -6px; line-height: 1; color: var(--text); background: linear-gradient(135deg, var(--text) 0%, var(--primary) 60%, var(--pink) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
     .home-datestr { font-size: clamp(16px, 2vw, 22px); color: var(--text-dim); font-weight: 400; margin-top: 14px; letter-spacing: .2px; }
     /* ── Home widgets row ── */
     .home-widgets { display: flex; gap: 12px; padding: 20px 20px 28px; flex-shrink: 0; }
