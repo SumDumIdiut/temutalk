@@ -255,6 +255,8 @@ function playStation(s) {
   if (radioAudio) { radioAudio.pause(); radioAudio = null; }
   if (playing) action('pause');
   radioStation = s;
+  if (ws.readyState === WebSocket.OPEN)
+    ws.send(JSON.stringify({ type: 'radio-now-playing', name: s.name, url: s.url_resolved }));
   if (castMode) {
     // Send to host broadcaster — audio comes back via WebRTC stream
     if (ws.readyState === WebSocket.OPEN)
@@ -284,6 +286,8 @@ function playStation(s) {
 
 function stopRadio() {
   if (radioAudio) { radioAudio.pause(); radioAudio = null; }
+  if (ws.readyState === WebSocket.OPEN)
+    ws.send(JSON.stringify({ type: 'radio-stopped' }));
   if (castMode && radioStation && ws.readyState === WebSocket.OPEN)
     ws.send(JSON.stringify({ type: 'host-stop-radio' }));
   radioStation = null;

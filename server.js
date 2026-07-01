@@ -864,6 +864,9 @@ app.get('/api/weather', async (req, res) => {
 
 // ─── Icecast stream proxy ─────────────────────────────────────────────────────
 app.get('/stream', (req, res) => {
+  const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+  const entry = { ip, ua: req.headers['user-agent'] || '', connectedAt: Date.now() };
+  streamListeners.set(res, entry);
   const proxy = http.get('http://localhost:8000/stream', iceRes => {
     res.writeHead(iceRes.statusCode, {
       'Content-Type':              iceRes.headers['content-type'] || 'audio/mpeg',
@@ -871,9 +874,11 @@ app.get('/stream', (req, res) => {
       'Access-Control-Allow-Origin': '*',
     });
     iceRes.pipe(res);
-    req.on('close', () => iceRes.destroy());
+    const cleanup = () => { streamListeners.delete(res); iceRes.destroy(); };
+    req.on('close', cleanup);
+    res.on('finish', cleanup);
   });
-  proxy.on('error', () => res.status(503).end());
+  proxy.on('error', () => { streamListeners.delete(res); res.status(503).end(); });
 });
 
 // ─── ffmpeg → Icecast broadcast management ────────────────────────────────────
@@ -1064,11 +1069,16 @@ app.get('/broadcast', (req, res) => {
 });
 
 // ─── WebSocket (per-device rooms + MSE audio relay) ───────────────────────────
-const deviceClients  = new Map();
-let   mseBroadcaster = null;
-let   mseMimeType    = null;
-let   mseInitChunk   = null;
-const mseListeners   = new Set();
+const deviceClients    = new Map();
+let   mseBroadcaster   = null;
+let   mseMimeType      = null;
+let   mseInitChunk     = null;
+const mseListeners     = new Set();
+const streamListeners  = new Map();   // res → { ip, ua, connectedAt }
+const wsClientIps      = new WeakMap(); // ws → ip string
+const radioNowPlaying  = new Map();   // deviceId → { name, url, since }
+const playerStateCache = new Map();   // deviceId → playerData
+const spotifyUserCache = new Map();   // deviceId → { displayName, email, product }
 
 function relayToClients(str) {
   for (const [, conns] of deviceClients)
@@ -1081,7 +1091,9 @@ function broadcastListenerCount() {
     mseBroadcaster.send(JSON.stringify({ type: 'mse-listener-count', count: mseListeners.size }));
 }
 
-wss.on('connection', ws => {
+wss.on('connection', (ws, req) => {
+  const wsIp = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim();
+  wsClientIps.set(ws, wsIp);
   let wsDeviceId = null;
 
   ws.on('message', (raw, isBinary) => {
@@ -1141,10 +1153,22 @@ wss.on('connection', ws => {
       if (mseBroadcaster?.readyState === WebSocket.OPEN) mseBroadcaster.send(str);
       return;
     }
+
+    if (msg.type === 'radio-now-playing' && wsDeviceId) {
+      radioNowPlaying.set(wsDeviceId, { name: msg.name || '', url: msg.url || '', since: Date.now() });
+      return;
+    }
+    if (msg.type === 'radio-stopped' && wsDeviceId) {
+      radioNowPlaying.delete(wsDeviceId);
+      return;
+    }
   });
 
   const cleanup = () => {
-    if (wsDeviceId) deviceClients.get(wsDeviceId)?.delete(ws);
+    if (wsDeviceId) {
+      deviceClients.get(wsDeviceId)?.delete(ws);
+      if (!deviceClients.get(wsDeviceId)?.size) radioNowPlaying.delete(wsDeviceId);
+    }
     if (ws === mseBroadcaster) {
       mseBroadcaster = null;
       mseInitChunk   = null;
@@ -1169,12 +1193,89 @@ async function pushAllDeviceStates() {
     const token = await getDeviceToken(deviceId);
     if (!token) { broadcastToDevice(deviceId, { type: 'player', authenticated: false }); continue; }
     try {
-      const r = await axios.get('https://api.spotify.com/v1/me/player', { headers: { Authorization: `Bearer ${token}` } });
-      broadcastToDevice(deviceId, { type: 'player', authenticated: true, active: r.status !== 204, ...(r.status !== 204 ? r.data : {}) });
+      const [playerRes, userRes] = await Promise.allSettled([
+        axios.get('https://api.spotify.com/v1/me/player', { headers: { Authorization: `Bearer ${token}` }, validateStatus: () => true }),
+        spotifyUserCache.has(deviceId) ? Promise.resolve(null) :
+          axios.get('https://api.spotify.com/v1/me', { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+      if (playerRes.status === 'fulfilled') {
+        const r = playerRes.value;
+        const data = { type: 'player', authenticated: true, active: r.status !== 204, ...(r.status !== 204 ? r.data : {}) };
+        broadcastToDevice(deviceId, data);
+        playerStateCache.set(deviceId, data);
+      }
+      if (userRes.status === 'fulfilled' && userRes.value) {
+        const u = userRes.value.data;
+        spotifyUserCache.set(deviceId, { displayName: u.display_name, email: u.email, product: u.product, country: u.country });
+      }
     } catch (_) {}
   }
 }
 setInterval(pushAllDeviceStates, 3000);
+
+// ─── Admin overview (localhost only — called by control-panel.js) ─────────────
+app.get('/api/admin/overview', (req, res) => {
+  const remoteIp = req.socket.remoteAddress || '';
+  if (!remoteIp.includes('127.0.0.1') && !remoteIp.includes('::1') && remoteIp !== '::ffff:127.0.0.1') {
+    return res.status(403).json({ error: 'forbidden' });
+  }
+
+  const connectedDevices = [];
+  for (const [deviceId, wsSet] of deviceClients) {
+    if (!wsSet.size) continue;
+    const ips = [...new Set([...wsSet].map(w => wsClientIps.get(w) || '').filter(Boolean))];
+    const player = playerStateCache.get(deviceId) || null;
+    const user   = spotifyUserCache.get(deviceId) || null;
+    const radio  = radioNowPlaying.get(deviceId) || null;
+    connectedDevices.push({
+      deviceId, tabs: wsSet.size, ips,
+      authenticated: !!(devices.get(deviceId)?.tokens?.access_token),
+      user, radio,
+      player: player ? {
+        isPlaying: player.is_playing,
+        track: player.item ? {
+          name: player.item.name,
+          artists: player.item.artists?.map(a => a.name).join(', '),
+          album: player.item.album?.name,
+          durationMs: player.item.duration_ms,
+          progressMs: player.progress_ms,
+          albumArt: player.item.album?.images?.[0]?.url || null,
+        } : null,
+        device: player.device ? {
+          name: player.device.name,
+          type: player.device.type,
+          volume: player.device.volume_percent,
+          isActive: player.device.is_active,
+        } : null,
+        repeatState: player.repeat_state,
+        shuffleState: player.shuffle_state,
+      } : null,
+    });
+  }
+
+  const offlineDevices = [];
+  for (const [deviceId, dev] of devices) {
+    if (deviceClients.has(deviceId) && deviceClients.get(deviceId).size) continue;
+    offlineDevices.push({ deviceId, authenticated: !!(dev?.tokens?.access_token) });
+  }
+
+  const cpus = os.cpus();
+  const totalMem = os.totalmem(), freeMem = os.freemem();
+  res.json({
+    connectedDevices,
+    offlineDevices,
+    streamListeners: [...streamListeners.values()].map(e => ({ ...e, durationMs: Date.now() - e.connectedAt })),
+    mse: { broadcasting: !!(mseBroadcaster?.readyState === WebSocket.OPEN), listenerCount: mseListeners.size },
+    ffmpegRunning: !!ffmpegProc,
+    system: {
+      hostname: os.hostname(), uptime: Math.floor(os.uptime()),
+      loadAvg: os.loadavg().map(l => +l.toFixed(2)),
+      memPct: +((totalMem - freeMem) / totalMem * 100).toFixed(1),
+      totalMem, freeMem,
+      cpuModel: cpus[0]?.model?.trim() || 'Unknown', cpuCount: cpus.length,
+    },
+  });
+});
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 mainServer.on('error', err => {
