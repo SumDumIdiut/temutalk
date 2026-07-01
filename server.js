@@ -148,6 +148,23 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// ─── Control panel proxy (/panel → localhost:PORT+1) ─────────────────────────
+app.use('/panel', (req, res) => {
+  const panelPort = parseInt(process.env.PANEL_PORT || '9090', 10) + 1;
+  const opts = {
+    hostname: '127.0.0.1', port: panelPort,
+    path: req.url || '/', method: req.method,
+    headers: { ...req.headers, 'x-panel-base': '/panel', host: 'localhost' },
+  };
+  const proxy = http.request(opts, (pr) => {
+    res.writeHead(pr.statusCode, pr.headers);
+    pr.pipe(res);
+  });
+  proxy.on('error', () => res.status(502).send('Control panel offline'));
+  req.pipe(proxy);
+});
+
 app.use(express.static(path.join(__dirname, 'public'), {
   maxAge: '1h',
   setHeaders: (res, filePath) => {
