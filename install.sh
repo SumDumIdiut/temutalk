@@ -399,7 +399,7 @@ do_check_updates() {
   warn "Update available ($( echo "$local_sha" | cut -c1-7 ) → $( echo "$remote_sha" | cut -c1-7 ))."
   read -rp "  Pull now? [y/N] " yn
   if [[ "$yn" =~ ^[Yy]$ ]]; then
-    if git pull --ff-only; then
+    if git fetch origin main && git reset --hard origin/main; then
       ok "Updated."
       if server_running; then
         read -rp "  Restart server to apply changes? [y/N] " r

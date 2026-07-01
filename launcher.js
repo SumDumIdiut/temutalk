@@ -209,7 +209,8 @@ function checkForUpdate() {
     const remote = execFileSync('git', ['ls-remote', 'origin', 'refs/heads/main'],   { cwd: DIR, encoding: 'utf8' }).trim().split(/\s+/)[0];
     if (!remote || local === remote) return;
     log(`update detected (${local.slice(0,7)} → ${remote.slice(0,7)}) — pulling and restarting...`);
-    const pullOut = execFileSync('git', ['pull'], { cwd: DIR, encoding: 'utf8' });
+    execFileSync('git', ['fetch', 'origin', 'main'], { cwd: DIR });
+    const pullOut = execFileSync('git', ['reset', '--hard', 'origin/main'], { cwd: DIR, encoding: 'utf8' });
     if (pullOut.trim()) pullOut.trim().split('\n').forEach(l => log(l));
     log('pull complete — restarting server + panel');
     server.kill();
