@@ -115,9 +115,19 @@ function startTunnel(cfg) {
   if (!cfBin || !cfg) return null;
   let args;
   if (cfg.tokenFile) {
-    // Token-based: cloudflared tunnel run --token <token>
+    // Token-based: write a minimal ingress-only config and pass alongside the token
+    const ingressCfg = path.join(os.tmpdir(), 'cf-ingress.yml');
+    fs.writeFileSync(ingressCfg, [
+      `ingress:`,
+      `  - hostname: ${CF_DOMAIN}`,
+      `    service: https://localhost:3001`,
+      `    originRequest:`,
+      `      noTLSVerify: true`,
+      `  - service: http_status:404`,
+      '',
+    ].join('\n'));
     const token = fs.readFileSync(cfg.tokenFile, 'utf8').trim();
-    args = ['tunnel', 'run', '--token', token];
+    args = ['tunnel', '--config', ingressCfg, 'run', '--token', token];
   } else {
     const certFile = path.join(DIR, '.cloudflared', 'cert.pem');
     args = [];
