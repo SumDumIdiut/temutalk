@@ -214,7 +214,7 @@
     .live-empty { font-size: 13px; color: var(--text-muted); padding: 12px; text-align: center; }
 
 /* ── Mobile music layout ─────────────────────────────────────────────────── */
-@media (max-width: 640px) {
+@media (max-width: 640px), (max-width: 900px) and (pointer: coarse) {
   #app-body {
     flex-direction: column;
     overflow-y: auto;
