@@ -906,7 +906,8 @@ async function spotifySdkProxy(path, res) {
     res.setHeader('CDN-Cache-Control', 'no-store');
     if (isText) {
       let text = Buffer.from(r.data).toString('utf-8');
-      text = text.replace(/https:\/\/sdk\.scdn\.co\//g, '/sp/');
+      // Replace with full absolute URL so postMessage targetOrigin stays valid
+      text = text.replace(/https:\/\/sdk\.scdn\.co\//g, MAIN_BASE + '/sp/');
       // Inject debug shim into the embedded iframe HTML
       if (path === 'embedded/index.html') {
         text = text.replace('</head>', `<script>
