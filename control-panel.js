@@ -226,6 +226,24 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0a0c10;color:#e6
 .restart-btn{background:rgba(80,160,232,.1);border:1px solid rgba(80,160,232,.25);color:#50a0e8;border-radius:7px;padding:4px 10px;font-size:.75rem;cursor:pointer;transition:background .15s}
 .restart-btn:hover{background:rgba(80,160,232,.2)}
 .restart-btn:disabled{opacity:.4;cursor:default}
+.cfg-btn{background:rgba(255,255,255,.06);border:1px solid #2c3242;color:#8b93a3;border-radius:7px;padding:4px 10px;font-size:.75rem;cursor:pointer;transition:background .15s}
+.cfg-btn:hover{background:rgba(255,255,255,.1)}
+/* Config overlay */
+.cfg-overlay{display:none;position:fixed;inset:0;background:rgba(9,9,15,.92);z-index:101;align-items:center;justify-content:center;backdrop-filter:blur(8px)}
+.cfg-overlay.vis{display:flex}
+.cfg-box{background:#0e1420;border:1px solid #1e2330;border-radius:14px;padding:24px;width:420px;max-width:92vw;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column;gap:14px}
+.cfg-box h2{font-size:.95rem;font-weight:700}
+.cfg-section{font-size:.65rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#446;margin-top:4px}
+.cfg-row{display:flex;flex-direction:column;gap:4px}
+.cfg-label{font-size:.75rem;color:#8b93a3}
+.cfg-inp{background:rgba(255,255,255,.06);border:1px solid #2c3242;border-radius:8px;padding:7px 10px;color:#e6e8ec;font-size:.82rem;font-family:ui-monospace,monospace;width:100%;outline:none}
+.cfg-inp:focus{border-color:#50a0e8}
+.cfg-inp.set{border-color:#2a4a2a;color:#5ddd8a}
+.cfg-save{background:#50a0e8;border:none;border-radius:9px;padding:9px;color:#fff;font-weight:700;font-size:.85rem;cursor:pointer;width:100%;transition:opacity .14s}
+.cfg-save:hover{opacity:.85}
+.cfg-save:disabled{opacity:.35;cursor:default}
+.cfg-msg{font-size:.78rem;text-align:center;min-height:1.2em}
+.cfg-close{background:none;border:1px solid #2c3242;color:#8b93a3;border-radius:7px;padding:6px 14px;font-size:.78rem;cursor:pointer;align-self:flex-end}
 /* Spy overlay */
 .spy-overlay{display:none;position:fixed;inset:0;background:#09090f;z-index:100;flex-direction:column}
 .spy-overlay.vis{display:flex}
@@ -253,6 +271,21 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0a0c10;color:#e6
 </style>
 </head>
 <body>
+<!-- Config overlay -->
+<div class="cfg-overlay" id="cfg-overlay">
+  <div class="cfg-box">
+    <h2>⚙ Server Config</h2>
+    <div class="cfg-section">Discord OAuth</div>
+    <div class="cfg-row"><div class="cfg-label">Client ID</div><input class="cfg-inp" id="cfg-discord-id" placeholder="paste here…" autocomplete="off"></div>
+    <div class="cfg-row"><div class="cfg-label">Client Secret</div><input class="cfg-inp" id="cfg-discord-secret" type="password" placeholder="paste here…" autocomplete="off"></div>
+    <div class="cfg-section">Google OAuth</div>
+    <div class="cfg-row"><div class="cfg-label">Client ID</div><input class="cfg-inp" id="cfg-google-id" placeholder="paste here…" autocomplete="off"></div>
+    <div class="cfg-row"><div class="cfg-label">Client Secret</div><input class="cfg-inp" id="cfg-google-secret" type="password" placeholder="paste here…" autocomplete="off"></div>
+    <div class="cfg-msg" id="cfg-msg"></div>
+    <button class="cfg-save" onclick="cfgSave()">Save &amp; Restart Server</button>
+    <button class="cfg-close" onclick="cfgClose()">Close</button>
+  </div>
+</div>
 <!-- Chat spy overlay -->
 <div class="spy-overlay" id="spy-overlay">
   <div class="spy-topbar">
@@ -270,6 +303,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0a0c10;color:#e6
 <div class="topbar">
   <h1>&#9654; TemuTalk</h1>
   <div class="topbar-right">
+    <button class="cfg-btn" onclick="cfgOpen()">⚙ Config</button>
     <button class="spy-btn" id="spy-btn" onclick="spyOpen()">&#128373; Spy Chat</button>
     <button class="restart-btn" id="restart-btn" onclick="restartServer()">&#8635; Restart Server</button>
     <a class="server-url" id="app-url" href="https://codecade.co.za" target="_blank">codecade.co.za</a>
@@ -402,6 +436,40 @@ async function restartServer() {
     if (d.ok) { btn.textContent = '✓ Restarted'; setTimeout(() => { btn.disabled = false; btn.textContent = '↻ Restart Server'; }, 3000); }
     else { btn.textContent = '✗ ' + (d.error || 'Failed'); setTimeout(() => { btn.disabled = false; btn.textContent = '↻ Restart Server'; }, 3000); }
   } catch { btn.textContent = '✗ Error'; setTimeout(() => { btn.disabled = false; btn.textContent = '↻ Restart Server'; }, 3000); }
+}
+
+// ── Config overlay ────────────────────────────────────────────────────────────
+async function cfgOpen() {
+  document.getElementById('cfg-overlay').classList.add('vis');
+  document.getElementById('cfg-msg').textContent = '';
+  try {
+    const r = await fetch(P + '/api/env');
+    const d = await r.json();
+    const set = (id, val) => { const el = document.getElementById(id); if (el) { el.value = val || ''; el.classList.toggle('set', !!val); } };
+    set('cfg-discord-id',     d.DISCORD_CLIENT_ID);
+    set('cfg-discord-secret', d.DISCORD_CLIENT_SECRET);
+    set('cfg-google-id',      d.GOOGLE_CLIENT_ID);
+    set('cfg-google-secret',  d.GOOGLE_CLIENT_SECRET);
+  } catch {}
+}
+function cfgClose() { document.getElementById('cfg-overlay').classList.remove('vis'); }
+async function cfgSave() {
+  const btn = document.querySelector('.cfg-save');
+  const msg = document.getElementById('cfg-msg');
+  btn.disabled = true; msg.style.color = '#8b93a3'; msg.textContent = 'Saving…';
+  const body = {
+    DISCORD_CLIENT_ID:     document.getElementById('cfg-discord-id').value.trim(),
+    DISCORD_CLIENT_SECRET: document.getElementById('cfg-discord-secret').value.trim(),
+    GOOGLE_CLIENT_ID:      document.getElementById('cfg-google-id').value.trim(),
+    GOOGLE_CLIENT_SECRET:  document.getElementById('cfg-google-secret').value.trim(),
+  };
+  try {
+    const r = await fetch(P + '/api/env', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const d = await r.json();
+    if (d.ok) { msg.style.color = '#5ddd8a'; msg.textContent = '✓ Saved — server restarting…'; setTimeout(cfgClose, 1800); }
+    else { msg.style.color = '#ff8080'; msg.textContent = d.error || 'Save failed'; }
+  } catch (e) { msg.style.color = '#ff8080'; msg.textContent = 'Error: ' + e.message; }
+  btn.disabled = false;
 }
 
 // ── Chat spy ──────────────────────────────────────────────────────────────────
@@ -653,6 +721,55 @@ async function handleRequest(req, res) {
     } catch (e) {
       sendJson(res, 503, { error: e.message });
     }
+    return;
+  }
+
+  // ── .env read ─────────────────────────────────────────────────────────────
+  if (req.method === 'GET' && url.pathname === '/api/env') {
+    const envFile = path.join(__dirname, '.env');
+    const KEYS = ['DISCORD_CLIENT_ID', 'DISCORD_CLIENT_SECRET', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET'];
+    const result = {};
+    try {
+      const lines = fs.readFileSync(envFile, 'utf8').split('\n');
+      for (const line of lines) {
+        const m = line.match(/^([A-Z_]+)=(.*)$/);
+        if (m && KEYS.includes(m[1])) result[m[1]] = m[2].trim();
+      }
+    } catch {}
+    sendJson(res, 200, result);
+    return;
+  }
+
+  // ── .env write ────────────────────────────────────────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/env') {
+    let body = '';
+    req.on('data', c => body += c);
+    req.on('end', () => {
+      try {
+        const updates = JSON.parse(body);
+        const KEYS = ['DISCORD_CLIENT_ID', 'DISCORD_CLIENT_SECRET', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET'];
+        const envFile = path.join(__dirname, '.env');
+        let lines = [];
+        try { lines = fs.readFileSync(envFile, 'utf8').split('\n'); } catch {}
+        for (const key of KEYS) {
+          if (!(key in updates)) continue;
+          const val = String(updates[key]);
+          const idx = lines.findIndex(l => l.match(new RegExp(`^${key}=`)));
+          if (idx >= 0) lines[idx] = `${key}=${val}`;
+          else lines.push(`${key}=${val}`);
+        }
+        fs.writeFileSync(envFile, lines.join('\n'));
+        // Restart server to reload .env
+        try {
+          const pidFile = path.join(RUN_DIR, 'launcher.pid');
+          const pid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
+          if (pid) process.kill(pid, 'SIGUSR1');
+        } catch {}
+        sendJson(res, 200, { ok: true });
+      } catch (e) {
+        sendJson(res, 400, { error: e.message });
+      }
+    });
     return;
   }
 
