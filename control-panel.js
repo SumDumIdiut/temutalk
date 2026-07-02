@@ -220,6 +220,29 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0a0c10;color:#e6
 .progress-fill{background:#3ddc84;height:100%}
 .ip{font-family:ui-monospace,monospace;font-size:.7rem;color:#9aa4b5;margin-top:3px}
 .dim{color:#4a5060;font-style:italic;font-size:.8rem}
+.spy-btn{background:rgba(232,144,80,.1);border:1px solid rgba(232,144,80,.25);color:#e89050;border-radius:7px;padding:4px 10px;font-size:.75rem;cursor:pointer;transition:background .15s}
+.spy-btn:hover{background:rgba(232,144,80,.2)}
+.spy-btn.active{background:rgba(232,144,80,.22);color:#ffb070}
+/* Spy overlay */
+.spy-overlay{display:none;position:fixed;inset:0;background:#09090f;z-index:100;flex-direction:column}
+.spy-overlay.vis{display:flex}
+.spy-topbar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #1a1e2a;flex-shrink:0}
+.spy-title{font-size:.85rem;font-weight:700;flex:1}
+.spy-status{font-size:.72rem;color:#e89050}
+.spy-close{background:none;border:1px solid #2c3242;color:#8b93a3;border-radius:7px;padding:4px 10px;font-size:.75rem;cursor:pointer}
+.spy-body{display:flex;flex:1;overflow:hidden}
+.spy-sidebar{width:180px;flex-shrink:0;border-right:1px solid #1a1e2a;overflow-y:auto;padding:6px}
+.spy-room{padding:6px 8px;border-radius:8px;cursor:pointer;font-size:.8rem;transition:background .15s}
+.spy-room:hover{background:#1a1e2a}
+.spy-room.active{background:#1e2535;color:#e89050}
+.spy-main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.spy-messages{flex:1;overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:3px}
+.spy-msg{font-size:.8rem;display:flex;gap:8px;padding:2px 0}
+.spy-msg-name{color:#e89050;font-weight:700;flex-shrink:0;min-width:90px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.spy-msg-text{color:#c0c8d8;word-break:break-word}
+.spy-msg-time{color:#445;font-size:.67rem;flex-shrink:0;align-self:flex-start;margin-top:1px}
+.spy-section{font-size:.63rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#446;padding:8px 8px 3px}
+.spy-call-info{font-size:.72rem;color:#3ddc84;padding:4px 8px}
 @media(max-width:680px){
   .layout{flex-direction:column}
   .sessions-panel{width:100%;height:220px;border-right:none;border-bottom:1px solid #1a1e2a}
@@ -227,9 +250,24 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0a0c10;color:#e6
 </style>
 </head>
 <body>
+<!-- Chat spy overlay -->
+<div class="spy-overlay" id="spy-overlay">
+  <div class="spy-topbar">
+    <div class="spy-title">&#128373; Chat Spy</div>
+    <div class="spy-status" id="spy-status">Disconnected</div>
+    <button class="spy-close" onclick="spyClose()">&#x2715; Close</button>
+  </div>
+  <div class="spy-body">
+    <div class="spy-sidebar" id="spy-sidebar"></div>
+    <div class="spy-main">
+      <div class="spy-messages" id="spy-messages"></div>
+    </div>
+  </div>
+</div>
 <div class="topbar">
   <h1>&#9654; TemuTalk</h1>
   <div class="topbar-right">
+    <button class="spy-btn" id="spy-btn" onclick="spyOpen()">&#128373; Spy Chat</button>
     <a class="server-url" id="app-url" href="https://codecade.co.za" target="_blank">codecade.co.za</a>
     <button class="logout" onclick="logout()">Log out</button>
   </div>
@@ -351,6 +389,134 @@ async function logout() {
   location.reload();
 }
 
+// ── Chat spy ──────────────────────────────────────────────────────────────────
+let spyWs       = null;
+let spyRoom     = 'global';
+const spyMsgs   = {};   // room → [msg, ...]
+const spyRooms  = { global: 'Global' };   // id → label
+const spyCalls  = {};   // room → [participant, ...]
+
+function spyEsc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+async function spyOpen() {
+  const overlay = document.getElementById('spy-overlay');
+  overlay.classList.add('vis');
+  document.getElementById('spy-btn').classList.add('active');
+  if (!spyWs || spyWs.readyState > 1) await spyConnect();
+}
+function spyClose() {
+  document.getElementById('spy-overlay').classList.remove('vis');
+  document.getElementById('spy-btn').classList.remove('active');
+}
+
+async function spyConnect() {
+  document.getElementById('spy-status').textContent = 'Connecting…';
+  try {
+    const r = await fetch(P + '/api/ghost-token');
+    if (!r.ok) throw new Error('token fetch failed: ' + r.status);
+    const { token } = await r.json();
+    if (!token) throw new Error('no token');
+    // Use same host as the panel page but without /panel path (that's the main WS server)
+    const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ghostId = 'ghost-' + Math.random().toString(36).slice(2);
+    spyWs = new WebSocket(wsProto + '//' + location.host);
+    spyWs.onopen = () => {
+      spyWs.send(JSON.stringify({ type: 'join', deviceId: ghostId }));
+      spyWs.send(JSON.stringify({ type: 'chat:ghost-join', token }));
+      document.getElementById('spy-status').textContent = 'Connected (stealth)';
+    };
+    spyWs.onmessage = e => {
+      try { spyHandleMsg(JSON.parse(e.data)); } catch {}
+    };
+    spyWs.onclose = () => {
+      document.getElementById('spy-status').textContent = 'Disconnected';
+    };
+    spyWs.onerror = () => spyWs.close();
+  } catch (err) {
+    document.getElementById('spy-status').textContent = 'Error: ' + err.message;
+  }
+}
+
+function spyHandleMsg(m) {
+  if (m.type === 'chat:ghost-state') {
+    spyMsgs['global'] = m.global || [];
+    for (const g of m.groups || []) {
+      spyRooms[g.id] = g.name;
+      spyMsgs[g.id]  = g.messages || [];
+    }
+    for (const d of m.dms || []) {
+      spyRooms[d.room] = 'DM: ' + d.room.slice(3, 19) + '…';
+      spyMsgs[d.room]  = d.messages || [];
+    }
+    spyRenderSidebar();
+    spyRenderMessages();
+    return;
+  }
+  if (m.type === 'chat:msg') {
+    if (!spyMsgs[m.room]) spyMsgs[m.room] = [];
+    spyMsgs[m.room].push(m);
+    if (m.room === spyRoom) spyRenderMessages();
+    spyRenderSidebar();
+    return;
+  }
+  if (m.type === 'chat:group-created') {
+    spyRooms[m.group.id] = m.group.name;
+    if (!spyMsgs[m.group.id]) spyMsgs[m.group.id] = [];
+    spyRenderSidebar();
+    return;
+  }
+  if (m.type === 'chat:clear') {
+    spyMsgs[m.room] = [];
+    if (m.room === spyRoom) spyRenderMessages();
+    return;
+  }
+  if (m.type === 'chat:call-joined') {
+    if (!spyCalls[m.room]) spyCalls[m.room] = [];
+    spyCalls[m.room].push(m.participant);
+    spyRenderSidebar();
+    return;
+  }
+  if (m.type === 'chat:call-left') {
+    if (spyCalls[m.room]) spyCalls[m.room] = spyCalls[m.room].filter(p => p.id !== m.participantId);
+    spyRenderSidebar();
+    return;
+  }
+}
+
+function spySelectRoom(room) {
+  spyRoom = room;
+  document.querySelectorAll('.spy-room').forEach(el => el.classList.toggle('active', el.dataset.room === room));
+  spyRenderMessages();
+}
+
+function spyRenderSidebar() {
+  const el = document.getElementById('spy-sidebar');
+  if (!el) return;
+  let html = '<div class="spy-section">Rooms</div>';
+  for (const [id, label] of Object.entries(spyRooms)) {
+    const calls = spyCalls[id];
+    const callBadge = calls?.length ? \` <span style="color:#3ddc84;font-size:.68rem">📞\${calls.length}</span>\` : '';
+    html += \`<div class="spy-room\${id === spyRoom ? ' active' : ''}" data-room="\${spyEsc(id)}" onclick="spySelectRoom('\${spyEsc(id)}')">\${spyEsc(label)}\${callBadge}</div>\`;
+  }
+  el.innerHTML = html;
+}
+
+function spyRenderMessages() {
+  const el = document.getElementById('spy-messages');
+  if (!el) return;
+  const msgs = spyMsgs[spyRoom] || [];
+  if (!msgs.length) { el.innerHTML = '<div style="color:#445;font-size:.78rem;margin:auto">No messages</div>'; return; }
+  el.innerHTML = msgs.map(m => {
+    const t = new Date(m.ts).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    return \`<div class="spy-msg">
+      <div class="spy-msg-time">\${spyEsc(t)}</div>
+      <div class="spy-msg-name">\${spyEsc(m.fromName)}</div>
+      <div class="spy-msg-text">\${spyEsc(m.text)}</div>
+    </div>\`;
+  }).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
 refreshSessions();
 setInterval(refreshSessions, 4000);
 </script>
@@ -453,6 +619,12 @@ async function handleRequest(req, res) {
   if (req.method === 'GET' && url.pathname === '/api/admin') {
     const overview = await fetchServerJson('/api/admin/overview');
     sendJson(res, 200, { overview });
+    return;
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/ghost-token') {
+    const data = await fetchServerJson('/api/admin/ghost-token');
+    sendJson(res, data ? 200 : 502, data || { error: 'Main server unavailable' });
     return;
   }
 

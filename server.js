@@ -1111,6 +1111,95 @@ const radioNowPlaying  = new Map();   // deviceId → { name, url, since }
 const playerStateCache = new Map();   // deviceId → playerData
 const spotifyUserCache = new Map();   // deviceId → { displayName, email, product }
 
+// ─── Chat ─────────────────────────────────────────────────────────────────────
+const chatGhostTokens  = new Map();   // token → expiresAt ms
+const chatGhostDevices = new Set();   // deviceIds in stealth mode
+const chatNames        = new Map();   // deviceId → display name override
+const chatGlobal       = { messages: [] };
+const chatGroups       = new Map();   // id → { id, name, passwordHash, messages[], members: Set }
+const chatDMs          = new Map();   // roomKey → { messages[] }
+const chatFriends      = new Map();   // deviceId → Set<deviceId>
+const chatFriendReqs   = new Map();   // targetId → Set<fromId>
+const chatCalls        = new Map();   // roomId → Set<deviceId>
+const CHAT_MSG_LIMIT       = 200;
+const CHAT_GLOBAL_CLEAR_MS = 12 * 60 * 60 * 1000;
+
+function chatScheduleGlobalClear() {
+  const now  = Date.now();
+  const next = Math.ceil((now + 1) / CHAT_GLOBAL_CLEAR_MS) * CHAT_GLOBAL_CLEAR_MS;
+  setTimeout(() => {
+    chatGlobal.messages = [];
+    chatBroadcastAll({ type: 'chat:clear', room: 'global' });
+    chatScheduleGlobalClear();
+  }, next - now).unref();
+}
+chatScheduleGlobalClear();
+
+function chatBroadcastAll(data) {
+  const msg = JSON.stringify(data);
+  for (const [, conns] of deviceClients)
+    for (const c of conns)
+      if (c.readyState === WebSocket.OPEN) c.send(msg);
+}
+
+function chatGetName(id) {
+  if (chatNames.has(id)) return chatNames.get(id);
+  const u = spotifyUserCache.get(id);
+  if (u?.displayName) return u.displayName;
+  return 'User-' + id.slice(0, 6);
+}
+
+function chatDMKey(a, b) { return 'dm:' + [a, b].sort().join(':'); }
+
+function chatRoomMessages(room) {
+  if (room === 'global') return chatGlobal.messages;
+  if (room.startsWith('dm:'))    return chatDMs.get(room)?.messages   ?? null;
+  if (room.startsWith('group:')) return chatGroups.get(room)?.messages ?? null;
+  return null;
+}
+
+function chatCanAccess(deviceId, room) {
+  if (chatGhostDevices.has(deviceId)) return true;
+  if (room === 'global') return true;
+  if (room.startsWith('dm:'))    return room.slice(3).split(':').includes(deviceId);
+  if (room.startsWith('group:')) return chatGroups.get(room)?.members.has(deviceId) ?? false;
+  return false;
+}
+
+function chatGetRoomTargets(room) {
+  const targets = new Set(chatGhostDevices);
+  if (room === 'global') {
+    for (const id of deviceClients.keys()) targets.add(id);
+  } else if (room.startsWith('dm:')) {
+    for (const id of room.slice(3).split(':')) targets.add(id);
+  } else if (room.startsWith('group:')) {
+    const g = chatGroups.get(room);
+    if (g) for (const m of g.members) targets.add(m);
+  }
+  return targets;
+}
+
+function chatBroadcastRoom(room, data, excludeId = null) {
+  const msg = JSON.stringify(data);
+  for (const devId of chatGetRoomTargets(room)) {
+    if (devId === excludeId) continue;
+    for (const c of deviceClients.get(devId) || [])
+      if (c.readyState === WebSocket.OPEN) c.send(msg);
+  }
+}
+
+function chatGetCallParticipants(room, includeGhosts = false) {
+  const ps = chatCalls.get(room) || new Set();
+  return includeGhosts ? [...ps] : [...ps].filter(id => !chatGhostDevices.has(id));
+}
+
+function chatGenerateGhostToken() {
+  const token = crypto.randomBytes(24).toString('hex');
+  chatGhostTokens.set(token, Date.now() + 60_000);
+  setTimeout(() => chatGhostTokens.delete(token), 60_000);
+  return token;
+}
+
 function relayToClients(str) {
   for (const [, conns] of deviceClients)
     for (const c of conns)
@@ -1193,12 +1282,197 @@ wss.on('connection', (ws, req) => {
       radioNowPlaying.delete(wsDeviceId);
       return;
     }
+
+    // ── Chat ─────────────────────────────────────────────────────────────────
+    if (msg.type === 'chat:ghost-join') {
+      const exp = chatGhostTokens.get(msg.token);
+      if (!exp || Date.now() > exp) { ws.send(JSON.stringify({ type: 'chat:error', error: 'Invalid ghost token' })); return; }
+      chatGhostTokens.delete(msg.token);
+      if (wsDeviceId) chatGhostDevices.add(wsDeviceId);
+      ws.send(JSON.stringify({
+        type: 'chat:ghost-state',
+        global: chatGlobal.messages.slice(-100),
+        groups: [...chatGroups.values()].map(g => ({
+          id: g.id, name: g.name, memberCount: g.members.size,
+          messages: g.messages.slice(-100), members: [...g.members],
+        })),
+        dms: [...chatDMs.entries()].map(([k, v]) => ({ room: k, messages: v.messages.slice(-50) })),
+      }));
+      return;
+    }
+
+    if (msg.type === 'chat:set-name' && wsDeviceId) {
+      const name = String(msg.name || '').trim().slice(0, 32);
+      if (name) chatNames.set(wsDeviceId, name);
+      ws.send(JSON.stringify({ type: 'chat:name-set', name: chatGetName(wsDeviceId) }));
+      return;
+    }
+
+    if (msg.type === 'chat:join' && wsDeviceId) {
+      const room = String(msg.room || '');
+      if (!chatCanAccess(wsDeviceId, room) && room !== 'global') return;
+      let msgs = chatRoomMessages(room);
+      if (msgs === null) {
+        if (room.startsWith('dm:')) { chatDMs.set(room, { messages: [] }); msgs = chatDMs.get(room).messages; }
+        else return;
+      }
+      ws.send(JSON.stringify({ type: 'chat:history', room, messages: msgs.slice(-100) }));
+      if (room.startsWith('group:')) {
+        const g = chatGroups.get(room);
+        if (g) ws.send(JSON.stringify({
+          type: 'chat:members', room,
+          members: [...g.members].filter(id => !chatGhostDevices.has(id)).map(id => ({
+            id, name: chatGetName(id), online: !!(deviceClients.get(id)?.size),
+          })),
+        }));
+      }
+      const callPs = chatGetCallParticipants(room);
+      if (callPs.length) ws.send(JSON.stringify({
+        type: 'chat:call-participants', room,
+        participants: callPs.map(id => ({ id, name: chatGetName(id) })),
+      }));
+      return;
+    }
+
+    if (msg.type === 'chat:msg' && wsDeviceId) {
+      const room = String(msg.room || '');
+      const text = String(msg.text || '').trim().slice(0, 2000);
+      if (!text || !chatCanAccess(wsDeviceId, room)) return;
+      let msgs = chatRoomMessages(room);
+      if (msgs === null) {
+        if (room.startsWith('dm:')) {
+          if (!chatDMs.has(room)) chatDMs.set(room, { messages: [] });
+          msgs = chatDMs.get(room).messages;
+        } else return;
+      }
+      const m = { id: crypto.randomBytes(6).toString('hex'), from: wsDeviceId, fromName: chatGetName(wsDeviceId), text, ts: Date.now() };
+      msgs.push(m);
+      if (msgs.length > CHAT_MSG_LIMIT) msgs.splice(0, msgs.length - CHAT_MSG_LIMIT);
+      chatBroadcastRoom(room, { type: 'chat:msg', room, ...m });
+      return;
+    }
+
+    if (msg.type === 'chat:friend-req' && wsDeviceId) {
+      const targetId = String(msg.targetId || '');
+      if (!targetId || targetId === wsDeviceId || !deviceClients.has(targetId)) return;
+      if (!chatFriendReqs.has(targetId)) chatFriendReqs.set(targetId, new Set());
+      chatFriendReqs.get(targetId).add(wsDeviceId);
+      broadcastToDevice(targetId, { type: 'chat:friend-req', fromId: wsDeviceId, fromName: chatGetName(wsDeviceId) });
+      return;
+    }
+
+    if (msg.type === 'chat:friend-accept' && wsDeviceId) {
+      const fromId = String(msg.fromId || '');
+      if (!chatFriendReqs.get(wsDeviceId)?.has(fromId)) return;
+      chatFriendReqs.get(wsDeviceId).delete(fromId);
+      if (!chatFriends.has(wsDeviceId)) chatFriends.set(wsDeviceId, new Set());
+      if (!chatFriends.has(fromId)) chatFriends.set(fromId, new Set());
+      chatFriends.get(wsDeviceId).add(fromId);
+      chatFriends.get(fromId).add(wsDeviceId);
+      broadcastToDevice(fromId, { type: 'chat:friend-accepted', byId: wsDeviceId, byName: chatGetName(wsDeviceId) });
+      ws.send(JSON.stringify({ type: 'chat:friend-accepted', byId: fromId, byName: chatGetName(fromId) }));
+      return;
+    }
+
+    if (msg.type === 'chat:friend-reject' && wsDeviceId) {
+      chatFriendReqs.get(wsDeviceId)?.delete(String(msg.fromId || ''));
+      return;
+    }
+
+    if (msg.type === 'chat:group-create' && wsDeviceId) {
+      const name = String(msg.name || '').trim().slice(0, 50);
+      const pass = String(msg.password || '').trim();
+      if (!name || !pass) { ws.send(JSON.stringify({ type: 'chat:error', error: 'Name and password required' })); return; }
+      const id = 'group:' + crypto.randomBytes(8).toString('hex');
+      chatGroups.set(id, { id, name, passwordHash: crypto.createHash('sha256').update(pass).digest('hex'), messages: [], members: new Set([wsDeviceId]), created: Date.now() });
+      ws.send(JSON.stringify({ type: 'chat:group-created', group: { id, name } }));
+      ws.send(JSON.stringify({ type: 'chat:history', room: id, messages: [] }));
+      return;
+    }
+
+    if (msg.type === 'chat:group-join' && wsDeviceId) {
+      const { groupId, password } = msg;
+      const group = chatGroups.get(String(groupId || ''));
+      if (!group) { ws.send(JSON.stringify({ type: 'chat:error', error: 'Group not found' })); return; }
+      const hashBuf = Buffer.from(crypto.createHash('sha256').update(String(password || '')).digest('hex'));
+      const expBuf  = Buffer.from(group.passwordHash);
+      if (hashBuf.length !== expBuf.length || !crypto.timingSafeEqual(hashBuf, expBuf)) {
+        ws.send(JSON.stringify({ type: 'chat:error', error: 'Wrong password' })); return;
+      }
+      group.members.add(wsDeviceId);
+      ws.send(JSON.stringify({ type: 'chat:history', room: groupId, messages: group.messages.slice(-100) }));
+      ws.send(JSON.stringify({
+        type: 'chat:members', room: groupId,
+        members: [...group.members].filter(id => !chatGhostDevices.has(id)).map(id => ({
+          id, name: chatGetName(id), online: !!(deviceClients.get(id)?.size),
+        })),
+      }));
+      chatBroadcastRoom(groupId, { type: 'chat:member-join', room: groupId, member: { id: wsDeviceId, name: chatGetName(wsDeviceId) } }, wsDeviceId);
+      return;
+    }
+
+    if (msg.type === 'chat:group-leave' && wsDeviceId) {
+      const group = chatGroups.get(String(msg.groupId || ''));
+      if (group) {
+        group.members.delete(wsDeviceId);
+        chatBroadcastRoom(msg.groupId, { type: 'chat:member-leave', room: msg.groupId, memberId: wsDeviceId }, wsDeviceId);
+      }
+      return;
+    }
+
+    if (msg.type === 'chat:call-join' && wsDeviceId) {
+      const room = String(msg.room || '');
+      if (!chatCanAccess(wsDeviceId, room)) return;
+      if (!chatCalls.has(room)) chatCalls.set(room, new Set());
+      const call = chatCalls.get(room);
+      for (const existId of chatGetCallParticipants(room, true)) {
+        if (existId === wsDeviceId) continue;
+        broadcastToDevice(existId, { type: 'chat:call-new-peer', room, peerId: wsDeviceId });
+      }
+      call.add(wsDeviceId);
+      const visiblePeers = chatGhostDevices.has(wsDeviceId)
+        ? chatGetCallParticipants(room, true)
+        : chatGetCallParticipants(room, false);
+      ws.send(JSON.stringify({
+        type: 'chat:call-participants', room,
+        participants: visiblePeers.filter(id => id !== wsDeviceId).map(id => ({ id, name: chatGetName(id) })),
+      }));
+      if (!chatGhostDevices.has(wsDeviceId))
+        chatBroadcastRoom(room, { type: 'chat:call-joined', room, participant: { id: wsDeviceId, name: chatGetName(wsDeviceId) } }, wsDeviceId);
+      return;
+    }
+
+    if (msg.type === 'chat:call-leave' && wsDeviceId) {
+      const room = String(msg.room || '');
+      chatCalls.get(room)?.delete(wsDeviceId);
+      if (!chatCalls.get(room)?.size) chatCalls.delete(room);
+      if (!chatGhostDevices.has(wsDeviceId))
+        chatBroadcastRoom(room, { type: 'chat:call-left', room, participantId: wsDeviceId });
+      return;
+    }
+
+    if (msg.type === 'chat:signal' && wsDeviceId) {
+      const to = String(msg.to || '');
+      if (to) broadcastToDevice(to, { type: 'chat:signal', from: wsDeviceId, room: msg.room, signal: msg.signal });
+      return;
+    }
   });
 
   const cleanup = () => {
     if (wsDeviceId) {
+      const wasGhost = chatGhostDevices.has(wsDeviceId);
       deviceClients.get(wsDeviceId)?.delete(ws);
-      if (!deviceClients.get(wsDeviceId)?.size) radioNowPlaying.delete(wsDeviceId);
+      if (!deviceClients.get(wsDeviceId)?.size) {
+        radioNowPlaying.delete(wsDeviceId);
+        chatGhostDevices.delete(wsDeviceId);
+      }
+      for (const [room, participants] of chatCalls) {
+        if (participants.has(wsDeviceId)) {
+          participants.delete(wsDeviceId);
+          if (!wasGhost) chatBroadcastRoom(room, { type: 'chat:call-left', room, participantId: wsDeviceId });
+          if (!participants.size) chatCalls.delete(room);
+        }
+      }
     }
     if (ws === mseBroadcaster) {
       mseBroadcaster = null;
@@ -1306,6 +1580,30 @@ app.get('/api/admin/overview', (req, res) => {
       cpuModel: cpus[0]?.model?.trim() || 'Unknown', cpuCount: cpus.length,
     },
   });
+});
+
+// ─── Chat REST ────────────────────────────────────────────────────────────────
+app.get('/api/admin/ghost-token', (req, res) => {
+  const ip = req.socket.remoteAddress || '';
+  if (!['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(ip)) return res.status(403).json({ error: 'forbidden' });
+  res.json({ token: chatGenerateGhostToken() });
+});
+
+app.get('/api/chat/groups', (req, res) => {
+  res.json({
+    groups: [...chatGroups.values()].map(g => ({
+      id: g.id, name: g.name, memberCount: g.members.size, created: g.created,
+      hasCall: chatCalls.has(g.id),
+    })),
+  });
+});
+
+app.post('/api/chat/set-name', (req, res) => {
+  const deviceId = resolveDevice(req);
+  if (!deviceId) return res.status(400).json({ error: 'device required' });
+  const name = String(req.body?.name || '').trim().slice(0, 32);
+  if (name) chatNames.set(deviceId, name);
+  res.json({ name: chatGetName(deviceId) });
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────

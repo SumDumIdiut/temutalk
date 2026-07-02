@@ -24,6 +24,7 @@
   <link rel="stylesheet" href="/finance/style.css">
   <link rel="stylesheet" href="/timer/style.css">
   <link rel="stylesheet" href="/system/style.css">
+  <link rel="stylesheet" href="/chat/style.css">
   <style>
     /* ── SPA view system ─────────────────────────────────────────────────── */
     html, body { height: 100%; overflow: hidden; }
@@ -218,6 +219,7 @@
 <div class="view" id="view-system"></div>
 <div class="view" id="view-timer"></div>
 <div class="view" id="view-news"></div>
+<div class="view" id="view-chat" style="overflow:hidden;"></div>
 
 <!-- ══════════════════ NAV ══════════════════ -->
 <nav class="nav">
@@ -252,6 +254,10 @@
   <button class="nav-item" data-tab="system" onclick="navigate('system')">
     <div class="nav-pill"><svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M20 18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z"/></svg></div>
     <span class="nav-label">System</span>
+  </button>
+  <button class="nav-item" data-tab="chat" onclick="navigate('chat')">
+    <div class="nav-pill"><svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg></div>
+    <span class="nav-label">Chat</span>
   </button>
 </nav>
 
@@ -312,7 +318,7 @@ async function ensureTab(tab) {
 }
 
 // ── Navigation ────────────────────────────────────────────────────────────
-const TAB_IDX = { home: 0, music: 1, radio: 2, news: 3, weather: 4, finance: 5, timer: 6, system: 7 };
+const TAB_IDX = { home: 0, music: 1, radio: 2, news: 3, weather: 4, finance: 5, timer: 6, system: 7, chat: 8 };
 let curTab = 'home';
 
 async function navigate(tab) {
@@ -365,6 +371,7 @@ async function navigate(tab) {
   if (tab === 'system')  { renderThemePanel(); }
   if (tab === 'radio') initRadioMap();
   if (tab === 'news' && !newsLoaded) loadNews();
+  if (tab === 'chat') ensureTab('chat').then(() => { if (typeof chatInit === 'function') chatInit(); });
   // Update URL
   const u = new URL(location.href);
   tab === 'home' ? u.searchParams.delete('tab') : u.searchParams.set('tab', tab);
@@ -881,6 +888,7 @@ function wsConnect() {
         });
       }
       if (m.type === 'mse-broadcaster-status') mseSetBroadcasterOnline(m.online, m.mimeType);
+      if (m.type && m.type.startsWith('chat:') && typeof chatOnMessage === 'function') chatOnMessage(m);
     } catch {}
   };
   ws.onclose = ws.onerror = () => {
@@ -955,6 +963,7 @@ document.addEventListener('fullscreenchange', () => {
 <script src="/system/script.js"></script>
 <script src="/radio/script.js"></script>
 <script src="/news/script.js"></script>
+<script src="/chat/script.js"></script>
 
 <!-- Deep-link (after all tab scripts are loaded) -->
 <script>
@@ -962,7 +971,7 @@ const _qs      = new URLSearchParams(location.search);
 const _initTab = _qs.get('tab');
 const _oauthErr = _qs.get('error');
 
-if (['music','timer','finance','system','radio','weather','news'].includes(_initTab)) navigate(_initTab);
+if (['music','timer','finance','system','radio','weather','news','chat'].includes(_initTab)) navigate(_initTab);
 
 // Pre-warm music view in background so it's ready when user taps
 ensureTab('music').then(() => {
