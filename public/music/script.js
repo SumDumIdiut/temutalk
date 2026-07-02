@@ -12,7 +12,45 @@ function showApp() {
     if (cid && csec) {
       api('/api/save-creds', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientId: cid, clientSecret: csec }) }).catch(() => {});
     }
+    loadBrowserPlayer();
   }
+}
+
+// ── Spotify Web Playback SDK (browser player) ─────────────────────────────────
+let browserPlayer = null;
+let browserPlayerReady = false;
+
+function loadBrowserPlayer() {
+  if (browserPlayer) return;
+  if (window.Spotify) { _initBrowserPlayer(); return; }
+  if (document.querySelector('script[src*="spotify-player"]')) return;
+  const tag = document.createElement('script');
+  tag.src = 'https://sdk.scdn.co/spotify-player.js';
+  document.head.appendChild(tag);
+  const prev = window.onSpotifyWebPlaybackSDKReady;
+  window.onSpotifyWebPlaybackSDKReady = () => { if (prev) prev(); _initBrowserPlayer(); };
+}
+
+function _initBrowserPlayer() {
+  if (browserPlayer) return;
+  const vol = (document.getElementById('fp-vol')?.value ?? 50) / 100;
+  browserPlayer = new Spotify.Player({
+    name: 'TemuTalk',
+    getOAuthToken: cb => {
+      fetch('/api/token?device=' + deviceId).then(r => r.json()).then(d => cb(d.access_token)).catch(() => cb(''));
+    },
+    volume: vol,
+  });
+  browserPlayer.addListener('ready', ({ device_id }) => {
+    browserPlayerReady = true;
+    // Auto-transfer playback to the browser
+    api('/api/transfer', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ device_id, play: false }) }).catch(() => {});
+  });
+  browserPlayer.addListener('not_ready', () => { browserPlayerReady = false; });
+  browserPlayer.addListener('initialization_error', ({ message }) => console.error('[player]', message));
+  browserPlayer.addListener('authentication_error', ({ message }) => console.error('[player] auth', message));
+  browserPlayer.addListener('account_error', ({ message }) => console.error('[player] account (Premium required)', message));
+  browserPlayer.connect();
 }
 
 function onPlayer(data) {
@@ -199,6 +237,7 @@ function seekTo(e) {
 }
 function setVolume(val) {
   if (_serverVolume) return;
+  if (browserPlayer) browserPlayer.setVolume(val / 100).catch(() => {});
   clearTimeout(volTimer);
   volTimer = setTimeout(() => api('/api/player/volume', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ volume: val }) }), 250);
 }
@@ -667,44 +706,30 @@ function liveStart() {
   if (liveBroadcasting) return;
   liveBroadcasting = true;
   liveRenderSidebar();
-
-  // Load Spotify Web Playback SDK, then tap its AudioContext
-  if (window.Spotify) { _liveSetupPlayer(); return; }
-  const tag = document.createElement('script');
-  tag.src = 'https://sdk.scdn.co/spotify-player.js';
-  document.head.appendChild(tag);
-  window.onSpotifyWebPlaybackSDKReady = _liveSetupPlayer;
+  _liveTapAudio();
 }
 
-function _liveSetupPlayer() {
-  fetch('/api/token?device=' + deviceId).then(r => r.json()).then(d => {
-    if (!d.access_token) { console.error('[live] no token'); return; }
-    let destNode = null;
-    let recording = false;
-
-    // Monkey-patch AudioNode.connect to intercept the SDK's graph
-    const _origConnect = AudioNode.prototype.connect;
-    AudioNode.prototype.connect = function(target, ...rest) {
-      const result = _origConnect.apply(this, [target, ...rest]);
-      if (!destNode && target instanceof AudioDestinationNode) {
-        const ctx = this.context;
-        const msDest = ctx.createMediaStreamDestination();
-        _origConnect.call(this, msDest);
-        if (!recording) {
-          recording = true;
-          _liveRecord(msDest.stream);
-        }
-      }
-      return result;
-    };
-
-    liveSpotifyPlayer = new Spotify.Player({
-      name: 'TemuTalk Live',
-      getOAuthToken: cb => cb(d.access_token),
-      volume: 0,
-    });
-    liveSpotifyPlayer.connect();
-  }).catch(err => { console.error('[live] token fetch failed', err); liveStop(); });
+function _liveTapAudio() {
+  // Monkey-patch AudioNode.connect to intercept the browser player's graph
+  let tapped = false;
+  const _origConnect = AudioNode.prototype.connect;
+  AudioNode.prototype.connect = function(target, ...rest) {
+    const result = _origConnect.apply(this, [target, ...rest]);
+    if (!tapped && target instanceof AudioDestinationNode) {
+      tapped = true;
+      const msDest = this.context.createMediaStreamDestination();
+      _origConnect.call(this, msDest);
+      _liveRecord(msDest.stream);
+    }
+    return result;
+  };
+  // If the player is already connected, force a reconnect to re-trigger connect calls
+  if (browserPlayer) {
+    browserPlayer.disconnect();
+    setTimeout(() => browserPlayer.connect(), 100);
+  } else {
+    loadBrowserPlayer();
+  }
 }
 
 function _liveRecord(stream) {
@@ -726,7 +751,6 @@ function _liveRecord(stream) {
 function liveStop() {
   liveBroadcasting = false;
   if (liveRecorder) { try { liveRecorder.stop(); } catch (_) {} liveRecorder = null; }
-  if (liveSpotifyPlayer) { try { liveSpotifyPlayer.disconnect(); } catch (_) {} liveSpotifyPlayer = null; }
   liveRenderSidebar();
 }
 
