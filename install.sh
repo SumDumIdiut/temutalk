@@ -405,29 +405,51 @@ do_check_updates() {
   local_sha=$(git rev-parse HEAD 2>/dev/null)
   remote_sha=$(git rev-parse origin/main 2>/dev/null)
   if [ -z "$remote_sha" ]; then err "Could not reach the remote repository."; return; fi
-  if [ "$local_sha" = "$remote_sha" ]; then
-    ok "Already up to date."
-    return
-  fi
-  warn "Update available ($( echo "$local_sha" | cut -c1-7 ) → $( echo "$remote_sha" | cut -c1-7 ))."
-  read -rp "  Pull now? [y/N] " yn
-  if [[ "$yn" =~ ^[Yy]$ ]]; then
-    if git fetch origin main && git reset --hard origin/main; then
-      ok "Updated."
-      if server_running; then
-        read -rp "  Restart server to apply changes? [y/N] " r
-        if [[ "$r" =~ ^[Yy]$ ]]; then
-          local lpid; lpid="$(server_pid)"
-          if [ -n "$lpid" ] && kill -USR1 "$lpid" 2>/dev/null; then
-            ok "Server restarting (tunnel stays up)..."
-          else
-            stop_node; start_node
-          fi
-        fi
+
+  local pulled=0
+  if [ "$local_sha" != "$remote_sha" ]; then
+    warn "Update available ($( echo "$local_sha" | cut -c1-7 ) → $( echo "$remote_sha" | cut -c1-7 ))."
+    read -rp "  Pull now? [y/N] " yn
+    if [[ "$yn" =~ ^[Yy]$ ]]; then
+      if git fetch origin main && git reset --hard origin/main; then
+        ok "Pulled $(git rev-parse --short HEAD)."
+        pulled=1
+      else
+        err "Pull failed — resolve manually with 'git status'."
+        return
       fi
     else
-      err "Pull failed — resolve manually with 'git status'."
+      return
     fi
+  fi
+
+  # Even if no git pull was needed, the running process may be older than
+  # the latest commit (common when developing in-place).
+  local commit_ts proc_start lpid
+  commit_ts=$(git log -1 --format=%ct 2>/dev/null || echo 0)
+  lpid="$(server_pid)"
+  if [ -n "$lpid" ] && kill -0 "$lpid" 2>/dev/null; then
+    proc_start=$(stat -c %Y /proc/"$lpid" 2>/dev/null || echo 0)
+  else
+    proc_start=0
+  fi
+
+  if [ "$pulled" -eq 1 ] || [ "$commit_ts" -gt "$proc_start" ]; then
+    if [ "$pulled" -eq 0 ]; then
+      ok "Code is up to date — server is running older version ($(git log -1 --format=%h\ %s | cut -c1-60))."
+    fi
+    if server_running; then
+      read -rp "  Restart server + panel to apply? [Y/n] " r
+      if [[ ! "$r" =~ ^[Nn]$ ]]; then
+        stop_node
+        start_node
+        if panel_running; then stop_panel; fi
+        start_panel
+        ok "Restarted."
+      fi
+    fi
+  else
+    ok "Already up to date and running latest code."
   fi
 }
 
