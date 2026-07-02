@@ -1123,6 +1123,7 @@ const chatDMs          = new Map();   // roomKey → { messages[] }
 const chatFriends      = new Map();   // deviceId → Set<deviceId>
 const chatFriendReqs   = new Map();   // targetId → Set<fromId>
 const chatCalls        = new Map();   // roomId → Set<deviceId>
+const chatAccounts     = new Map();   // nameLower → { name, passwordHash, avatarUrl }
 const CHAT_MSG_LIMIT       = 200;
 const CHAT_GLOBAL_CLEAR_MS = 12 * 60 * 60 * 1000;
 const CHAT_STATE_FILE = path.join(__dirname, '.chat-state.json');
@@ -1132,6 +1133,7 @@ function chatSave() {
   clearTimeout(chatSaveTimer);
   chatSaveTimer = setTimeout(() => {
     const data = {
+      accounts: Object.fromEntries(chatAccounts),
       profiles: Object.fromEntries(chatProfiles),
       names:    Object.fromEntries(chatNames),
       groups:   [...chatGroups.values()].map(g => ({
@@ -1153,6 +1155,7 @@ function chatSave() {
 (function chatLoad() {
   try {
     const data = JSON.parse(fs.readFileSync(CHAT_STATE_FILE, 'utf8'));
+    for (const [k, v] of Object.entries(data.accounts || {})) chatAccounts.set(k, v);
     for (const [k, v] of Object.entries(data.profiles || {})) chatProfiles.set(k, v);
     for (const [k, v] of Object.entries(data.names    || {})) chatNames.set(k, v);
     for (const g of (data.groups || [])) {
@@ -1733,6 +1736,37 @@ app.get('/api/chat/groups', (req, res) => {
       hasCall: chatCalls.has(g.id),
     })),
   });
+});
+
+app.post('/api/chat/login', (req, res) => {
+  const deviceId = resolveDevice(req);
+  if (!deviceId) return res.status(400).json({ error: 'device required' });
+  const name = String(req.body?.name || '').trim().slice(0, 32);
+  const pass = String(req.body?.password || '').trim();
+  if (!name) return res.json({ ok: false, error: 'Name is required' });
+  if (!pass) return res.json({ ok: false, error: 'Password is required' });
+  if (pass.length < 4) return res.json({ ok: false, error: 'Password must be at least 4 characters' });
+  const key  = name.toLowerCase();
+  const hash = crypto.createHash('sha256').update(pass).digest('hex');
+  const existing = chatAccounts.get(key);
+  if (existing) {
+    const hashBuf = Buffer.from(hash);
+    const expBuf  = Buffer.from(existing.passwordHash);
+    if (hashBuf.length !== expBuf.length || !crypto.timingSafeEqual(hashBuf, expBuf)) {
+      return res.json({ ok: false, error: 'Wrong password' });
+    }
+    // Correct password — link this device to the account
+    chatProfiles.set(deviceId, { name: existing.name, avatarUrl: existing.avatarUrl || null, provider: 'password', providerId: key });
+    chatNames.set(deviceId, existing.name);
+  } else {
+    // New account
+    chatAccounts.set(key, { name, passwordHash: hash, avatarUrl: null });
+    chatProfiles.set(deviceId, { name, avatarUrl: null, provider: 'password', providerId: key });
+    chatNames.set(deviceId, name);
+  }
+  chatSave();
+  broadcastToDevice(deviceId, { type: 'chat:profile', name: chatGetName(deviceId), avatarUrl: chatGetAvatarUrl(deviceId), provider: 'password' });
+  res.json({ ok: true, name: chatGetName(deviceId), avatarUrl: chatGetAvatarUrl(deviceId) });
 });
 
 app.post('/api/chat/set-name', (req, res) => {

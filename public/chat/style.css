@@ -363,7 +363,8 @@
   cursor: pointer; transition: background .14s;
 }
 .chat-name-save-btn:hover { background: rgba(255,255,255,.16); }
-.chat-login-err { font-size: .77rem; color: #ff8080; min-height: 1em; }
+.chat-login-note { font-size: .72rem; color: var(--text-muted, #556); margin-top: -4px; }
+.chat-login-err  { font-size: .77rem; color: #ff8080; min-height: 1em; }
 
 /* ── Modals ───────────────────────────────────────────────────────────────────── */
 .chat-modal-overlay {
