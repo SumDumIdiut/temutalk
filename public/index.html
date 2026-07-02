@@ -4,6 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#060810">
+  <script>
+    (function(){
+      function applyMobile(){
+        var m = window.innerWidth<=640 || navigator.maxTouchPoints>0 || !!window.ontouchstart;
+        document.documentElement.classList.toggle('mobile',m);
+      }
+      applyMobile();
+      window.addEventListener('resize', applyMobile);
+      window.addEventListener('orientationchange', function(){setTimeout(applyMobile,50);});
+    })();
+  </script>
   <title>Hub</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
