@@ -411,8 +411,10 @@ function q(s){return esc(s).replace(/'/g,'&#39;');}
 function fmtDur(ms){var s=Math.floor(ms/1000),m=Math.floor(s/60);return m+':'+String(s%60).padStart(2,'0');}
 function fmtUp(s){if(s<60)return s+'s';if(s<3600)return Math.floor(s/60)+'m';return Math.floor(s/3600)+'h '+Math.floor((s%3600)/60)+'m';}
 function ini(s){return (String(s||'?')[0]||'?').toUpperCase();}
+function avErr(el){var s=document.createElement('span');s.textContent=(el.alt||'?')[0].toUpperCase();el.parentNode.replaceChild(s,el);}
+function imgHide(el){el.style.display='none';}
 function avHtml(name,url){
-  if(url) return '<img src="'+esc(url)+'" alt="'+esc(name)+'" onerror="this.outerHTML=\'<span>'+ini(name)+'</span>\'">';
+  if(url) return '<img src="'+esc(url)+'" alt="'+esc(name)+'" onerror="avErr(this)">';
   return '<span>'+ini(name)+'</span>';
 }
 function fmtTime(ts){return new Date(ts).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});}
@@ -464,7 +466,7 @@ function renderSidebar(filter){
     var last=msgs[msgs.length-1];
     var badge=unread.get(id)||0;
     var sel=curView==='room'&&curRoom===id;
-    h+='<div class="sid-item'+(sel?' sel':'')+'" onclick="selectRoom(\''+q(id)+'\')">';
+    h+='<div class="sid-item'+(sel?' sel':'')+'" data-room="'+esc(id)+'" onclick="selectRoom(this.dataset.room)">';
     h+='<div class="sid-av">'+avHtml(label,null)+'</div>';
     h+='<div class="sid-info"><div class="sid-name">'+esc(label)+'</div>';
     h+='<div class="sid-prev">'+(last?esc(last.fromName)+': '+esc((last.text||'').slice(0,40)):'<span style="opacity:.4">No messages</span>')+'</div></div>';
@@ -480,7 +482,7 @@ function renderSidebar(filter){
       var track=d.player&&d.player.track;
       var prev=track?'♫ '+track.name+' – '+track.artists:'Connected';
       var sel=curView==='device'&&curDevice===d.deviceId;
-      h+='<div class="sid-item'+(sel?' sel':'')+'" onclick="selectDevice(\''+q(d.deviceId)+'\')">';
+      h+='<div class="sid-item'+(sel?' sel':'')+'" data-device="'+esc(d.deviceId)+'" onclick="selectDevice(this.dataset.device)">';
       h+='<div class="sid-av">'+avHtml(name,null)+'<div class="dot on"></div></div>';
       h+='<div class="sid-info"><div class="sid-name">'+esc(name)+'</div><div class="sid-prev">'+esc(prev)+'</div></div>';
       h+='<div class="sid-meta">'+(d.player&&d.player.isPlaying?'<span class="pill p-g">&#9654;</span>':'')+'<span class="pill p-b">'+d.tabs+'t</span></div>';
@@ -488,10 +490,10 @@ function renderSidebar(filter){
     });
   }
   h+='<div class="sec-hdr">System</div>';
-  h+='<div class="sid-item'+(curView==='terminal'?' sel':'')+'" onclick="selectView(\'terminal\')">';
+  h+='<div class="sid-item'+(curView==='terminal'?' sel':'')+'" onclick="selectView(this.dataset.view)" data-view="terminal">';
   h+='<div class="sid-av" style="font-size:.7rem;font-family:monospace">&gt;_</div>';
   h+='<div class="sid-info"><div class="sid-name">Terminal</div><div class="sid-prev">Server shell</div></div></div>';
-  h+='<div class="sid-item'+(curView==='config'?' sel':'')+'" onclick="selectView(\'config\')">';
+  h+='<div class="sid-item'+(curView==='config'?' sel':'')+'" onclick="selectView(this.dataset.view)" data-view="config">';
   h+='<div class="sid-av">&#9881;</div>';
   h+='<div class="sid-info"><div class="sid-name">Config &amp; Accounts</div><div class="sid-prev">OAuth keys &middot; chat profiles</div></div></div>';
   var sys=adminData.system;
@@ -509,10 +511,10 @@ function renderMsgs(){
     var d=fmtDate(m.ts);
     if(d!==lastDate){h+='<div class="date-div"><span class="date-chip">'+esc(d)+'</span></div>';lastDate=d;}
     var k=q((m.fromName||'').toLowerCase());
-    var av=m.avatarUrl?'<img src="'+esc(m.avatarUrl)+'" onerror="this.outerHTML=\'<span>'+ini(m.fromName)+'</span>\'">':'<span>'+ini(m.fromName)+'</span>';
+    var av=m.avatarUrl?'<img src="'+esc(m.avatarUrl)+'" alt="'+esc(m.fromName)+'" onerror="avErr(this)">':'<span>'+ini(m.fromName)+'</span>';
     h+='<div class="msg-row other">';
-    h+='<button class="msg-av" onclick="pmOpen(\''+k+'\')">'+av+'</button>';
-    h+='<div class="msg-body"><button class="msg-sender" onclick="pmOpen(\''+k+'\')">'+esc(m.fromName||'Unknown')+'</button>';
+    h+='<button class="msg-av" data-key="'+k+'" onclick="pmOpen(this.dataset.key)">'+av+'</button>';
+    h+='<div class="msg-body"><button class="msg-sender" data-key="'+k+'" onclick="pmOpen(this.dataset.key)">'+esc(m.fromName||'Unknown')+'</button>';
     h+='<div class="bubble">'+esc(m.text)+'<span class="msg-time">'+fmtTime(m.ts)+'</span></div></div></div>';
   });
   inner.innerHTML=h;
@@ -526,11 +528,11 @@ function appendMsg(m){
   var empty=inner.querySelector('.msgs-empty');
   if(empty) empty.remove();
   var k=q((m.fromName||'').toLowerCase());
-  var av=m.avatarUrl?'<img src="'+esc(m.avatarUrl)+'" onerror="this.outerHTML=\'<span>'+ini(m.fromName)+'</span>\'">':'<span>'+ini(m.fromName)+'</span>';
+  var av=m.avatarUrl?'<img src="'+esc(m.avatarUrl)+'" alt="'+esc(m.fromName)+'" onerror="avErr(this)">':'<span>'+ini(m.fromName)+'</span>';
   var row=document.createElement('div');
   row.className='msg-row other';
-  row.innerHTML='<button class="msg-av" onclick="pmOpen(\''+k+'\')">'+av+'</button>'
-    +'<div class="msg-body"><button class="msg-sender" onclick="pmOpen(\''+k+'\')">'+esc(m.fromName||'Unknown')+'</button>'
+  row.innerHTML='<button class="msg-av" data-key="'+k+'" onclick="pmOpen(this.dataset.key)">'+av+'</button>'
+    +'<div class="msg-body"><button class="msg-sender" data-key="'+k+'" onclick="pmOpen(this.dataset.key)">'+esc(m.fromName||'Unknown')+'</button>'
     +'<div class="bubble">'+esc(m.text)+'<span class="msg-time">'+fmtTime(m.ts)+'</span></div></div>';
   inner.appendChild(row);
   wrap.scrollTop=wrap.scrollHeight;
@@ -566,7 +568,7 @@ function renderDevice(){
   if(t){
     var pct=t.durationMs?Math.min(100,(t.progressMs||0)/t.durationMs*100).toFixed(1):0;
     h+='<div class="dc"><div class="dc-title">Now Playing</div><div class="album-row">';
-    h+=t.albumArt?'<img class="album-art" src="'+esc(t.albumArt)+'" onerror="this.style.display=\'none\'">':'<div class="album-art"></div>';
+    h+=t.albumArt?'<img class="album-art" src="'+esc(t.albumArt)+'" onerror="imgHide(this)">':'<div class="album-art"></div>';
     h+='<div><div class="track-name">'+esc(t.name)+'</div><div class="track-sub">'+esc(t.artists)+'</div><div class="track-sub">'+esc(t.album||'')+'</div></div></div>';
     h+='<div class="prog-bar"><div class="prog-fill" style="width:'+pct+'%"></div></div>';
     h+='<div class="dc-row" style="margin-top:6px"><span>'+(p.isPlaying?'<span class="pill p-g">&#9654; Playing</span>':'<span class="pill p-n">&#9646;&#9646; Paused</span>')+(p.repeatState&&p.repeatState!=='off'?'<span class="pill p-b">&#8635;</span>':'')+(p.shuffleState?'<span class="pill p-b">&#8652;</span>':'')+'</span>';
@@ -635,7 +637,7 @@ function renderAccounts(){
   chatAccounts.forEach(function(a){
     h+='<div class="acc-item"><div class="acc-av">'+avHtml(a.name,a.avatarUrl)+'</div>';
     h+='<div style="flex:1;min-width:0"><div class="acc-name">'+esc(a.name)+'</div><div class="acc-key">'+esc(a.key)+'</div></div>';
-    h+='<button class="acc-edit" onclick="pmOpen(\''+q(a.key)+'\')">&#9998; Edit</button></div>';
+    h+='<button class="acc-edit" data-key="'+esc(a.key)+'" onclick="pmOpen(this.dataset.key)">&#9998; Edit</button></div>';
   });
   el.innerHTML=h;
 }
