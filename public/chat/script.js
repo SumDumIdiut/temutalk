@@ -58,30 +58,33 @@ function chatInit() {
   if (discordBtn) discordBtn.href = `/auth/chat/discord?device=${encodeURIComponent(deviceId)}`;
   if (googleBtn)  googleBtn.href  = `/auth/chat/google?device=${encodeURIComponent(deviceId)}`;
 
-  // Check if provider buttons are configured
+  // Check server for OAuth profile; show login unless OAuth-authenticated
   fetch('/api/chat/me?device=' + deviceId).then(r => r.json()).then(profile => {
-    if (profile.name && profile.name !== 'User-' + deviceId.slice(0, 6)) {
+    if (profile.provider) {
       chatMyName     = profile.name;
       chatMyAvatar   = profile.avatarUrl;
       chatMyProvider = profile.provider;
       localStorage.setItem('chatName',     chatMyName);
+      localStorage.setItem('chatProvider', chatMyProvider);
       if (chatMyAvatar) localStorage.setItem('chatAvatar', chatMyAvatar);
-      if (chatMyProvider) localStorage.setItem('chatProvider', chatMyProvider);
       chatHideLogin();
-      chatJoinRoom('global');
-    } else if (chatMyName) {
-      // Previously set name — re-register it
-      if (wsReady) ws.send(JSON.stringify({ type: 'chat:set-name', name: chatMyName }));
-      chatHideLogin();
+      chatUpdateAccountRow();
       chatJoinRoom('global');
     } else {
+      const inp = chatEl('chat-name-inp');
+      if (inp && chatMyName) inp.value = chatMyName;
       chatShowLogin();
     }
   }).catch(() => {
-    if (chatMyName) {
+    if (chatMyProvider) {
+      // Trust cached provider on network error
       chatHideLogin();
+      if (wsReady) ws.send(JSON.stringify({ type: 'chat:set-name', name: chatMyName }));
+      chatUpdateAccountRow();
       chatJoinRoom('global');
     } else {
+      const inp = chatEl('chat-name-inp');
+      if (inp && chatMyName) inp.value = chatMyName;
       chatShowLogin();
     }
   });
@@ -108,6 +111,37 @@ function chatHideLogin() {
   if (el) el.style.display = 'none';
 }
 
+function chatUpdateAccountRow() {
+  const row = chatEl('chat-account-row');
+  const nameEl = chatEl('chat-account-name');
+  const avEl   = chatEl('chat-account-avatar');
+  if (!row) return;
+  if (chatMyName) {
+    row.style.display = '';
+    if (nameEl) nameEl.textContent = chatMyName;
+    if (avEl) {
+      avEl.innerHTML = chatMyAvatar
+        ? `<img src="${esc(chatMyAvatar)}" alt="">`
+        : `<div class="chat-avatar" style="width:20px;height:20px;font-size:9px">${esc(chatMyName.slice(0,2).toUpperCase())}</div>`;
+    }
+  } else {
+    row.style.display = 'none';
+  }
+}
+
+function chatSwitchAccount() {
+  chatMyName = ''; chatMyAvatar = null; chatMyProvider = null;
+  localStorage.removeItem('chatName');
+  localStorage.removeItem('chatAvatar');
+  localStorage.removeItem('chatProvider');
+  const row = chatEl('chat-account-row');
+  if (row) row.style.display = 'none';
+  const inp = chatEl('chat-name-inp');
+  if (inp) inp.value = '';
+  chatShowLogin();
+}
+window.chatSwitchAccount = chatSwitchAccount;
+
 function chatSaveName() {
   const inp = chatEl('chat-name-inp');
   const name = (inp?.value || '').trim();
@@ -122,6 +156,7 @@ function chatSaveName() {
   localStorage.removeItem('chatProvider');
   if (wsReady) ws.send(JSON.stringify({ type: 'chat:set-name', name }));
   chatHideLogin();
+  chatUpdateAccountRow();
   chatJoinRoom('global');
 }
 window.chatSaveName = chatSaveName;
@@ -299,6 +334,7 @@ window.chatOnMessage = function (m) {
     if (m.avatarUrl) localStorage.setItem('chatAvatar', m.avatarUrl);
     if (m.provider)  localStorage.setItem('chatProvider', m.provider);
     chatHideLogin();
+    chatUpdateAccountRow();
     if (!chatRoomMsgs['global']) chatJoinRoom('global');
     return;
   }
