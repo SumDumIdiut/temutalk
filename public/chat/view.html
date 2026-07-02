@@ -1,0 +1,82 @@
+<div class="chat-wrap" style="position:relative">
+
+  <!-- Name setup overlay (shown on first visit) -->
+  <div class="chat-name-overlay" id="chat-name-overlay">
+    <div class="chat-name-box">
+      <div class="chat-name-title">Set your chat name</div>
+      <div class="chat-name-sub">Visible to everyone in chat</div>
+      <input class="chat-name-inp" id="chat-name-inp" placeholder="Your display name…" maxlength="32" autocomplete="off"
+        onkeydown="if(event.key==='Enter')chatSaveName()">
+      <button class="chat-name-save-btn" onclick="chatSaveName()">Start chatting →</button>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="chat-sidebar">
+    <div class="chat-sidebar-hdr">
+      <div class="chat-sidebar-title">Chat</div>
+    </div>
+    <div class="chat-sidebar-body" id="chat-sidebar-body">
+
+      <!-- Global channel -->
+      <div class="chat-room-item active" id="chat-room-global" data-room="global" onclick="chatOpenRoom('global')">
+        <div class="chat-room-icon">🌐</div>
+        <div class="chat-room-name">Global</div>
+        <div class="chat-room-badge" id="chat-unread-global" style="display:none">0</div>
+      </div>
+
+      <!-- Friend request notifications -->
+      <div id="chat-friend-reqs"></div>
+
+      <!-- Friends -->
+      <div class="chat-section-label">
+        <span>Friends</span>
+        <button class="chat-add-btn" title="Add friend" onclick="chatShowAddFriend()">+</button>
+      </div>
+      <div id="chat-friends-list"></div>
+
+      <!-- Groups -->
+      <div class="chat-section-label">
+        <span>Groups</span>
+        <button class="chat-add-btn" title="Create or join a group" onclick="chatShowGroupMenu()">+</button>
+      </div>
+      <div id="chat-groups-list"></div>
+
+      <!-- Your device ID (for sharing with friends) -->
+      <div class="chat-device-id" id="chat-did-chip" title="Click to copy your Device ID"></div>
+    </div>
+  </div>
+
+  <!-- Main area -->
+  <div class="chat-main">
+    <div class="chat-topbar" id="chat-topbar">
+      <div class="chat-room-title" id="chat-room-title">Global</div>
+      <button class="chat-call-btn" id="chat-call-btn" onclick="chatToggleCall()">📞 Call</button>
+    </div>
+
+    <!-- Active call bar -->
+    <div class="chat-call-bar" id="chat-call-bar">
+      <div class="chat-call-label">🔊 In call</div>
+      <div class="chat-call-peers" id="chat-call-peers"></div>
+      <button class="chat-mute-btn" id="chat-mute-btn" onclick="chatToggleMute()">Mute</button>
+      <button class="chat-mute-btn" onclick="chatLeaveCall()" style="color:#ff8080">Leave</button>
+    </div>
+
+    <!-- Messages -->
+    <div class="chat-messages" id="chat-messages">
+      <div class="chat-empty" id="chat-empty">
+        <div class="chat-empty-icon">💬</div>
+        <div class="chat-empty-text">No messages yet. Say hello!</div>
+      </div>
+    </div>
+
+    <!-- Input -->
+    <div class="chat-input-bar">
+      <textarea class="chat-input" id="chat-input" placeholder="Message…" rows="1"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();chatSend();}"
+        oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px'"></textarea>
+      <button class="chat-send-btn" id="chat-send-btn" onclick="chatSend()">Send</button>
+    </div>
+  </div>
+
+</div>
