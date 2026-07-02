@@ -403,7 +403,7 @@ do_check_updates() {
       ok "Updated."
       if server_running; then
         read -rp "  Restart server to apply changes? [y/N] " r
-        [[ "$r" =~ ^[Yy]$ ]] && { do_stop; do_start; }
+        [[ "$r" =~ ^[Yy]$ ]] && { stop_node; start_node; }
       fi
     else
       err "Pull failed — resolve manually with 'git status'."
