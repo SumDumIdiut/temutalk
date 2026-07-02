@@ -11,6 +11,10 @@ let chatMyProvider = null;
 const chatGroupMap   = {};   // id → { id, name }
 const chatRoomUnread = {};   // room → count
 const chatRoomMsgs   = {};   // room → [msg, ...]
+const chatFriendMap  = {};   // uid → { id, name, avatarUrl }
+const chatPendingIn  = {};   // uid → { id, name, avatarUrl }  (incoming requests)
+const chatPendingOut = new Set(); // uids I've sent requests to
+const chatDMInfo     = {};   // dmRoomId → { uid, name, avatarUrl }
 
 // Call state
 let chatInCall      = false;
@@ -26,12 +30,16 @@ function esc(s) {
   return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 function chatEl(id) { return document.getElementById(id); }
-function avatarHtml(name, url, size = 32) {
+function avatarHtml(name, url, size = 32, clickData = null) {
   const initials = esc((name || '?').slice(0, 2).toUpperCase());
+  const cursor   = clickData ? 'cursor:pointer;' : '';
+  const attrs    = clickData
+    ? ` data-uid="${esc(clickData.uid)}" data-name="${esc(clickData.name)}" data-av="${esc(clickData.av||'')}" onclick="chatAvatarClick(event,this)"`
+    : '';
   if (url) {
-    return `<div class="chat-avatar" style="width:${size}px;height:${size}px"><img src="${esc(url)}" alt="${esc(name)}" onerror="this.parentElement.innerHTML='${initials}'"></div>`;
+    return `<div class="chat-avatar"${attrs} style="${cursor}width:${size}px;height:${size}px"><img src="${esc(url)}" alt="${esc(name)}" onerror="this.parentElement.innerHTML='${initials}'"></div>`;
   }
-  return `<div class="chat-avatar" style="width:${size}px;height:${size}px">${initials}</div>`;
+  return `<div class="chat-avatar"${attrs} style="${cursor}width:${size}px;height:${size}px">${initials}</div>`;
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
@@ -104,6 +112,7 @@ function chatRoomLabel(room) {
   if (room === 'global') return 'Global';
   if (room.startsWith('group:')) return chatGroupMap[room]?.name || 'Group';
   if (room.startsWith('dm:')) {
+    if (chatDMInfo[room]) return chatDMInfo[room].name;
     const otherId = room.slice(3).split(':').find(id => id !== deviceId);
     return chatFriendMap[otherId]?.name || 'DM';
   }
@@ -133,6 +142,7 @@ window.chatOpenRoom = chatOpenRoom;
 function chatRenderSidebar() {
   if (!_chatReady) return;
 
+  // Groups
   const groupEl = chatEl('chat-groups-list');
   if (groupEl) {
     const groups = Object.values(chatGroupMap);
@@ -146,9 +156,62 @@ function chatRenderSidebar() {
     }).join('');
   }
 
+  // Global unread badge
   const gu = chatRoomUnread['global'] || 0;
   const gb = chatEl('chat-unread-global');
   if (gb) { gb.textContent = gu; gb.style.display = gu ? '' : 'none'; }
+
+  // DMs section
+  const pendingIn = Object.values(chatPendingIn);
+  const friends   = Object.values(chatFriendMap);
+  const openDMs   = Object.values(chatDMInfo).filter(d => !chatFriendMap[d.uid]);
+  const dmsLabel  = chatEl('chat-dms-label');
+  const dmsEl     = chatEl('chat-dms-list');
+  if (dmsLabel) dmsLabel.style.display = (pendingIn.length || friends.length || openDMs.length) ? '' : 'none';
+  if (dmsEl) {
+    let html = '';
+    // Incoming requests
+    for (const p of pendingIn) {
+      const avHtml = p.avatarUrl
+        ? `<img src="${esc(p.avatarUrl)}" class="chat-dm-req-av" alt="">`
+        : `<div class="chat-dm-req-av chat-dm-req-av-init">${esc((p.name||'?').slice(0,2).toUpperCase())}</div>`;
+      html += `<div class="chat-dm-req-item">
+        ${avHtml}
+        <div class="chat-dm-req-name">${esc(p.name)}</div>
+        <div class="chat-dm-req-btns">
+          <button class="chat-dm-req-btn chat-dm-req-accept" title="Accept" onclick="chatAcceptFriendReq('${p.id}')">✓</button>
+          <button class="chat-dm-req-btn chat-dm-req-reject" title="Decline" onclick="chatRejectFriendReq('${p.id}')">✕</button>
+        </div>
+      </div>`;
+    }
+    // Friends as DM items
+    for (const f of friends) {
+      const dmRoom = 'dm:' + [deviceId, f.id].sort().join(':');
+      const u = chatRoomUnread[dmRoom] || 0;
+      const avHtml = f.avatarUrl
+        ? `<div class="chat-room-icon"><img src="${esc(f.avatarUrl)}" alt="${esc(f.name)}"></div>`
+        : `<div class="chat-room-icon" style="font-size:11px">${esc((f.name||'?').slice(0,2).toUpperCase())}</div>`;
+      html += `<div class="chat-room-item${dmRoom === chatRoom ? ' active' : ''}" data-room="${dmRoom}" data-uid="${esc(f.id)}" data-name="${esc(f.name)}" data-av="${esc(f.avatarUrl||'')}" onclick="chatDmItemClick(this)">
+        ${avHtml}
+        <div class="chat-room-name">${esc(f.name)}</div>
+        ${u ? `<div class="chat-room-badge">${u}</div>` : ''}
+      </div>`;
+    }
+    // Open DMs with non-friends
+    for (const d of openDMs) {
+      const dmRoom = 'dm:' + [deviceId, d.uid].sort().join(':');
+      const u = chatRoomUnread[dmRoom] || 0;
+      const avHtml = d.avatarUrl
+        ? `<div class="chat-room-icon"><img src="${esc(d.avatarUrl)}" alt="${esc(d.name)}"></div>`
+        : `<div class="chat-room-icon" style="font-size:11px">${esc((d.name||'?').slice(0,2).toUpperCase())}</div>`;
+      html += `<div class="chat-room-item${dmRoom === chatRoom ? ' active' : ''}" data-room="${dmRoom}" data-uid="${esc(d.uid)}" data-name="${esc(d.name)}" data-av="${esc(d.avatarUrl||'')}" onclick="chatDmItemClick(this)">
+        ${avHtml}
+        <div class="chat-room-name">${esc(d.name)}</div>
+        ${u ? `<div class="chat-room-badge">${u}</div>` : ''}
+      </div>`;
+    }
+    dmsEl.innerHTML = html;
+  }
 }
 
 // ── Messages ──────────────────────────────────────────────────────────────────
@@ -181,11 +244,13 @@ function chatRenderMessages() {
     const showName = !own && m.from !== lastFrom;
     lastFrom = m.from;
     const timeStr = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    const clickData = own ? null : { uid: m.from, name: m.fromName, av: m.avatarUrl || '' };
+    const nameAttrs = own ? '' : ` class="chat-msg-name clickable" data-uid="${esc(m.from)}" data-name="${esc(m.fromName)}" data-av="${esc(m.avatarUrl||'')}" onclick="chatAvatarClick(event,this)"`;
 
     html += `<div class="chat-msg${own ? ' own' : ''}">
-      ${avatarHtml(m.fromName, m.avatarUrl)}
+      ${avatarHtml(m.fromName, m.avatarUrl, 32, clickData)}
       <div class="chat-msg-body">
-        ${showName ? `<div class="chat-msg-name">${esc(m.fromName)}</div>` : ''}
+        ${showName ? `<div${own ? ' class="chat-msg-name"' : nameAttrs}>${esc(m.fromName)}</div>` : ''}
         <div class="chat-msg-bubble">${esc(m.text)}</div>
         <div class="chat-msg-time">${esc(timeStr)}</div>
       </div>
@@ -222,6 +287,130 @@ function chatSend() {
 }
 window.chatSend = chatSend;
 
+// ── Avatar click / User card ──────────────────────────────────────────────────
+function chatAvatarClick(e, el) {
+  const uid  = el.dataset.uid;
+  const name = el.dataset.name;
+  const av   = el.dataset.av || '';
+  if (!uid || uid === deviceId) return;
+  e.stopPropagation();
+  chatShowUserCard(e, uid, name, av);
+}
+window.chatAvatarClick = chatAvatarClick;
+
+function chatShowUserCard(e, uid, name, av) {
+  document.getElementById('chat-user-card')?.remove();
+
+  const card = document.createElement('div');
+  card.id = 'chat-user-card';
+  card.className = 'chat-user-card';
+
+  const avContent = av
+    ? `<img src="${esc(av)}" alt="${esc(name)}">`
+    : esc((name || '?').slice(0, 2).toUpperCase());
+
+  card.innerHTML = `
+    <div class="chat-card-avatar">${avContent}</div>
+    <div class="chat-card-name">${esc(name)}</div>
+    <div class="chat-card-actions">
+      <button class="chat-card-btn chat-card-btn-msg" id="chat-card-msg-btn">Message</button>
+      <button class="chat-card-btn" id="chat-card-friend-btn"></button>
+    </div>`;
+
+  document.body.appendChild(card);
+
+  // Position near cursor
+  const rect = card.getBoundingClientRect();
+  let x = e.clientX + 12;
+  let y = e.clientY - Math.round(rect.height / 2);
+  if (x + rect.width  > window.innerWidth  - 10) x = e.clientX - rect.width - 12;
+  if (y + rect.height > window.innerHeight - 10) y = window.innerHeight - rect.height - 10;
+  if (y < 10) y = 10;
+  card.style.left = x + 'px';
+  card.style.top  = y + 'px';
+
+  card.querySelector('#chat-card-msg-btn').onclick = () => {
+    chatOpenDM(uid, name, av);
+    card.remove();
+  };
+
+  const friendBtn = card.querySelector('#chat-card-friend-btn');
+  function refreshFriendBtn() {
+    const isFriend     = !!chatFriendMap[uid];
+    const isPendingOut = chatPendingOut.has(uid);
+    const isPendingIn  = !!chatPendingIn[uid];
+    if (isFriend) {
+      friendBtn.textContent = '✓ Friends';
+      friendBtn.className   = 'chat-card-btn chat-card-btn-friends';
+      friendBtn.disabled    = true;
+      friendBtn.onclick     = null;
+    } else if (isPendingIn) {
+      friendBtn.textContent = 'Accept Request';
+      friendBtn.className   = 'chat-card-btn chat-card-btn-primary';
+      friendBtn.disabled    = false;
+      friendBtn.onclick     = () => { chatAcceptFriendReq(uid); refreshFriendBtn(); };
+    } else if (isPendingOut) {
+      friendBtn.textContent = 'Request Sent';
+      friendBtn.className   = 'chat-card-btn chat-card-btn-muted';
+      friendBtn.disabled    = true;
+      friendBtn.onclick     = null;
+    } else {
+      friendBtn.textContent = 'Add Friend';
+      friendBtn.className   = 'chat-card-btn chat-card-btn-primary';
+      friendBtn.disabled    = false;
+      friendBtn.onclick     = () => { chatDoSendFriendReq(uid, name, av); refreshFriendBtn(); };
+    }
+  }
+  refreshFriendBtn();
+
+  setTimeout(() => {
+    document.addEventListener('click', function closeFn(ev) {
+      if (!card.contains(ev.target)) {
+        card.remove();
+        document.removeEventListener('click', closeFn);
+      }
+    });
+  }, 0);
+}
+window.chatShowUserCard = chatShowUserCard;
+
+// ── DM helpers ────────────────────────────────────────────────────────────────
+function chatDmItemClick(el) {
+  chatOpenDM(el.dataset.uid, el.dataset.name, el.dataset.av || '');
+}
+window.chatDmItemClick = chatDmItemClick;
+
+function chatOpenDM(uid, name, av) {
+  const dmRoom = 'dm:' + [deviceId, uid].sort().join(':');
+  if (!chatDMInfo[dmRoom]) chatDMInfo[dmRoom] = { uid, name, avatarUrl: av };
+  chatOpenRoom(dmRoom);
+  chatRenderSidebar();
+}
+window.chatOpenDM = chatOpenDM;
+
+// ── Friend requests ───────────────────────────────────────────────────────────
+function chatDoSendFriendReq(uid) {
+  chatPendingOut.add(uid);
+  ws.send(JSON.stringify({ type: 'chat:friend-req', targetId: uid }));
+  chatRenderSidebar();
+}
+window.chatDoSendFriendReq = chatDoSendFriendReq;
+
+function chatAcceptFriendReq(uid) {
+  const info = chatPendingIn[uid];
+  if (info) { chatFriendMap[uid] = info; delete chatPendingIn[uid]; }
+  ws.send(JSON.stringify({ type: 'chat:friend-accept', fromId: uid }));
+  chatRenderSidebar();
+}
+window.chatAcceptFriendReq = chatAcceptFriendReq;
+
+function chatRejectFriendReq(uid) {
+  delete chatPendingIn[uid];
+  ws.send(JSON.stringify({ type: 'chat:friend-reject', fromId: uid }));
+  chatRenderSidebar();
+}
+window.chatRejectFriendReq = chatRejectFriendReq;
+
 // ── WS message dispatcher ─────────────────────────────────────────────────────
 window.chatOnMessage = function (m) {
   if (m.type === 'chat:history') {
@@ -249,6 +438,23 @@ window.chatOnMessage = function (m) {
   }
   if (m.type === 'chat:group-created') {
     chatGroupMap[m.group.id] = m.group;
+    chatRenderSidebar();
+    return;
+  }
+  if (m.type === 'chat:friends-list') {
+    for (const f of (m.friends || [])) chatFriendMap[f.id] = f;
+    chatRenderSidebar();
+    return;
+  }
+  if (m.type === 'chat:friend-req') {
+    chatPendingIn[m.fromId] = { id: m.fromId, name: m.fromName, avatarUrl: m.avatarUrl || '' };
+    chatRenderSidebar();
+    return;
+  }
+  if (m.type === 'chat:friend-accepted') {
+    chatFriendMap[m.byId] = { id: m.byId, name: m.byName, avatarUrl: m.byAvatarUrl || '' };
+    chatPendingOut.delete(m.byId);
+    delete chatPendingIn[m.byId];
     chatRenderSidebar();
     return;
   }

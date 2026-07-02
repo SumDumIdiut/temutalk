@@ -1142,8 +1142,9 @@ function chatSave() {
         created:  g.created,
       })),
       dms:     [...chatDMs.entries()].map(([k, v]) => ({ key: k, messages: v.messages.slice(-CHAT_MSG_LIMIT) })),
-      friends: [...chatFriends.entries()].map(([k, v]) => [k, [...v]]),
-      global:  chatGlobal.messages.slice(-CHAT_MSG_LIMIT),
+      friends:    [...chatFriends.entries()].map(([k, v]) => [k, [...v]]),
+      friendReqs: [...chatFriendReqs.entries()].map(([k, v]) => [k, [...v]]),
+      global:     chatGlobal.messages.slice(-CHAT_MSG_LIMIT),
     };
     fs.writeFile(CHAT_STATE_FILE, JSON.stringify(data), err => {
       if (err) console.error('[chat] save error:', err.message);
@@ -1161,7 +1162,8 @@ function chatSave() {
       chatGroups.set(g.id, { ...g, members: new Set(g.members || []), messages: g.messages || [] });
     }
     for (const { key, messages } of (data.dms || [])) chatDMs.set(key, { messages: messages || [] });
-    for (const [k, v] of (data.friends || [])) chatFriends.set(k, new Set(v));
+    for (const [k, v] of (data.friends    || [])) chatFriends.set(k, new Set(v));
+    for (const [k, v] of (data.friendReqs || [])) chatFriendReqs.set(k, new Set(v));
     if (data.global) chatGlobal.messages = data.global;
     console.log('[chat] state loaded');
   } catch (e) { if (e.code !== 'ENOENT') console.error('[chat] load error:', e.message); }
@@ -1286,6 +1288,18 @@ wss.on('connection', (ws, req) => {
       const dev = devices.get(wsDeviceId);
       ws.send(JSON.stringify({ type: 'status', authenticated: !!(dev?.tokens?.access_token) }));
       ws.send(JSON.stringify({ type: 'mse-broadcaster-status', online: !!(mseBroadcaster?.readyState === WebSocket.OPEN), mimeType: mseMimeType }));
+      // Send friends list
+      const myFriends = chatFriends.get(wsDeviceId);
+      if (myFriends?.size) {
+        ws.send(JSON.stringify({ type: 'chat:friends-list', friends: [...myFriends].map(id => ({ id, name: chatGetName(id), avatarUrl: chatGetAvatarUrl(id) })) }));
+      }
+      // Replay pending incoming friend requests
+      const pendingReqs = chatFriendReqs.get(wsDeviceId);
+      if (pendingReqs?.size) {
+        for (const fromId of pendingReqs) {
+          ws.send(JSON.stringify({ type: 'chat:friend-req', fromId, fromName: chatGetName(fromId), avatarUrl: chatGetAvatarUrl(fromId) }));
+        }
+      }
       return;
     }
 
@@ -1403,10 +1417,11 @@ wss.on('connection', (ws, req) => {
 
     if (msg.type === 'chat:friend-req' && wsDeviceId) {
       const targetId = String(msg.targetId || '');
-      if (!targetId || targetId === wsDeviceId || !deviceClients.has(targetId)) return;
+      if (!targetId || targetId === wsDeviceId) return;
       if (!chatFriendReqs.has(targetId)) chatFriendReqs.set(targetId, new Set());
       chatFriendReqs.get(targetId).add(wsDeviceId);
-      broadcastToDevice(targetId, { type: 'chat:friend-req', fromId: wsDeviceId, fromName: chatGetName(wsDeviceId) });
+      chatSave();
+      broadcastToDevice(targetId, { type: 'chat:friend-req', fromId: wsDeviceId, fromName: chatGetName(wsDeviceId), avatarUrl: chatGetAvatarUrl(wsDeviceId) });
       return;
     }
 
@@ -1419,13 +1434,14 @@ wss.on('connection', (ws, req) => {
       chatFriends.get(wsDeviceId).add(fromId);
       chatFriends.get(fromId).add(wsDeviceId);
       chatSave();
-      broadcastToDevice(fromId, { type: 'chat:friend-accepted', byId: wsDeviceId, byName: chatGetName(wsDeviceId) });
-      ws.send(JSON.stringify({ type: 'chat:friend-accepted', byId: fromId, byName: chatGetName(fromId) }));
+      broadcastToDevice(fromId, { type: 'chat:friend-accepted', byId: wsDeviceId, byName: chatGetName(wsDeviceId), byAvatarUrl: chatGetAvatarUrl(wsDeviceId) });
+      ws.send(JSON.stringify({ type: 'chat:friend-accepted', byId: fromId, byName: chatGetName(fromId), byAvatarUrl: chatGetAvatarUrl(fromId) }));
       return;
     }
 
     if (msg.type === 'chat:friend-reject' && wsDeviceId) {
       chatFriendReqs.get(wsDeviceId)?.delete(String(msg.fromId || ''));
+      chatSave();
       return;
     }
 
