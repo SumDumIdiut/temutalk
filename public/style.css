@@ -502,10 +502,10 @@ body[data-tab="weather"] .b3 { background: radial-gradient(circle, rgba(62,245,1
     width: 100%;
     height: var(--nav-h);
     flex-direction: row;
-    padding: 0 4px env(safe-area-inset-bottom, 0);
+    padding: 0;
     border-right: none;
     border-top: 1px solid rgba(255,255,255,.1);
-    justify-content: space-around;
+    justify-content: flex-start;
     overflow-x: auto;
     overflow-y: hidden;
     scrollbar-width: none;
@@ -513,8 +513,9 @@ body[data-tab="weather"] .b3 { background: radial-gradient(circle, rgba(62,245,1
   .nav::-webkit-scrollbar { display: none; }
 
   .nav-item {
-    flex: 1 0 auto;
-    min-width: 52px;
+    flex: 1 1 0;
+    min-width: 56px;
+    max-width: 88px;
     padding: 6px 0 4px;
     gap: 2px;
   }
