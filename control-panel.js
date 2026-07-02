@@ -489,7 +489,7 @@ function renderSidebar(filter){
   h+='<div class="sid-info"><div class="sid-name">Terminal</div><div class="sid-prev">Server shell</div></div></div>';
   h+='<div class="sid-item'+(curView==='config'?' sel':'')+'" onclick="selectView(this.dataset.view)" data-view="config">';
   h+='<div class="sid-av">&#9881;</div>';
-  h+='<div class="sid-info"><div class="sid-name">Config &amp; Accounts</div><div class="sid-prev">OAuth keys &middot; chat profiles</div></div></div>';
+  h+='<div class="sid-info"><div class="sid-name">Accounts &amp; Groups</div><div class="sid-prev">Spotify users &middot; groups</div></div></div>';
   var sys=adminData.system;
   if(sys) h+='<div style="padding:8px 16px 12px;font-size:.7rem;color:#3a4a54">'+esc(sys.hostname)+' &middot; up '+fmtUp(sys.uptime)+' &middot; load '+(sys.loadAvg&&sys.loadAvg[0]?sys.loadAvg[0].toFixed(2):'?')+' &middot; RAM '+sys.memPct+'%</div>';
   document.getElementById('sid-body').innerHTML=h;
