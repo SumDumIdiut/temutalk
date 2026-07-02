@@ -16,11 +16,14 @@
         Continue with Google
       </a>
 
-      <div class="chat-login-divider">or use a display name</div>
+      <div class="chat-login-divider">or use a username &amp; password</div>
 
-      <input class="chat-name-inp" id="chat-name-inp" placeholder="Display name…" maxlength="32" autocomplete="off"
+      <input class="chat-name-inp" id="chat-name-inp" placeholder="Name…" maxlength="32" autocomplete="username"
+        onkeydown="if(event.key==='Enter')document.getElementById('chat-pass-inp').focus()">
+      <input class="chat-name-inp" id="chat-pass-inp" type="password" placeholder="Password…" maxlength="72" autocomplete="current-password"
         onkeydown="if(event.key==='Enter')chatSaveName()">
-      <button class="chat-name-save-btn" onclick="chatSaveName()">Continue →</button>
+      <button class="chat-name-save-btn" onclick="chatSaveName()">Sign in / Register →</button>
+      <div class="chat-login-note">New here? An account is created automatically.</div>
       <div class="chat-login-err" id="chat-login-err"></div>
     </div>
   </div>

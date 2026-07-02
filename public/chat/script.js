@@ -143,21 +143,36 @@ function chatSwitchAccount() {
 window.chatSwitchAccount = chatSwitchAccount;
 
 function chatSaveName() {
-  const inp = chatEl('chat-name-inp');
-  const name = (inp?.value || '').trim();
-  const errEl = chatEl('chat-login-err');
-  if (!name) { if (errEl) errEl.textContent = 'Enter a display name'; inp?.focus(); return; }
+  const nameInp = chatEl('chat-name-inp');
+  const passInp = chatEl('chat-pass-inp');
+  const errEl   = chatEl('chat-login-err');
+  const name = (nameInp?.value || '').trim();
+  const pass = (passInp?.value || '').trim();
+  if (!name) { if (errEl) errEl.textContent = 'Enter a name'; nameInp?.focus(); return; }
+  if (!pass) { if (errEl) errEl.textContent = 'Enter a password'; passInp?.focus(); return; }
   if (errEl) errEl.textContent = '';
-  chatMyName = name;
-  chatMyAvatar = null;
-  chatMyProvider = null;
-  localStorage.setItem('chatName', name);
-  localStorage.removeItem('chatAvatar');
-  localStorage.removeItem('chatProvider');
-  if (wsReady) ws.send(JSON.stringify({ type: 'chat:set-name', name }));
-  chatHideLogin();
-  chatUpdateAccountRow();
-  chatJoinRoom('global');
+  const btn = document.querySelector('.chat-name-save-btn');
+  if (btn) btn.disabled = true;
+  fetch(`/api/chat/login?device=${encodeURIComponent(deviceId)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, password: pass }),
+  }).then(r => r.json()).then(d => {
+    if (btn) btn.disabled = false;
+    if (!d.ok) { if (errEl) errEl.textContent = d.error || 'Login failed'; return; }
+    chatMyName     = d.name;
+    chatMyAvatar   = d.avatarUrl || null;
+    chatMyProvider = 'password';
+    localStorage.setItem('chatName',     chatMyName);
+    localStorage.setItem('chatProvider', 'password');
+    if (chatMyAvatar) localStorage.setItem('chatAvatar', chatMyAvatar);
+    chatHideLogin();
+    chatUpdateAccountRow();
+    chatJoinRoom('global');
+  }).catch(() => {
+    if (btn) btn.disabled = false;
+    if (errEl) errEl.textContent = 'Network error — try again';
+  });
 }
 window.chatSaveName = chatSaveName;
 
