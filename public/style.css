@@ -484,7 +484,7 @@ body[data-tab="weather"] .b3 { background: radial-gradient(circle, rgba(62,245,1
 }
 
 /* ── Mobile layout (bottom nav) ─────────────────────────────────────────── */
-@media (max-width: 640px), (max-width: 900px) and (pointer: coarse) {
+@media (max-width: 640px), (hover: none) {
   :root {
     --nav-w: 0px;
     --nav-h: 58px;
