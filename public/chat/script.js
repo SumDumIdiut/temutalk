@@ -40,6 +40,10 @@ function chatInit() {
   if (_chatReady) return;
   _chatReady = true;
 
+  // Move login overlay to document.body so parent transforms don't clip it
+  const _ov = chatEl('chat-login-overlay');
+  if (_ov && _ov.parentElement !== document.body) document.body.appendChild(_ov);
+
   // Device ID chip
   const chip = chatEl('chat-did-chip');
   if (chip) {
