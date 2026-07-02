@@ -68,7 +68,11 @@ function _initBrowserPlayer() {
   browserPlayer = new Spotify.Player({
     name: 'TemuTalk',
     getOAuthToken: cb => {
-      fetch('/api/token?device=' + deviceId).then(r => r.json()).then(d => cb(d.token || d.access_token || '')).catch(() => cb(''));
+      fetch('/api/token?device=' + deviceId).then(r => r.json()).then(d => {
+        const tok = d.token || d.access_token || '';
+        console.log('[player] getOAuthToken returning:', tok ? tok.slice(0,20)+'…' : '(empty)', 'd=', JSON.stringify(d).slice(0,80));
+        cb(tok);
+      }).catch(e => { console.log('[player] getOAuthToken fetch error:', e); cb(''); });
     },
     volume: vol,
   });
