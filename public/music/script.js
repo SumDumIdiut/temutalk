@@ -223,7 +223,20 @@ function renderRepeat() {
 
 function action(name) {
   if (browserPlayer && browserPlayerReady) {
-    if (name === 'play')     { browserPlayer.activateElement(); browserPlayer.resume(); return; }
+    if (name === 'play') {
+      browserPlayer.activateElement();
+      browserPlayer.getCurrentState().then(state => {
+        if (state) {
+          browserPlayer.resume();
+        } else {
+          // Nothing queued on browser player — transfer playback to it first
+          api('/api/transfer', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ device_id: browserPlayer._deviceId }) })
+            .then(() => setTimeout(() => browserPlayer.resume(), 600))
+            .catch(() => api('/api/player/play', { method: 'POST' }));
+        }
+      });
+      return;
+    }
     if (name === 'pause')    { browserPlayer.pause(); return; }
     if (name === 'next')     { browserPlayer.nextTrack(); return; }
     if (name === 'previous') { browserPlayer.previousTrack(); return; }
