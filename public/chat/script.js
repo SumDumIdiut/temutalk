@@ -107,6 +107,20 @@ function chatUpdateAccountRow() {
 }
 
 
+// ── Announcement bar ──────────────────────────────────────────────────────────
+function chatUpdateAnnouncementBar() {
+  const bar  = chatEl('chat-ann-bar');
+  const text = chatEl('chat-ann-text');
+  const time = chatEl('chat-ann-time');
+  if (!bar) return;
+  const msgs = chatRoomMsgs[chatRoom] || [];
+  const latest = [...msgs].reverse().find(m => m.from === 'panel-bot' || m.isPanelMsg);
+  if (!latest) { bar.style.display = 'none'; return; }
+  bar.style.display = '';
+  if (text) text.textContent = latest.text;
+  if (time) time.textContent = new Date(latest.ts).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+}
+
 // ── Room ──────────────────────────────────────────────────────────────────────
 function chatRoomLabel(room) {
   if (room === 'global') return 'Global';
@@ -127,6 +141,7 @@ function chatJoinRoom(room) {
   if (title) title.textContent = chatRoomLabel(room);
   chatRenderMessages();
   chatUpdateCallBar();
+  chatUpdateAnnouncementBar();
   chatEl('chat-input')?.focus();
 }
 
@@ -240,10 +255,23 @@ function chatRenderMessages() {
       lastDate = dateStr;
       lastFrom = '';
     }
+    // Panel bot messages render as full-width announcements
+    if (m.from === 'panel-bot' || m.isPanelMsg) {
+      html += `<div class="chat-panel-msg">
+        <div class="chat-panel-icon">📢</div>
+        <div class="chat-panel-body">
+          <div class="chat-panel-name">Server <span class="chat-panel-badge">ADMIN</span></div>
+          <div class="chat-panel-bubble">${esc(m.text)}</div>
+          <div class="chat-panel-time">${esc(timeStr)}</div>
+        </div>
+      </div>`;
+      lastFrom = m.from;
+      continue;
+    }
+
     const own = m.from === deviceId;
     const showName = !own && m.from !== lastFrom;
     lastFrom = m.from;
-    const timeStr = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
     const clickData = own ? null : { uid: m.from, name: m.fromName, av: m.avatarUrl || '' };
     const nameAttrs = own ? '' : ` class="chat-msg-name clickable" data-uid="${esc(m.from)}" data-name="${esc(m.fromName)}" data-av="${esc(m.avatarUrl||'')}" onclick="chatAvatarClick(event,this)"`;
 
@@ -271,6 +299,7 @@ function chatAppendMessage(room, m) {
     const atBottom = el ? (el.scrollHeight - el.scrollTop - el.clientHeight < 100) : true;
     chatRenderMessages();
     if (atBottom && el) el.scrollTop = el.scrollHeight;
+    if (m.from === 'panel-bot' || m.isPanelMsg) chatUpdateAnnouncementBar();
   } else {
     chatRoomUnread[room] = (chatRoomUnread[room] || 0) + 1;
     chatRenderSidebar();
@@ -415,7 +444,7 @@ window.chatRejectFriendReq = chatRejectFriendReq;
 window.chatOnMessage = function (m) {
   if (m.type === 'chat:history') {
     chatRoomMsgs[m.room] = m.messages || [];
-    if (m.room === chatRoom) chatRenderMessages();
+    if (m.room === chatRoom) { chatRenderMessages(); chatUpdateAnnouncementBar(); }
     return;
   }
   if (m.type === 'chat:msg') {
