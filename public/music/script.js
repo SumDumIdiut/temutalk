@@ -25,7 +25,8 @@ function loadBrowserPlayer() {
   if (window.Spotify) { _initBrowserPlayer(); return; }
   if (document.querySelector('script[src*="spotify-player"]')) return;
   const tag = document.createElement('script');
-  tag.src = 'https://sdk.scdn.co/spotify-player.js';
+  tag.src = '/spotify-player.js';
+  tag.addEventListener('error', () => console.error('[player] SDK script failed to load'));
   document.head.appendChild(tag);
   const prev = window.onSpotifyWebPlaybackSDKReady;
   window.onSpotifyWebPlaybackSDKReady = () => { if (prev) prev(); _initBrowserPlayer(); };
