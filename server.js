@@ -1787,7 +1787,9 @@ app.post('/api/admin/test-friend-all', express.json(), (req, res) => {
   const ip = req.socket.remoteAddress || '';
   if (!['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(ip)) return res.status(403).json({ error: 'forbidden' });
   let count = 0;
-  for (const [devId] of chatAccounts) {
+  // Use all known device IDs: Spotify users + anyone who has set a chat name
+  const candidates = new Set([...devices.keys(), ...chatNames.keys()]);
+  for (const devId of candidates) {
     if (devId === TEST_USER_ID || devId === PANEL_BOT_ID) continue;
     if (!chatFriends.has(TEST_USER_ID)) chatFriends.set(TEST_USER_ID, new Set());
     if (!chatFriends.has(devId)) chatFriends.set(devId, new Set());
