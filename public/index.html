@@ -957,10 +957,19 @@ function toggleFullscreen() {
 }
 
 function openMobilePreview() {
-  const W = 390, H = 844;
-  const popup = window.open(location.href, 'mobile_preview',
-    `width=${W},height=${H},menubar=no,toolbar=no,location=no,status=no,scrollbars=no,resizable=yes`);
-  if (!popup) alert('Allow popups for this site to use mobile preview.');
+  const btn  = document.getElementById('mobile-preview-btn');
+  const meta = document.querySelector('meta[name="viewport"]');
+  const active = document.documentElement.hasAttribute('data-mobile-sim');
+  if (active) {
+    document.documentElement.removeAttribute('data-mobile-sim');
+    meta.content = 'width=device-width, initial-scale=1.0, viewport-fit=cover';
+    btn.style.opacity = '';
+  } else {
+    document.documentElement.setAttribute('data-mobile-sim', '');
+    meta.content = 'width=390, initial-scale=1.0';
+    btn.style.opacity = '1';
+    btn.style.color = 'var(--primary)';
+  }
 }
 document.addEventListener('fullscreenchange', () => {
   document.getElementById('fs-path').setAttribute('d', document.fullscreenElement ? FS_SHRINK : FS_EXPAND);
