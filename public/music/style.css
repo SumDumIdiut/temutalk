@@ -214,65 +214,63 @@
     .live-empty { font-size: 13px; color: var(--text-muted); padding: 12px; text-align: center; }
 
 /* ── Mobile music layout ─────────────────────────────────────────────────── */
-@media (max-width: 640px), (hover: none) {
-  #app-body {
-    flex-direction: column;
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding: 6px 6px 0;
-    gap: 6px;
-  }
-
-  #left-sidebar {
-    width: 100%;
-    flex-shrink: 0;
-    max-height: 220px;
-    border-radius: var(--radius-sm);
-  }
-
-  #lib-tabs { overflow-x: auto; scrollbar-width: none; }
-  #lib-tabs::-webkit-scrollbar { display: none; }
-
-  #center-panel {
-    flex-shrink: 0;
-    min-height: 340px;
-    border-radius: var(--radius-sm);
-  }
-
-  #right-sidebar {
-    width: 100%;
-    flex-shrink: 0;
-    border-radius: var(--radius-sm);
-    max-height: 360px;
-  }
-
-  #player-bar {
-    flex-wrap: wrap;
-    height: auto;
-    min-height: 80px;
-    padding: 8px 10px 10px;
-    margin: 0 6px 6px;
-    gap: 6px;
-    border-radius: var(--radius-sm);
-  }
-
-  #bar-info {
-    flex: 0 0 auto;
-    width: calc(100% - 80px);
-  }
-
-  #bar-vol {
-    flex: 0 0 70px;
-    gap: 4px;
-  }
-  #bar-vol input { display: none; }
-
-  #bar-center {
-    flex: 0 0 100%;
-    padding: 0;
-  }
-
-  #view-overlay { bottom: 80px; }
-
-  #browser-player-status { font-size: 9px; }
+html.mobile #app-body {
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 6px 6px 0;
+  gap: 6px;
 }
+
+html.mobile #left-sidebar {
+  width: 100%;
+  flex-shrink: 0;
+  max-height: 220px;
+  border-radius: var(--radius-sm);
+}
+
+html.mobile #lib-tabs { overflow-x: auto; scrollbar-width: none; }
+html.mobile #lib-tabs::-webkit-scrollbar { display: none; }
+
+html.mobile #center-panel {
+  flex-shrink: 0;
+  min-height: 340px;
+  border-radius: var(--radius-sm);
+}
+
+html.mobile #right-sidebar {
+  width: 100%;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  max-height: 360px;
+}
+
+html.mobile #player-bar {
+  flex-wrap: wrap;
+  height: auto;
+  min-height: 80px;
+  padding: 8px 10px 10px;
+  margin: 0 6px 6px;
+  gap: 6px;
+  border-radius: var(--radius-sm);
+}
+
+html.mobile #bar-info {
+  flex: 0 0 auto;
+  width: calc(100% - 80px);
+}
+
+html.mobile #bar-vol {
+  flex: 0 0 70px;
+  gap: 4px;
+}
+html.mobile #bar-vol input { display: none; }
+
+html.mobile #bar-center {
+  flex: 0 0 100%;
+  padding: 0;
+}
+
+html.mobile #view-overlay { bottom: 80px; }
+
+html.mobile #browser-player-status { font-size: 9px; }
