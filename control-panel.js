@@ -190,220 +190,217 @@ function page(base) {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TemuTalk Panel</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
-<!-- WhatsApp-style panel -->
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --bg:#111b21;--sid:#111b21;--panel:#0b141a;
-  --hdr:#202c33;--hover:#2a3942;--border:#1d2b30;
-  --text:#e9edef;--sec:#8696a0;--accent:#00a884;
-  --bin:#202c33;--bout:#005c4b;--search:#2a3942;
-  color-scheme:dark;
-}
-body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);height:100dvh;display:flex;flex-direction:column;overflow:hidden}
-.layout{display:flex;flex:1;overflow:hidden}
-.sidebar{width:360px;flex-shrink:0;background:var(--sid);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
-.sid-hdr{background:var(--hdr);padding:10px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
-.sid-logo{font-size:.95rem;font-weight:700;color:var(--text)}
-.sid-acts{display:flex;gap:4px}
-.sid-act{background:none;border:none;color:var(--sec);width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;transition:background .15s;flex-shrink:0}
-.sid-act:hover{background:rgba(255,255,255,.09)}
-.search-wrap{padding:8px 12px;background:var(--sid);flex-shrink:0;border-bottom:1px solid var(--border)}
-.search-inp{width:100%;background:var(--search);border:none;border-radius:8px;padding:7px 12px;color:var(--text);font-size:.85rem;outline:none}
-.search-inp::placeholder{color:var(--sec)}
-.sid-body{flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#2a3942 transparent}
-.sec-hdr{padding:8px 16px 4px;font-size:.63rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#3a4a54}
-.sid-item{display:flex;align-items:center;gap:12px;padding:10px 16px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.025);transition:background .1s;position:relative}
-.sid-item:hover{background:var(--hover)}
-.sid-item.sel{background:var(--hover)}
-.sid-item.sel::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent);border-radius:0 2px 2px 0}
-.sid-av{width:48px;height:48px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.05rem;background:#2a3942;color:#e9edef;overflow:hidden;position:relative}
-.sid-av img{width:100%;height:100%;object-fit:cover}
-.sid-av .dot{position:absolute;bottom:2px;right:2px;width:11px;height:11px;border-radius:50%;border:2px solid var(--sid);background:#3d4a50}
-.sid-av .dot.on{background:var(--accent)}
-.sid-info{flex:1;min-width:0}
-.sid-name{font-size:.88rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sid-prev{font-size:.77rem;color:var(--sec);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
-.sid-meta{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
-.sid-time{font-size:.67rem;color:var(--sec)}
-.sid-badge{background:var(--accent);color:#fff;border-radius:10px;min-width:18px;height:18px;font-size:.67rem;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 4px}
-.main{flex:1;display:flex;flex-direction:column;background:var(--panel);overflow:hidden}
-.view{display:none;flex:1;flex-direction:column;overflow:hidden}
-.view.active{display:flex}
-.v-hdr{background:var(--hdr);padding:10px 16px;display:flex;align-items:center;gap:12px;flex-shrink:0;border-bottom:1px solid var(--border);min-height:56px}
-.v-av{width:40px;height:40px;border-radius:50%;background:#2a3942;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.95rem;overflow:hidden;flex-shrink:0}
-.v-av img{width:100%;height:100%;object-fit:cover}
-.v-title{font-weight:600;font-size:.93rem}
-.v-sub{font-size:.73rem;color:var(--sec);margin-top:1px}
-.v-acts{margin-left:auto;display:flex;gap:7px;align-items:center}
-.v-btn{background:none;border:1px solid rgba(255,255,255,.12);color:var(--sec);border-radius:7px;padding:4px 10px;font-size:.73rem;cursor:pointer;transition:background .12s;white-space:nowrap}
-.v-btn:hover{background:rgba(255,255,255,.07)}
-.v-btn.danger{color:#ff6b6b;border-color:rgba(255,107,107,.3)}
-.v-btn.danger:hover{background:rgba(255,107,107,.09)}
-.v-btn:disabled{opacity:.4;cursor:default}
-.msgs-wrap{flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;scrollbar-width:thin;scrollbar-color:#2a3942 transparent}
-.msgs-inner{margin-top:auto;width:100%;display:flex;flex-direction:column;gap:2px}
-.date-div{text-align:center;margin:10px 0 6px}
-.date-chip{background:#182229;border-radius:6px;padding:3px 10px;font-size:.7rem;color:var(--sec)}
-.msg-row{display:flex;gap:7px;max-width:74%;padding:0 4px}
-.msg-row.other{align-self:flex-start}
-.msg-row.me{align-self:flex-end;flex-direction:row-reverse}
-.msg-av{width:30px;height:30px;border-radius:50%;background:#2a3942;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;flex-shrink:0;margin-top:2px;overflow:hidden;cursor:pointer;border:none;padding:0}
-.msg-av img{width:100%;height:100%;object-fit:cover}
-.msg-body{display:flex;flex-direction:column;gap:1px}
-.msg-sender{font-size:.71rem;color:var(--accent);font-weight:600;margin-bottom:1px;cursor:pointer;background:none;border:none;padding:0;text-align:left}
-.msg-sender:hover{text-decoration:underline}
-.bubble{padding:6px 10px 4px;border-radius:8px;font-size:.84rem;line-height:1.4;word-break:break-word}
-.msg-row.other .bubble{background:var(--bin);border-top-left-radius:2px}
-.msg-row.me .bubble{background:var(--bout);border-top-right-radius:2px}
-.msg-time{font-size:.64rem;color:rgba(233,237,239,.55);float:right;margin-left:8px;margin-top:2px}
-.msgs-empty{flex:1;display:flex;align-items:center;justify-content:center;color:var(--sec);font-size:.83rem;font-style:italic}
-.dev-body{flex:1;overflow-y:auto;padding:16px;scrollbar-width:thin;scrollbar-color:#2a3942 transparent}
-.dc{background:#182229;border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px}
-.dc-title{font-size:.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#3a4a54;margin-bottom:10px}
-.dc-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;font-size:.82rem}
-.dc-k{color:var(--sec)}.dc-v{font-family:ui-monospace,monospace;font-size:.77rem}
-.pill{display:inline-block;border-radius:10px;padding:2px 8px;font-size:.69rem;font-weight:700;margin:1px}
-.p-g{background:#0d3329;color:#00a884}.p-b{background:#1a2d4a;color:#6ab0ff}
-.p-y{background:#3a2d10;color:#f0c060}.p-n{background:#2a3942;color:var(--sec)}
-.album-row{display:flex;gap:10px;align-items:center;margin-top:8px}
-.album-art{width:46px;height:46px;border-radius:6px;object-fit:cover;background:#2a3942;flex-shrink:0}
-.track-name{font-size:.84rem;font-weight:600}.track-sub{font-size:.72rem;color:var(--sec)}
-.prog-bar{background:#2a3942;border-radius:2px;height:2px;margin-top:6px}
-.prog-fill{background:var(--accent);height:100%}
-.welcome{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;opacity:.4}
-.welcome-icon{font-size:3.5rem}.welcome-title{font-size:1rem;font-weight:600}
-.welcome-sub{font-size:.8rem;color:var(--sec)}
-.cfg-body{flex:1;overflow-y:auto;padding:22px;scrollbar-width:thin;scrollbar-color:#2a3942 transparent}
-.cfg-inner{max-width:500px}
-.cfg-sec{font-size:.63rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#3a4a54;margin:20px 0 10px}
-.cfg-field{margin-bottom:11px}
-.cfg-lbl{font-size:.75rem;color:var(--sec);margin-bottom:4px}
-.cfg-inp{width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px 11px;color:var(--text);font-size:.83rem;font-family:ui-monospace,monospace;outline:none}
-.cfg-inp:focus{border-color:var(--accent)}
-.cfg-inp.is-set{border-color:#0d3329;color:#3ddc84}
-.cfg-save{background:var(--accent);border:none;border-radius:9px;padding:10px;color:#fff;font-weight:700;font-size:.88rem;cursor:pointer;width:100%;margin-top:4px;transition:opacity .12s}
-.cfg-save:hover:not(:disabled){opacity:.85}.cfg-save:disabled{opacity:.4;cursor:default}
-.cfg-msg{font-size:.78rem;text-align:center;min-height:1.3em;margin-top:6px}
-.accs-list{display:flex;flex-direction:column;gap:6px;margin-top:4px}
-.acc-item{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.04);border-radius:9px;padding:8px 12px}
-.acc-av{width:36px;height:36px;border-radius:50%;background:#2a3942;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9rem;overflow:hidden;flex-shrink:0}
+:root{--bg:#0d1117;--sur:#161b22;--sur2:#21262d;--bor:#30363d;--tx:#e6edf3;--sec:#8b949e;--acc:#58a6ff;--grn:#3fb950;--red:#f85149;--ylw:#d29922;color-scheme:dark}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--tx);height:100dvh;display:flex;flex-direction:column;overflow:hidden;font-size:14px}
+.hdr{display:flex;align-items:center;gap:12px;padding:0 16px;height:52px;background:var(--sur);border-bottom:1px solid var(--bor);flex-shrink:0}
+.hdr-logo{font-weight:700;font-size:15px;letter-spacing:-.01em}
+.hdr-sys{flex:1;font-size:11px;color:var(--sec);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 12px}
+.hdr-acts{display:flex;gap:6px}
+.hdr-btn{background:none;border:1px solid var(--bor);color:var(--sec);border-radius:7px;padding:5px 12px;cursor:pointer;font-size:13px;transition:color .15s,border-color .15s}
+.hdr-btn:hover{color:var(--tx);border-color:var(--sec)}
+.tabbar{display:flex;gap:0;padding:0 10px;background:var(--sur);border-bottom:1px solid var(--bor);flex-shrink:0}
+.tab{background:none;border:none;border-bottom:2px solid transparent;padding:10px 16px;cursor:pointer;color:var(--sec);font-size:13px;font-weight:500;display:flex;align-items:center;gap:6px;transition:color .12s;white-space:nowrap;margin-bottom:-1px}
+.tab:hover{color:var(--tx)}
+.tab.on{color:var(--acc);border-bottom-color:var(--acc)}
+.tbadge{background:var(--red);color:#fff;border-radius:10px;font-size:10px;padding:1px 5px;min-width:16px;text-align:center;font-weight:700}
+.pane{display:none;flex:1;overflow:hidden;flex-direction:column}
+.pane.on{display:flex}
+.split{display:flex;flex:1;overflow:hidden}
+.split-l{width:260px;flex-shrink:0;border-right:1px solid var(--bor);display:flex;flex-direction:column;background:var(--sur);overflow:hidden}
+.split-r{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.split-hdr{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--sec);padding:12px 14px 6px;flex-shrink:0}
+.r-scroll{flex:1;overflow-y:auto}
+.r-item{display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;transition:background .1s;border-left:3px solid transparent}
+.r-item:hover{background:var(--sur2)}
+.r-item.on{background:rgba(88,166,255,.07);border-left-color:var(--acc)}
+.r-av{width:36px;height:36px;border-radius:50%;background:var(--sur2);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--sec);flex-shrink:0;overflow:hidden}
+.r-av img{width:100%;height:100%;object-fit:cover}
+.r-av span{display:flex;align-items:center;justify-content:center;width:100%;height:100%}
+.r-inf{flex:1;min-width:0}
+.r-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r-prev{font-size:11px;color:var(--sec);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.r-meta{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0}
+.r-time{font-size:10px;color:var(--sec)}
+.r-badge{background:var(--acc);color:#000;border-radius:10px;font-size:10px;font-weight:700;padding:1px 5px;min-width:16px;text-align:center}
+.m-hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--bor);background:var(--sur);flex-shrink:0;min-height:46px}
+.m-hdr-name{font-size:14px;font-weight:600}
+.m-body{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.m-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;color:var(--sec);gap:10px;padding:32px 0}
+.m-empty-ico{font-size:36px}
+.m-row{display:flex;gap:8px;align-items:flex-start}
+.m-avbtn{background:none;border:none;cursor:pointer;padding:0;flex-shrink:0}
+.m-avbtn .r-av{width:28px;height:28px;font-size:10px}
+.m-bi{flex:1}
+.m-sender{background:none;border:none;cursor:pointer;font-size:11px;font-weight:600;color:var(--acc);padding:0;margin-bottom:3px;display:block;text-align:left}
+.bubble{background:var(--sur2);border-radius:0 8px 8px 8px;padding:7px 12px;font-size:13px;line-height:1.5;word-break:break-word;display:inline-block;max-width:520px}
+.m-time{font-size:10px;color:var(--sec);margin-left:8px;opacity:.7}
+.date-row{text-align:center;margin:4px 0}
+.date-chip{display:inline-block;background:var(--sur2);border:1px solid var(--bor);border-radius:12px;padding:2px 10px;font-size:10px;color:var(--sec)}
+.dev-list-inner{padding:8px;overflow-y:auto;flex:1}
+.dev-card{display:flex;align-items:center;gap:12px;background:var(--sur2);border:1px solid var(--bor);border-radius:9px;padding:11px 13px;margin-bottom:8px;cursor:pointer;transition:border-color .12s}
+.dev-card:hover{border-color:var(--sec)}
+.dev-card.on{border-color:var(--acc);background:rgba(88,166,255,.05)}
+.dev-av{width:38px;height:38px;border-radius:50%;background:var(--bor);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--sec);position:relative;flex-shrink:0}
+.dev-dot{width:8px;height:8px;border-radius:50%;background:var(--grn);border:2px solid var(--sur2);position:absolute;bottom:1px;right:1px}
+.dev-inf{flex:1;min-width:0}
+.dev-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dev-sub{font-size:11px;color:var(--sec);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pills{display:flex;gap:4px;margin-top:5px;flex-wrap:wrap}
+.pill{font-size:10px;padding:2px 7px;border-radius:4px;font-weight:600}
+.pg{background:rgba(63,185,80,.12);color:#3fb950}
+.pb{background:rgba(88,166,255,.12);color:#58a6ff}
+.pn{background:rgba(248,81,73,.12);color:#f85149}
+.det-body{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.det-empty{display:flex;align-items:center;justify-content:center;flex:1;color:var(--sec);font-size:13px}
+.det-card{background:var(--sur);border:1px solid var(--bor);border-radius:9px;padding:13px 15px}
+.det-title{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--sec);margin-bottom:9px}
+.det-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px;gap:10px;border-bottom:1px solid var(--bor)}
+.det-row:last-child{border-bottom:none}
+.det-k{color:var(--sec);flex-shrink:0}
+.det-v{text-align:right;word-break:break-all}
+.alb-row{display:flex;gap:12px;align-items:center;margin-bottom:10px}
+.alb-img{width:52px;height:52px;border-radius:6px;object-fit:cover;background:var(--sur2);flex-shrink:0}
+.t-name{font-size:14px;font-weight:600}
+.t-sub{font-size:12px;color:var(--sec);margin-top:2px}
+.prog{height:3px;background:var(--sur2);border-radius:2px;margin:8px 0}
+.prog-f{height:100%;background:var(--acc);border-radius:2px}
+.term-wrap{flex:1;display:flex;flex-direction:column;background:#000;overflow:hidden}
+.term-bar{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--sur);border-bottom:1px solid var(--bor);flex-shrink:0}
+.tdot{width:8px;height:8px;border-radius:50%;background:var(--bor);transition:background .2s}
+.tdot.on{background:var(--grn)}
+.tstat{font-size:12px;color:var(--sec)}
+#terminal-wrap{flex:1;overflow:hidden}
+#terminal{height:100%}
+.accs-body{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:20px}
+.accs-sec{display:flex;flex-direction:column;gap:8px}
+.accs-sec-hdr{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--sec);padding-bottom:8px;border-bottom:1px solid var(--bor)}
+.acc-item{display:flex;align-items:center;gap:12px;background:var(--sur);border:1px solid var(--bor);border-radius:8px;padding:10px 14px}
+.acc-av{width:34px;height:34px;border-radius:50%;background:var(--sur2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--sec);overflow:hidden;flex-shrink:0}
 .acc-av img{width:100%;height:100%;object-fit:cover}
-.acc-name{flex:1;font-size:.84rem;font-weight:600}
-.acc-key{font-size:.72rem;color:var(--sec);font-family:ui-monospace,monospace}
-.acc-edit{background:none;border:1px solid rgba(255,255,255,.12);color:var(--sec);border-radius:6px;padding:3px 9px;font-size:.72rem;cursor:pointer;flex-shrink:0}
-.acc-edit:hover{background:rgba(255,255,255,.07)}
-#terminal-wrap{flex:1;overflow:hidden;background:#080a0e;padding:4px}
-.term-dot{width:7px;height:7px;border-radius:50%;background:#3d4a50;flex-shrink:0}
-.term-dot.on{background:var(--accent);box-shadow:0 0 4px var(--accent)}
-.pm-overlay{display:none;position:fixed;inset:0;background:rgba(9,9,15,.9);z-index:200;align-items:center;justify-content:center;backdrop-filter:blur(6px)}
-.pm-overlay.vis{display:flex}
-.pm-box{background:#182229;border:1px solid var(--border);border-radius:14px;padding:24px;width:340px;max-width:92vw;display:flex;flex-direction:column;gap:11px}
-.pm-box h3{font-size:.93rem;font-weight:700}
-.pm-av-wrap{display:flex;justify-content:center}
-.pm-av{width:72px;height:72px;border-radius:50%;background:#2a3942;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:1.8rem;font-weight:700}
+.acc-name{font-size:13px;font-weight:600}
+.acc-key{font-size:11px;color:var(--sec);margin-top:1px}
+.abtn{background:none;border:1px solid var(--bor);color:var(--sec);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;white-space:nowrap;transition:color .12s,border-color .12s}
+.abtn:hover{color:var(--tx);border-color:var(--sec)}
+.abtn.danger{border-color:rgba(248,81,73,.3);color:#f85149}
+.abtn.danger:hover{background:rgba(248,81,73,.08);border-color:#f85149}
+.sm-btn{background:none;border:1px solid var(--bor);color:var(--sec);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px}
+.sm-btn:hover{color:var(--tx)}
+.sm-btn.danger{border-color:rgba(248,81,73,.3);color:#f85149}
+.pm-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:100;align-items:center;justify-content:center}
+.pm-ov.vis{display:flex}
+.pm-box{background:var(--sur);border:1px solid var(--bor);border-radius:12px;padding:24px;width:360px;max-width:94vw}
+.pm-box h3{font-size:15px;font-weight:700;margin-bottom:16px}
+.pm-av-wrap{display:flex;justify-content:center;margin-bottom:16px}
+.pm-av{width:60px;height:60px;border-radius:50%;background:var(--sur2);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:var(--sec);overflow:hidden}
 .pm-av img{width:100%;height:100%;object-fit:cover}
-.pm-field{display:flex;flex-direction:column;gap:4px}
-.pm-field label{font-size:.74rem;color:var(--sec)}
-.pm-inp{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px 11px;color:var(--text);font-size:.84rem;outline:none;width:100%}
-.pm-inp:focus{border-color:var(--accent)}
-.pm-save{background:var(--accent);border:none;border-radius:9px;padding:9px;color:#fff;font-weight:700;font-size:.85rem;cursor:pointer;width:100%}
-.pm-save:disabled{opacity:.4;cursor:default}
-.pm-cancel{background:none;border:1px solid rgba(255,255,255,.12);color:var(--sec);border-radius:7px;padding:6px;font-size:.78rem;cursor:pointer;width:100%;text-align:center}
-.pm-msg{font-size:.77rem;text-align:center;min-height:1.2em}
+.pm-field{margin-bottom:11px}
+.pm-field label{display:block;font-size:10px;color:var(--sec);margin-bottom:4px;font-weight:700;text-transform:uppercase;letter-spacing:.07em}
+.pm-inp{width:100%;background:var(--sur2);border:1px solid var(--bor);border-radius:6px;padding:8px 10px;color:var(--tx);font-size:13px}
+.pm-inp:focus{outline:none;border-color:var(--acc)}
+.pm-msg{min-height:16px;font-size:12px;margin-bottom:10px}
+.pm-acts{display:flex;gap:8px}
+.pm-save{flex:1;background:var(--acc);color:#000;border:none;border-radius:7px;padding:9px;cursor:pointer;font-weight:700;font-size:13px}
+.pm-cancel{background:none;border:1px solid var(--bor);color:var(--sec);border-radius:7px;padding:9px 16px;cursor:pointer;font-size:13px}
 </style>
 </head>
 <body>
-<div class="pm-overlay" id="pm-overlay">
+
+<div class="pm-ov" id="pm-overlay">
   <div class="pm-box">
     <h3>&#9998; Edit Profile</h3>
     <div class="pm-av-wrap"><div class="pm-av" id="pm-av">?</div></div>
-    <div class="pm-field"><label>Display Name</label><input class="pm-inp" id="pm-name" placeholder="Name…"></div>
-    <div class="pm-field"><label>Avatar URL</label><input class="pm-inp" id="pm-avatar-url" placeholder="https://…" oninput="pmPreview()"></div>
+    <div class="pm-field"><label>Display Name</label><input class="pm-inp" id="pm-name" placeholder="Name..."></div>
+    <div class="pm-field"><label>Avatar URL</label><input class="pm-inp" id="pm-avatar-url" placeholder="https://..." oninput="pmPreview()"></div>
     <div class="pm-msg" id="pm-msg"></div>
-    <button class="pm-save" id="pm-save" onclick="pmSave()">Save Changes</button>
-    <button class="pm-cancel" onclick="pmClose()">Cancel</button>
+    <div class="pm-acts">
+      <button class="pm-save" id="pm-save" onclick="pmSave()">Save Changes</button>
+      <button class="pm-cancel" onclick="pmClose()">Cancel</button>
+    </div>
   </div>
 </div>
-<div class="layout">
-  <div class="sidebar">
-    <div class="sid-hdr">
-      <div class="sid-logo">&#9654; TemuTalk</div>
-      <div class="sid-acts">
-        <button class="sid-act" id="restart-btn" title="Restart Server" onclick="doRestart()">&#8635;</button>
-        <button class="sid-act" title="Log out" onclick="logout()">&#x2192;</button>
-      </div>
-    </div>
-    <div class="search-wrap">
-      <input class="search-inp" id="search-inp" placeholder="Search…" oninput="renderSidebar(this.value)">
-    </div>
-    <div class="sid-body" id="sid-body"></div>
+
+<header class="hdr">
+  <div class="hdr-logo">&#9654; TemuTalk</div>
+  <div class="hdr-sys" id="hdr-sys"></div>
+  <div class="hdr-acts">
+    <button class="hdr-btn" id="restart-btn" onclick="doRestart()">&#8635; Restart</button>
+    <button class="hdr-btn" onclick="logout()">Sign out</button>
   </div>
-  <div class="main">
-    <div class="view active" id="view-welcome">
-      <div class="welcome">
-        <div class="welcome-icon">&#128172;</div>
-        <div class="welcome-title">TemuTalk Panel</div>
-        <div class="welcome-sub">Select a conversation or device from the sidebar</div>
-      </div>
+</header>
+
+<nav class="tabbar">
+  <button class="tab on" data-tab="chat" onclick="switchTab(this.dataset.tab)">&#128172; Chat</button>
+  <button class="tab" data-tab="devices" onclick="switchTab(this.dataset.tab)">&#128241; Devices <span class="tbadge" id="dev-badge" style="display:none">0</span></button>
+  <button class="tab" data-tab="terminal" onclick="switchTab(this.dataset.tab)">&gt;_ Terminal</button>
+  <button class="tab" data-tab="accounts" onclick="switchTab(this.dataset.tab)">&#9881; Accounts</button>
+</nav>
+
+<div class="pane on" id="pane-chat">
+  <div class="split">
+    <div class="split-l">
+      <div class="split-hdr">Rooms</div>
+      <div class="r-scroll" id="rooms-col"></div>
     </div>
-    <div class="view" id="view-room">
-      <div class="v-hdr">
-        <div class="v-av" id="rh-av">G</div>
-        <div><div class="v-title" id="rh-name">Room</div><div class="v-sub" id="rh-sub"></div></div>
-        <div class="v-acts">
-          <button class="v-btn danger" onclick="clearRoom()">&#128465; Clear</button>
-        </div>
+    <div class="split-r">
+      <div class="m-hdr">
+        <div class="m-hdr-name" id="m-hdr-name">Select a conversation</div>
+        <button class="sm-btn danger" id="clear-btn" onclick="clearRoom()" style="display:none">&#128465; Clear</button>
       </div>
-      <div class="msgs-wrap" id="msgs-wrap">
-        <div class="msgs-inner" id="msgs-inner"></div>
-      </div>
-    </div>
-    <div class="view" id="view-device">
-      <div class="v-hdr">
-        <div class="v-av" id="dh-av">D</div>
-        <div><div class="v-title" id="dh-name">Device</div><div class="v-sub" id="dh-sub"></div></div>
-      </div>
-      <div class="dev-body" id="dev-body"></div>
-    </div>
-    <div class="view" id="view-terminal">
-      <div class="v-hdr">
-        <div class="term-dot" id="term-dot"></div>
-        <div><div class="v-title">Terminal</div><div class="v-sub" id="term-status">Connecting…</div></div>
-      </div>
-      <div id="terminal-wrap"><div id="terminal"></div></div>
-    </div>
-    <div class="view" id="view-config">
-      <div class="v-hdr">
-        <div><div class="v-title">&#9881; Accounts &amp; Groups</div><div class="v-sub">Spotify-linked chat profiles and groups</div></div>
-        <div class="v-acts"><button class="v-btn" onclick="loadAccounts()">&#8635; Reload</button></div>
-      </div>
-      <div class="cfg-body">
-        <div class="cfg-inner">
-          <div class="cfg-sec">Connected Users</div>
-          <div class="accs-list" id="accs-list"><div style="color:var(--sec);font-size:.8rem">Loading…</div></div>
-          <div class="cfg-sec" style="margin-top:20px">Groups</div>
-          <div class="accs-list" id="groups-list"><div style="color:var(--sec);font-size:.8rem">Loading…</div></div>
-        </div>
+      <div class="m-body" id="msgs-wrap">
+        <div class="m-empty"><div class="m-empty-ico">&#128172;</div><div>Select a conversation</div></div>
       </div>
     </div>
   </div>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+
+<div class="pane" id="pane-devices">
+  <div class="split">
+    <div class="split-l" style="width:280px">
+      <div class="split-hdr">Devices</div>
+      <div class="dev-list-inner" id="dev-list"></div>
+    </div>
+    <div class="split-r">
+      <div class="det-body" id="det-body">
+        <div class="det-empty">Select a device</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="pane" id="pane-terminal">
+  <div class="term-wrap">
+    <div class="term-bar">
+      <div class="tdot" id="term-dot"></div>
+      <div class="tstat" id="term-status">Connecting...</div>
+    </div>
+    <div id="terminal-wrap"><div id="terminal"></div></div>
+  </div>
+</div>
+
+<div class="pane" id="pane-accounts">
+  <div class="accs-body">
+    <div class="accs-sec">
+      <div class="accs-sec-hdr">Connected Spotify Users</div>
+      <div id="accs-list"></div>
+    </div>
+    <div class="accs-sec">
+      <div class="accs-sec-hdr">Groups</div>
+      <div id="groups-list"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
 <script>
 const P='${base}';
 const MAIN_PORT=${SERVER_PORT};
 
-window.onerror=function(msg,src,line){
-  var el=document.getElementById('sid-body');
-  if(el) el.innerHTML='<div style="padding:12px;color:#ff6b6b;font-size:.78rem">JS error line '+line+':<br>'+msg+'</div>';
-};
+window.onerror=function(msg,src,line){console.error('Panel JS error line '+line+': '+msg);};
 
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-function q(s){return esc(s).replace(/'/g,'&#39;');}
-function fmtDur(ms){var s=Math.floor(ms/1000),m=Math.floor(s/60);return m+':'+String(s%60).padStart(2,'0');}
-function fmtUp(s){if(s<60)return s+'s';if(s<3600)return Math.floor(s/60)+'m';return Math.floor(s/3600)+'h '+Math.floor((s%3600)/60)+'m';}
 function ini(s){return (String(s||'?')[0]||'?').toUpperCase();}
 function avErr(el){var s=document.createElement('span');s.textContent=(el.alt||'?')[0].toUpperCase();el.parentNode.replaceChild(s,el);}
 function imgHide(el){el.style.display='none';}
@@ -411,6 +408,8 @@ function avHtml(name,url){
   if(url) return '<img src="'+esc(url)+'" alt="'+esc(name)+'" onerror="avErr(this)">';
   return '<span>'+ini(name)+'</span>';
 }
+function fmtDur(ms){var s=Math.floor(ms/1000),m=Math.floor(s/60);return m+':'+String(s%60).padStart(2,'0');}
+function fmtUp(s){if(s<60)return s+'s';if(s<3600)return Math.floor(s/60)+'m';return Math.floor(s/3600)+'h '+Math.floor((s%3600)/60)+'m';}
 function fmtTime(ts){return new Date(ts).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});}
 function fmtDate(ts){
   var d=new Date(ts),n=new Date();
@@ -419,116 +418,105 @@ function fmtDate(ts){
   return d.toLocaleDateString();
 }
 
-var curView='welcome', curRoom=null, curDevice=null;
+var curTab='chat',curRoom=null,curDevice=null;
 var adminData={connectedDevices:[],offlineDevices:[],system:null};
 var spyWs=null;
-var spyRooms=new Map(); spyRooms.set('global',{name:'Global Chat',type:'global',memberCount:0});
-var spyMsgs=new Map(); spyMsgs.set('global',[]);
+var spyRooms=new Map();spyRooms.set('global',{name:'Global Chat',type:'global'});
+var spyMsgs=new Map();spyMsgs.set('global',[]);
 var unread=new Map();
 var chatAccounts=[];
 var pmKey=null;
 
-function selectView(id){
-  document.querySelectorAll('.view').forEach(function(v){v.classList.remove('active');});
-  document.getElementById('view-'+id).classList.add('active');
-  curView=id;
-  renderSidebar(document.getElementById('search-inp').value);
-  if(id==='terminal') setTimeout(function(){if(fit)fit.fit();},40);
-  if(id==='config') loadAccounts();
-}
-function selectRoom(roomId){
-  curRoom=roomId; unread.set(roomId,0);
-  selectView('room');
-  var r=spyRooms.get(roomId)||{name:roomId};
-  document.getElementById('rh-av').innerHTML=avHtml(r.name,null);
-  document.getElementById('rh-name').textContent=r.name;
-  document.getElementById('rh-sub').textContent=r.memberCount?r.memberCount+' members':'';
-  renderMsgs();
-}
-function selectDevice(deviceId){
-  curDevice=deviceId; selectView('device'); renderDevice();
+function switchTab(name){
+  curTab=name;
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.toggle('on',t.dataset.tab===name);});
+  document.querySelectorAll('.pane').forEach(function(p){p.classList.remove('on');});
+  var p=document.getElementById('pane-'+name);
+  if(p) p.classList.add('on');
+  if(name==='chat') renderRooms();
+  if(name==='devices'){renderDeviceList();if(curDevice)selectDevice(curDevice);}
+  if(name==='accounts') loadAccounts();
+  if(name==='terminal') setTimeout(function(){if(fit)fit.fit();},40);
 }
 
-function renderSidebar(filter){
-  var f=(filter||'').toLowerCase();
+function renderRooms(){
+  var col=document.getElementById('rooms-col');
+  if(!col) return;
   var h='';
-  h+='<div class="sec-hdr">Chat</div>';
   spyRooms.forEach(function(r,id){
-    var label=r.name||id;
-    if(f&&label.toLowerCase().indexOf(f)<0) return;
     var msgs=spyMsgs.get(id)||[];
     var last=msgs[msgs.length-1];
     var badge=unread.get(id)||0;
-    var sel=curView==='room'&&curRoom===id;
-    h+='<div class="sid-item'+(sel?' sel':'')+'" data-room="'+esc(id)+'" onclick="selectRoom(this.dataset.room)">';
-    h+='<div class="sid-av">'+avHtml(label,null)+'</div>';
-    h+='<div class="sid-info"><div class="sid-name">'+esc(label)+'</div>';
-    h+='<div class="sid-prev">'+(last?esc(last.fromName)+': '+esc((last.text||'').slice(0,40)):'<span style="opacity:.4">No messages</span>')+'</div></div>';
-    h+='<div class="sid-meta">'+(last?'<div class="sid-time">'+fmtTime(last.ts)+'</div>':'')+(badge?'<div class="sid-badge">'+badge+'</div>':'')+'</div>';
+    var sel=curRoom===id;
+    h+='<div class="r-item'+(sel?' on':'')+'" data-room="'+esc(id)+'" onclick="selectRoom(this.dataset.room)">';
+    h+='<div class="r-av">'+avHtml(r.name||id,null)+'</div>';
+    h+='<div class="r-inf">';
+    h+='<div class="r-name">'+esc(r.name||id)+'</div>';
+    if(last) h+='<div class="r-prev">'+esc((last.fromName||''))+': '+esc((last.text||'').slice(0,36))+'</div>';
+    else h+='<div class="r-prev" style="opacity:.5">No messages</div>';
     h+='</div>';
+    h+='<div class="r-meta">';
+    if(last) h+='<div class="r-time">'+fmtTime(last.ts)+'</div>';
+    if(badge) h+='<div class="r-badge">'+badge+'</div>';
+    h+='</div></div>';
   });
-  var devs=adminData.connectedDevices||[];
-  if(devs.length){
-    h+='<div class="sec-hdr">Devices ('+devs.length+')</div>';
-    devs.forEach(function(d){
-      var name=(d.user&&d.user.displayName)||d.deviceId.slice(0,10)+'…';
-      if(f&&name.toLowerCase().indexOf(f)<0) return;
-      var track=d.player&&d.player.track;
-      var prev=track?'♫ '+track.name+' – '+track.artists:'Connected';
-      var sel=curView==='device'&&curDevice===d.deviceId;
-      h+='<div class="sid-item'+(sel?' sel':'')+'" data-device="'+esc(d.deviceId)+'" onclick="selectDevice(this.dataset.device)">';
-      h+='<div class="sid-av">'+avHtml(name,null)+'<div class="dot on"></div></div>';
-      h+='<div class="sid-info"><div class="sid-name">'+esc(name)+'</div><div class="sid-prev">'+esc(prev)+'</div></div>';
-      h+='<div class="sid-meta">'+(d.player&&d.player.isPlaying?'<span class="pill p-g">&#9654;</span>':'')+'<span class="pill p-b">'+d.tabs+'t</span></div>';
-      h+='</div>';
-    });
-  }
-  h+='<div class="sec-hdr">System</div>';
-  h+='<div class="sid-item'+(curView==='terminal'?' sel':'')+'" onclick="selectView(this.dataset.view)" data-view="terminal">';
-  h+='<div class="sid-av" style="font-size:.7rem;font-family:monospace">&gt;_</div>';
-  h+='<div class="sid-info"><div class="sid-name">Terminal</div><div class="sid-prev">Server shell</div></div></div>';
-  h+='<div class="sid-item'+(curView==='config'?' sel':'')+'" onclick="selectView(this.dataset.view)" data-view="config">';
-  h+='<div class="sid-av">&#9881;</div>';
-  h+='<div class="sid-info"><div class="sid-name">Accounts &amp; Groups</div><div class="sid-prev">Spotify users &middot; groups</div></div></div>';
-  var sys=adminData.system;
-  if(sys) h+='<div style="padding:8px 16px 12px;font-size:.7rem;color:#3a4a54">'+esc(sys.hostname)+' &middot; up '+fmtUp(sys.uptime)+' &middot; load '+(sys.loadAvg&&sys.loadAvg[0]?sys.loadAvg[0].toFixed(2):'?')+' &middot; RAM '+sys.memPct+'%</div>';
-  document.getElementById('sid-body').innerHTML=h;
+  col.innerHTML=h;
+}
+
+function selectRoom(id){
+  curRoom=id;
+  unread.set(id,0);
+  renderRooms();
+  var r=spyRooms.get(id)||{name:id};
+  var hdrName=document.getElementById('m-hdr-name');
+  var clearBtn=document.getElementById('clear-btn');
+  if(hdrName) hdrName.textContent=r.name||id;
+  if(clearBtn) clearBtn.style.display='';
+  renderMsgs();
 }
 
 function renderMsgs(){
-  var inner=document.getElementById('msgs-inner');
   var wrap=document.getElementById('msgs-wrap');
+  if(!wrap) return;
+  if(!curRoom){
+    wrap.innerHTML='<div class="m-empty"><div class="m-empty-ico">&#128172;</div><div>Select a conversation</div></div>';
+    return;
+  }
   var msgs=spyMsgs.get(curRoom)||[];
-  if(!msgs.length){inner.innerHTML='<div class="msgs-empty">No messages yet</div>';return;}
+  if(!msgs.length){
+    wrap.innerHTML='<div class="m-empty"><div class="m-empty-ico">&#128172;</div><div>No messages yet</div></div>';
+    return;
+  }
   var h='',lastDate='';
   msgs.forEach(function(m){
     var d=fmtDate(m.ts);
-    if(d!==lastDate){h+='<div class="date-div"><span class="date-chip">'+esc(d)+'</span></div>';lastDate=d;}
-    var k=q((m.fromName||'').toLowerCase());
-    var av=m.avatarUrl?'<img src="'+esc(m.avatarUrl)+'" alt="'+esc(m.fromName)+'" onerror="avErr(this)">':'<span>'+ini(m.fromName)+'</span>';
-    h+='<div class="msg-row other">';
-    h+='<button class="msg-av" data-key="'+k+'" onclick="pmOpen(this.dataset.key)">'+av+'</button>';
-    h+='<div class="msg-body"><button class="msg-sender" data-key="'+k+'" onclick="pmOpen(this.dataset.key)">'+esc(m.fromName||'Unknown')+'</button>';
-    h+='<div class="bubble">'+esc(m.text)+'<span class="msg-time">'+fmtTime(m.ts)+'</span></div></div></div>';
+    if(d!==lastDate){h+='<div class="date-row"><span class="date-chip">'+esc(d)+'</span></div>';lastDate=d;}
+    var av=m.avatarUrl?'<img src="'+esc(m.avatarUrl)+'" alt="'+esc(m.fromName||'')+'" onerror="avErr(this)">':'<span>'+ini(m.fromName)+'</span>';
+    var k=esc((m.fromName||'').toLowerCase());
+    h+='<div class="m-row">'
+      +'<button class="m-avbtn" data-key="'+k+'" onclick="pmOpen(this.dataset.key)"><div class="r-av">'+av+'</div></button>'
+      +'<div class="m-bi"><button class="m-sender" data-key="'+k+'" onclick="pmOpen(this.dataset.key)">'+esc(m.fromName||'Unknown')+'</button>'
+      +'<span class="bubble">'+esc(m.text||'')+'<span class="m-time">'+fmtTime(m.ts)+'</span></span>'
+      +'</div></div>';
   });
-  inner.innerHTML=h;
+  wrap.innerHTML=h;
   wrap.scrollTop=wrap.scrollHeight;
 }
 
 function appendMsg(m){
-  var inner=document.getElementById('msgs-inner');
   var wrap=document.getElementById('msgs-wrap');
-  if(!inner) return;
-  var empty=inner.querySelector('.msgs-empty');
-  if(empty) empty.remove();
-  var k=q((m.fromName||'').toLowerCase());
-  var av=m.avatarUrl?'<img src="'+esc(m.avatarUrl)+'" alt="'+esc(m.fromName)+'" onerror="avErr(this)">':'<span>'+ini(m.fromName)+'</span>';
+  if(!wrap) return;
+  var empty=wrap.querySelector('.m-empty');
+  if(empty) wrap.innerHTML='';
+  var av=m.avatarUrl?'<img src="'+esc(m.avatarUrl)+'" alt="'+esc(m.fromName||'')+'" onerror="avErr(this)">':'<span>'+ini(m.fromName)+'</span>';
+  var k=esc((m.fromName||'').toLowerCase());
   var row=document.createElement('div');
-  row.className='msg-row other';
-  row.innerHTML='<button class="msg-av" data-key="'+k+'" onclick="pmOpen(this.dataset.key)">'+av+'</button>'
-    +'<div class="msg-body"><button class="msg-sender" data-key="'+k+'" onclick="pmOpen(this.dataset.key)">'+esc(m.fromName||'Unknown')+'</button>'
-    +'<div class="bubble">'+esc(m.text)+'<span class="msg-time">'+fmtTime(m.ts)+'</span></div></div>';
-  inner.appendChild(row);
+  row.className='m-row';
+  row.innerHTML='<button class="m-avbtn" data-key="'+k+'" onclick="pmOpen(this.dataset.key)"><div class="r-av">'+av+'</div></button>'
+    +'<div class="m-bi"><button class="m-sender" data-key="'+k+'" onclick="pmOpen(this.dataset.key)">'+esc(m.fromName||'Unknown')+'</button>'
+    +'<span class="bubble">'+esc(m.text||'')+'<span class="m-time">'+fmtTime(m.ts)+'</span></span>'
+    +'</div>';
+  wrap.appendChild(row);
   wrap.scrollTop=wrap.scrollHeight;
 }
 
@@ -538,40 +526,72 @@ function clearRoom(){
   renderMsgs();
 }
 
-function renderDevice(){
+function renderDeviceList(){
+  var col=document.getElementById('dev-list');
+  if(!col) return;
+  var devs=adminData.connectedDevices||[];
+  var badge=document.getElementById('dev-badge');
+  if(badge){badge.textContent=devs.length;badge.style.display=devs.length?'':'none';}
+  if(!devs.length){col.innerHTML='<div style="color:var(--sec);font-size:12px;padding:4px 0">No devices connected</div>';return;}
+  var h='';
+  devs.forEach(function(d){
+    var name=(d.user&&d.user.displayName)||d.deviceId.slice(0,10)+'...';
+    var track=d.player&&d.player.track;
+    var sub=track?'Playing: '+esc(track.name):'Connected';
+    var sel=curDevice===d.deviceId;
+    h+='<div class="dev-card'+(sel?' on':'')+'" data-device="'+esc(d.deviceId)+'" onclick="selectDevice(this.dataset.device)">';
+    h+='<div class="dev-av"><span>'+ini(name)+'</span><div class="dev-dot"></div></div>';
+    h+='<div class="dev-inf"><div class="dev-name">'+esc(name)+'</div>';
+    h+='<div class="dev-sub">'+sub+'</div>';
+    h+='<div class="pills">';
+    if(d.authenticated) h+='<span class="pill pg">Spotify</span>';
+    h+='<span class="pill pb">'+(d.tabs||0)+' tab'+(d.tabs!==1?'s':'')+'</span>';
+    if(d.player&&d.player.isPlaying) h+='<span class="pill pg">&#9654; Playing</span>';
+    h+='</div></div></div>';
+  });
+  col.innerHTML=h;
+}
+
+function selectDevice(id){
+  curDevice=id;
+  renderDeviceList();
   var all=(adminData.connectedDevices||[]).concat(adminData.offlineDevices||[]);
   var d=null;
-  for(var i=0;i<all.length;i++){if(all[i].deviceId===curDevice){d=all[i];break;}}
-  if(!d){document.getElementById('dev-body').innerHTML='<div style="padding:20px;color:var(--sec)">Device not found</div>';return;}
-  var name=(d.user&&d.user.displayName)||d.deviceId.slice(0,10)+'…';
-  document.getElementById('dh-av').innerHTML=avHtml(name,null);
-  document.getElementById('dh-name').textContent=name;
-  document.getElementById('dh-sub').textContent=(d.user&&d.user.email)||(d.tabs?d.tabs+' tab(s)':'Offline');
+  for(var i=0;i<all.length;i++){if(all[i].deviceId===id){d=all[i];break;}}
+  var body=document.getElementById('det-body');
+  if(!body) return;
+  if(!d){body.innerHTML='<div class="det-empty">Device not found</div>';return;}
+  var name=(d.user&&d.user.displayName)||d.deviceId.slice(0,10)+'...';
   var p=d.player,t=p&&p.track;
-  var h='<div class="dc"><div class="dc-title">Connection</div>';
-  h+='<div class="dc-row"><span class="dc-k">Device ID</span><span class="dc-v">'+esc(d.deviceId.slice(0,16))+'&hellip;</span></div>';
-  h+='<div class="dc-row"><span class="dc-k">Tabs</span><span class="dc-v">'+(d.tabs||0)+'</span></div>';
-  h+='<div class="dc-row"><span class="dc-k">IPs</span><span class="dc-v">'+esc((d.ips||[]).join(', ')||'—')+'</span></div>';
-  h+='<div class="dc-row"><span class="dc-k">Spotify</span><span>'+(d.authenticated?'<span class="pill p-g">Linked</span>':'<span class="pill p-n">Not linked</span>')+'</span></div></div>';
+  var h='';
+  h+='<div class="det-card"><div class="det-title">Connection</div>';
+  h+='<div class="det-row"><span class="det-k">Device ID</span><span class="det-v">'+esc(d.deviceId.slice(0,22))+'...</span></div>';
+  h+='<div class="det-row"><span class="det-k">IP</span><span class="det-v">'+esc((d.ips||[]).join(', ')||'Unknown')+'</span></div>';
+  h+='<div class="det-row"><span class="det-k">Tabs</span><span class="det-v">'+(d.tabs||0)+'</span></div>';
+  h+='<div class="det-row"><span class="det-k">Spotify</span><span class="det-v">'+(d.authenticated?'<span class="pill pg">Linked</span>':'<span class="pill pn">Not linked</span>')+'</span></div></div>';
   if(d.user){
-    h+='<div class="dc"><div class="dc-title">Spotify Account</div>';
-    h+='<div class="dc-row"><span class="dc-k">Name</span><span class="dc-v">'+esc(d.user.displayName||'—')+'</span></div>';
-    h+='<div class="dc-row"><span class="dc-k">Email</span><span class="dc-v">'+esc(d.user.email||'—')+'</span></div>';
-    h+='<div class="dc-row"><span class="dc-k">Plan</span><span class="dc-v">'+esc(d.user.product||'—')+'</span></div></div>';
+    h+='<div class="det-card"><div class="det-title">Spotify Account</div>';
+    h+='<div class="det-row"><span class="det-k">Name</span><span class="det-v">'+esc(d.user.displayName||'Unknown')+'</span></div>';
+    h+='<div class="det-row"><span class="det-k">Email</span><span class="det-v">'+esc(d.user.email||'Unknown')+'</span></div>';
+    h+='<div class="det-row"><span class="det-k">Plan</span><span class="det-v">'+esc(d.user.product||'Unknown')+'</span></div></div>';
   }
   if(t){
     var pct=t.durationMs?Math.min(100,(t.progressMs||0)/t.durationMs*100).toFixed(1):0;
-    h+='<div class="dc"><div class="dc-title">Now Playing</div><div class="album-row">';
-    h+=t.albumArt?'<img class="album-art" src="'+esc(t.albumArt)+'" onerror="imgHide(this)">':'<div class="album-art"></div>';
-    h+='<div><div class="track-name">'+esc(t.name)+'</div><div class="track-sub">'+esc(t.artists)+'</div><div class="track-sub">'+esc(t.album||'')+'</div></div></div>';
-    h+='<div class="prog-bar"><div class="prog-fill" style="width:'+pct+'%"></div></div>';
-    h+='<div class="dc-row" style="margin-top:6px"><span>'+(p.isPlaying?'<span class="pill p-g">&#9654; Playing</span>':'<span class="pill p-n">&#9646;&#9646; Paused</span>')+(p.repeatState&&p.repeatState!=='off'?'<span class="pill p-b">&#8635;</span>':'')+(p.shuffleState?'<span class="pill p-b">&#8652;</span>':'')+'</span>';
-    h+='<span class="dc-v">'+fmtDur(t.progressMs||0)+' / '+fmtDur(t.durationMs||0)+'</span></div>';
-    if(p.device) h+='<div class="dc-row"><span class="dc-k">Output</span><span class="dc-v">'+esc(p.device.name)+' ('+esc(p.device.type)+')</span></div>';
+    h+='<div class="det-card"><div class="det-title">Now Playing</div>';
+    h+='<div class="alb-row">';
+    h+=t.albumArt?'<img class="alb-img" src="'+esc(t.albumArt)+'" onerror="imgHide(this)">':'<div class="alb-img"></div>';
+    h+='<div><div class="t-name">'+esc(t.name)+'</div><div class="t-sub">'+esc(t.artists||'')+'</div><div class="t-sub">'+esc(t.album||'')+'</div></div></div>';
+    h+='<div class="prog"><div class="prog-f" style="width:'+pct+'%"></div></div>';
+    h+='<div class="det-row"><span class="det-k">State</span><span>'+(p.isPlaying?'<span class="pill pg">&#9654; Playing</span>':'<span class="pill pn">Paused</span>')+'</span></div>';
+    h+='<div class="det-row"><span class="det-k">Progress</span><span class="det-v">'+fmtDur(t.progressMs||0)+' / '+fmtDur(t.durationMs||0)+'</span></div>';
+    if(p.device) h+='<div class="det-row"><span class="det-k">Output</span><span class="det-v">'+esc(p.device.name)+' ('+esc(p.device.type)+')</span></div>';
     h+='</div>';
   }
-  if(d.radio){h+='<div class="dc"><div class="dc-title">Radio</div><div class="dc-row"><span class="dc-k">Station</span><span class="dc-v">'+esc(d.radio.name||'—')+'</span></div></div>';}
-  document.getElementById('dev-body').innerHTML=h;
+  if(d.radio){
+    h+='<div class="det-card"><div class="det-title">Radio</div>';
+    h+='<div class="det-row"><span class="det-k">Station</span><span class="det-v">'+esc(d.radio.name||'Unknown')+'</span></div></div>';
+  }
+  body.innerHTML=h;
 }
 
 async function refreshAdmin(){
@@ -581,45 +601,60 @@ async function refreshAdmin(){
     var j=await r.json();
     if(!j.overview) return;
     adminData=j.overview;
-    renderSidebar(document.getElementById('search-inp').value);
-    if(curView==='device') renderDevice();
+    var sys=adminData.system;
+    var hdrSys=document.getElementById('hdr-sys');
+    if(hdrSys&&sys){
+      hdrSys.textContent=sys.hostname+' · up '+fmtUp(sys.uptime)+' · load '+(sys.loadAvg&&sys.loadAvg[0]?sys.loadAvg[0].toFixed(2):'?')+' · RAM '+sys.memPct+'%';
+    }
+    var badge=document.getElementById('dev-badge');
+    var n=(adminData.connectedDevices||[]).length;
+    if(badge){badge.textContent=n;badge.style.display=n?'':'none';}
+    if(curTab==='chat') renderRooms();
+    if(curTab==='devices'){renderDeviceList();if(curDevice)selectDevice(curDevice);}
   }catch(e){}
 }
 
 async function loadAccounts(){
   try{
     var r=await fetch(P+'/api/chat-accounts');
-    if(!r.ok) return;
+    if(!r.ok){document.getElementById('accs-list').innerHTML='<div style="color:var(--sec);font-size:13px">Could not load</div>';return;}
     var d=await r.json();
     chatAccounts=d.accounts||[];
     renderAccounts();
     renderGroups(d.groups||[]);
   }catch(e){}
 }
+
 function renderAccounts(){
   var el=document.getElementById('accs-list');
   if(!el) return;
-  if(!chatAccounts.length){el.innerHTML='<div style="color:var(--sec);font-size:.8rem">No Spotify users online yet</div>';return;}
+  if(!chatAccounts.length){el.innerHTML='<div style="color:var(--sec);font-size:13px">No Spotify users have chatted yet</div>';return;}
   var h='';
   chatAccounts.forEach(function(a){
-    h+='<div class="acc-item"><div class="acc-av">'+avHtml(a.name,a.avatarUrl)+'</div>';
+    h+='<div class="acc-item">';
+    h+='<div class="acc-av">'+avHtml(a.name,a.avatarUrl)+'</div>';
     h+='<div style="flex:1;min-width:0"><div class="acc-name">'+esc(a.name)+'</div><div class="acc-key">'+esc(a.key)+'</div></div>';
-    h+='<button class="acc-edit" data-key="'+esc(a.key)+'" onclick="pmOpen(this.dataset.key)">&#9998; Edit</button></div>';
+    h+='<button class="abtn" data-key="'+esc(a.key)+'" onclick="pmOpen(this.dataset.key)">&#9998; Edit</button>';
+    h+='</div>';
   });
   el.innerHTML=h;
 }
+
 function renderGroups(groups){
   var el=document.getElementById('groups-list');
   if(!el) return;
-  if(!groups.length){el.innerHTML='<div style="color:var(--sec);font-size:.8rem">No groups yet</div>';return;}
+  if(!groups.length){el.innerHTML='<div style="color:var(--sec);font-size:13px">No groups yet</div>';return;}
   var h='';
   groups.forEach(function(g){
-    h+='<div class="acc-item"><div class="acc-av" style="font-size:.75rem">&#128101;</div>';
+    h+='<div class="acc-item">';
+    h+='<div class="acc-av" style="font-size:.8rem">&#128101;</div>';
     h+='<div style="flex:1;min-width:0"><div class="acc-name">'+esc(g.name)+'</div><div class="acc-key">'+g.memberCount+' member'+(g.memberCount!==1?'s':'')+'</div></div>';
-    h+='<button class="acc-edit" style="background:#3d0000;color:#ff8080" data-gid="'+esc(g.id)+'" onclick="deleteGroup(this.dataset.gid)">&#128465; Delete</button></div>';
+    h+='<button class="abtn danger" data-gid="'+esc(g.id)+'" onclick="deleteGroup(this.dataset.gid)">&#128465; Delete</button>';
+    h+='</div>';
   });
   el.innerHTML=h;
 }
+
 async function deleteGroup(id){
   if(!confirm('Delete this group and all its messages?')) return;
   try{
@@ -638,39 +673,39 @@ function pmOpen(key){
   document.getElementById('pm-name').value=acc.name||'';
   document.getElementById('pm-avatar-url').value=acc.avatarUrl||'';
   document.getElementById('pm-msg').textContent='';
-  pmPreview(acc.avatarUrl,acc.name);
+  pmPreview();
   document.getElementById('pm-overlay').classList.add('vis');
 }
 function pmClose(){document.getElementById('pm-overlay').classList.remove('vis');pmKey=null;}
-function pmPreview(url,name){
-  var u=url!==undefined?url:document.getElementById('pm-avatar-url').value;
-  var n=name||document.getElementById('pm-name').value||pmKey||'?';
+function pmPreview(){
+  var u=document.getElementById('pm-avatar-url').value;
+  var n=document.getElementById('pm-name').value||pmKey||'?';
   document.getElementById('pm-av').innerHTML=avHtml(n,u||null);
 }
 async function pmSave(){
   if(!pmKey) return pmClose();
   var btn=document.getElementById('pm-save'),msg=document.getElementById('pm-msg');
-  btn.disabled=true;msg.style.color='#8696a0';msg.textContent='Saving…';
+  btn.disabled=true;msg.style.color='';msg.textContent='Saving...';
   var body={key:pmKey,name:document.getElementById('pm-name').value.trim(),avatarUrl:document.getElementById('pm-avatar-url').value.trim()||null};
   try{
     var r=await fetch(P+'/api/chat-account',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     var d=await r.json();
     if(d.ok){
-      msg.style.color='#00a884';msg.textContent='✓ Saved';
+      msg.style.color='#3fb950';msg.textContent='Saved';
       for(var i=0;i<chatAccounts.length;i++){if(chatAccounts[i].key===pmKey){chatAccounts[i].name=d.name;chatAccounts[i].avatarUrl=d.avatarUrl;break;}}
       renderAccounts();
-      setTimeout(pmClose,900);
-    }else{msg.style.color='#ff6b6b';msg.textContent=d.error||'Failed';}
-  }catch(e){msg.style.color='#ff6b6b';msg.textContent='Error: '+e.message;}
+      setTimeout(pmClose,800);
+    }else{msg.style.color='#f85149';msg.textContent=d.error||'Failed';}
+  }catch(e){msg.style.color='#f85149';msg.textContent='Error: '+e.message;}
   btn.disabled=false;
 }
 
 async function doRestart(){
   var btn=document.getElementById('restart-btn');
-  btn.textContent='⌛';btn.disabled=true;
-  try{var r=await fetch(P+'/api/restart-server',{method:'POST'});var d=await r.json();btn.textContent=d.ok?'✓':'✗';}
-  catch(e){btn.textContent='✗';}
-  setTimeout(function(){btn.textContent='↻';btn.disabled=false;},3000);
+  btn.textContent='Restarting...';btn.disabled=true;
+  try{var r=await fetch(P+'/api/restart-server',{method:'POST'});var d=await r.json();btn.textContent=d.ok?'Done':'Failed';}
+  catch(e){btn.textContent='Error';}
+  setTimeout(function(){btn.innerHTML='&#8635; Restart';btn.disabled=false;},3000);
 }
 async function logout(){await fetch(P+'/api/logout',{method:'POST'});location.reload();}
 
@@ -698,61 +733,72 @@ function spyMsg(m){
   if(m.type==='chat:ghost-state'){
     spyMsgs.set('global',m.global||[]);
     (m.groups||[]).forEach(function(g){
-      spyRooms.set(g.id,{name:g.name,type:'group',memberCount:g.memberCount||0});
+      spyRooms.set(g.id,{name:g.name,type:'group'});
       spyMsgs.set(g.id,g.messages||[]);
     });
     (m.dms||[]).forEach(function(d){
-      spyRooms.set(d.room,{name:'DM: '+d.room.slice(3,22)+'…',type:'dm',memberCount:2});
+      spyRooms.set(d.room,{name:'DM',type:'dm'});
       spyMsgs.set(d.room,d.messages||[]);
     });
-    renderSidebar(document.getElementById('search-inp').value);
-    if(curView==='room'&&curRoom) renderMsgs();
+    if(curTab==='chat') renderRooms();
+    if(curRoom) renderMsgs();
     return;
   }
   if(m.type==='chat:msg'){
     if(!spyMsgs.has(m.room)) spyMsgs.set(m.room,[]);
     spyMsgs.get(m.room).push(m);
-    if(curView==='room'&&curRoom===m.room) appendMsg(m);
-    else{unread.set(m.room,(unread.get(m.room)||0)+1);renderSidebar(document.getElementById('search-inp').value);}
+    if(curRoom===m.room) appendMsg(m);
+    else{unread.set(m.room,(unread.get(m.room)||0)+1);if(curTab==='chat') renderRooms();}
     return;
   }
   if(m.type==='chat:group-created'){
-    spyRooms.set(m.group.id,{name:m.group.name,type:'group',memberCount:1});
+    spyRooms.set(m.group.id,{name:m.group.name,type:'group'});
     spyMsgs.set(m.group.id,[]);
-    renderSidebar(document.getElementById('search-inp').value);
+    if(curTab==='chat') renderRooms();
+    return;
+  }
+  if(m.type==='chat:group-deleted'){
+    spyRooms.delete(m.groupId);spyMsgs.delete(m.groupId);
+    if(curRoom===m.groupId){curRoom=null;if(curTab==='chat'){renderRooms();renderMsgs();}}
     return;
   }
   if(m.type==='chat:clear'){
     spyMsgs.set(m.room,[]);
-    if(curView==='room'&&curRoom===m.room) renderMsgs();
+    if(curRoom===m.room) renderMsgs();
     return;
   }
 }
 
 var term=null,fit=null,ws=null;
 try{
-  term=new Terminal({cursorBlink:true,scrollback:10000,theme:{background:'#080a0e',foreground:'#e9edef',cursor:'#00a884',selectionBackground:'#2a3942'},fontFamily:'ui-monospace, Menlo, monospace',fontSize:13,lineHeight:1.2});
+  term=new Terminal({cursorBlink:true,scrollback:10000,theme:{background:'#0d1117',foreground:'#e6edf3',cursor:'#58a6ff',selectionBackground:'#264f78'},fontFamily:'ui-monospace,Menlo,monospace',fontSize:13,lineHeight:1.2});
   fit=new FitAddon.FitAddon();
   term.loadAddon(fit);
   term.open(document.getElementById('terminal'));
   fit.fit();
-}catch(e){console.error('xterm:',e);}
+}catch(e){console.error('xterm init:',e);}
 function connect(){
   if(!term){document.getElementById('term-status').textContent='xterm not loaded';return;}
   if(ws&&ws.readyState<2) ws.close();
   var proto=location.protocol==='https:'?'wss:':'ws:';
   ws=new WebSocket(proto+'//'+location.host+P+'/terminal');
-  ws.onopen=function(){document.getElementById('term-dot').classList.add('on');document.getElementById('term-status').textContent='Connected';if(fit)fit.fit();ws.send(JSON.stringify({type:'resize',cols:term.cols,rows:term.rows}));};
-  ws.onmessage=function(e){try{var m=JSON.parse(e.data);if(m.type==='data')term.write(m.data);}catch(err){term.write(e.data);}};
-  ws.onclose=function(){document.getElementById('term-dot').classList.remove('on');document.getElementById('term-status').textContent='Disconnected (reconnecting…)';setTimeout(connect,3000);};
+  ws.onopen=function(){
+    document.getElementById('term-dot').classList.add('on');
+    document.getElementById('term-status').textContent='Connected';
+    if(fit)fit.fit();
+    ws.send(JSON.stringify({type:'resize',cols:term.cols,rows:term.rows}));
+  };
+  ws.onmessage=function(e){try{var msg=JSON.parse(e.data);if(msg.type==='data')term.write(msg.data);}catch(err){term.write(e.data);}};
+  ws.onclose=function(){document.getElementById('term-dot').classList.remove('on');document.getElementById('term-status').textContent='Disconnected (reconnecting...)';setTimeout(connect,3000);};
   ws.onerror=function(){ws.close();};
   term.onData(function(d){if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:'data',data:d}));});
   term.onResize(function(s){if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:'resize',cols:s.cols,rows:s.rows}));});
 }
-if(term) new ResizeObserver(function(){if(fit)fit.fit();}).observe(document.getElementById('terminal-wrap'));
+var twrap=document.getElementById('terminal-wrap');
+if(twrap) new ResizeObserver(function(){if(fit)fit.fit();}).observe(twrap);
 connect();
 
-renderSidebar();
+renderRooms();
 refreshAdmin();
 setInterval(refreshAdmin,4000);
 spyConnect();
