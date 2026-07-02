@@ -204,6 +204,20 @@ app.use(express.static(path.join(__dirname, 'public'), {
   },
 }));
 
+// ─── Self-signed cert download (for mobile trust) ─────────────────────────────
+app.get('/cert.pem', (req, res) => {
+  if (!fs.existsSync(CERT_CERT_FILE)) return res.status(404).send('No cert');
+  res.setHeader('Content-Type', 'application/x-pem-file');
+  res.setHeader('Content-Disposition', 'attachment; filename="temutalk-ca.pem"');
+  res.sendFile(CERT_CERT_FILE);
+});
+app.get('/cert.crt', (req, res) => {
+  if (!fs.existsSync(CERT_CERT_FILE)) return res.status(404).send('No cert');
+  res.setHeader('Content-Type', 'application/x-x509-ca-cert');
+  res.setHeader('Content-Disposition', 'attachment; filename="temutalk-ca.crt"');
+  res.sendFile(CERT_CERT_FILE);
+});
+
 // ─── App config ───────────────────────────────────────────────────────────────
 app.get('/api/auth-info', (req, res) => {
   res.json({ redirectUri: REDIRECT_URI });
