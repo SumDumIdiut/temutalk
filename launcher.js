@@ -232,16 +232,36 @@ setTimeout(() => {
 }, 2000);
 
 // ── Update check ─────────────────────────────────────────────────────────────
+const START_TIME_S = Math.floor(Date.now() / 1000);
+let lastAppliedCommit = null;
+
 function checkForUpdate() {
   try {
     const local  = execFileSync('git', ['rev-parse', 'HEAD'],                        { cwd: DIR, encoding: 'utf8' }).trim();
     const remote = execFileSync('git', ['ls-remote', 'origin', 'refs/heads/main'],   { cwd: DIR, encoding: 'utf8' }).trim().split(/\s+/)[0];
-    if (!remote || local === remote) return;
-    log(`update detected (${local.slice(0,7)} → ${remote.slice(0,7)}) — pulling and restarting...`);
-    execFileSync('git', ['fetch', 'origin', 'main'], { cwd: DIR });
-    const pullOut = execFileSync('git', ['reset', '--hard', 'origin/main'], { cwd: DIR, encoding: 'utf8' });
-    if (pullOut.trim()) pullOut.trim().split('\n').forEach(l => log(l));
-    log('pull complete — restarting server + panel');
+
+    if (!remote) return;
+
+    const needPull = local !== remote;
+    if (needPull) {
+      log(`update detected (${local.slice(0,7)} → ${remote.slice(0,7)}) — pulling...`);
+      execFileSync('git', ['fetch', 'origin', 'main'], { cwd: DIR });
+      const pullOut = execFileSync('git', ['reset', '--hard', 'origin/main'], { cwd: DIR, encoding: 'utf8' });
+      if (pullOut.trim()) pullOut.trim().split('\n').forEach(l => log(l));
+    }
+
+    // Also restart if the HEAD commit is newer than when this process started
+    // (covers the case where we develop in-place and commit without a remote delta)
+    const headCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: DIR, encoding: 'utf8' }).trim();
+    const commitTimeS = parseInt(
+      execFileSync('git', ['log', '-1', '--format=%ct', headCommit], { cwd: DIR, encoding: 'utf8' }).trim(), 10
+    );
+    const isNewCommit = headCommit !== lastAppliedCommit && commitTimeS > START_TIME_S;
+
+    if (!needPull && !isNewCommit) return;
+
+    lastAppliedCommit = headCommit;
+    log(`restarting server + panel (commit ${headCommit.slice(0,7)})`);
     server.kill();
     server = startServer();
     log(`server restarted  PID ${server.pid}`);
