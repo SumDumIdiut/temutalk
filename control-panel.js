@@ -398,45 +398,52 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
 <script>
-const P = '${base}';
-const MAIN_PORT = ${SERVER_PORT};
+const P='${base}';
+const MAIN_PORT=${SERVER_PORT};
+
+window.onerror=function(msg,src,line){
+  var el=document.getElementById('sid-body');
+  if(el) el.innerHTML='<div style="padding:12px;color:#ff6b6b;font-size:.78rem">JS error line '+line+':<br>'+msg+'</div>';
+};
+
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-function fmtDur(ms){const s=Math.floor(ms/1000),m=Math.floor(s/60);return m+':'+String(s%60).padStart(2,'0');}
+function q(s){return esc(s).replace(/'/g,'&#39;');}
+function fmtDur(ms){var s=Math.floor(ms/1000),m=Math.floor(s/60);return m+':'+String(s%60).padStart(2,'0');}
 function fmtUp(s){if(s<60)return s+'s';if(s<3600)return Math.floor(s/60)+'m';return Math.floor(s/3600)+'h '+Math.floor((s%3600)/60)+'m';}
-function initials(s){return (String(s||'?')[0]||'?').toUpperCase();}
+function ini(s){return (String(s||'?')[0]||'?').toUpperCase();}
 function avHtml(name,url){
-  if(url) return \`<img src="\${esc(url)}" alt="\${esc(name)}" onerror="this.outerHTML='<span>\${initials(name)}</span>'">\`;
-  return \`<span>\${initials(name)}</span>\`;
+  if(url) return '<img src="'+esc(url)+'" alt="'+esc(name)+'" onerror="this.outerHTML=\'<span>'+ini(name)+'</span>\'">';
+  return '<span>'+ini(name)+'</span>';
 }
 function fmtTime(ts){return new Date(ts).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});}
 function fmtDate(ts){
-  const d=new Date(ts),n=new Date();
+  var d=new Date(ts),n=new Date();
   if(d.toDateString()===n.toDateString()) return 'Today';
   if(d.toDateString()===new Date(n-86400000).toDateString()) return 'Yesterday';
   return d.toLocaleDateString();
 }
 
-let curView='welcome', curRoom=null, curDevice=null;
-let adminData={connectedDevices:[],offlineDevices:[],system:null};
-let spyWs=null;
-const spyRooms=new Map([['global',{name:'Global Chat',type:'global',memberCount:0}]]);
-const spyMsgs=new Map([['global',[]]]);
-const unread=new Map();
-let chatAccounts=[];
-let pmKey=null;
+var curView='welcome', curRoom=null, curDevice=null;
+var adminData={connectedDevices:[],offlineDevices:[],system:null};
+var spyWs=null;
+var spyRooms=new Map(); spyRooms.set('global',{name:'Global Chat',type:'global',memberCount:0});
+var spyMsgs=new Map(); spyMsgs.set('global',[]);
+var unread=new Map();
+var chatAccounts=[];
+var pmKey=null;
 
 function selectView(id){
-  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(function(v){v.classList.remove('active');});
   document.getElementById('view-'+id).classList.add('active');
   curView=id;
   renderSidebar(document.getElementById('search-inp').value);
-  if(id==='terminal') setTimeout(()=>fit&&fit.fit(),40);
+  if(id==='terminal') setTimeout(function(){if(fit)fit.fit();},40);
   if(id==='config'){loadConfig();loadAccounts();}
 }
 function selectRoom(roomId){
   curRoom=roomId; unread.set(roomId,0);
   selectView('room');
-  const r=spyRooms.get(roomId)||{name:roomId};
+  var r=spyRooms.get(roomId)||{name:roomId};
   document.getElementById('rh-av').innerHTML=avHtml(r.name,null);
   document.getElementById('rh-name').textContent=r.name;
   document.getElementById('rh-sub').textContent=r.memberCount?r.memberCount+' members':'';
@@ -447,102 +454,84 @@ function selectDevice(deviceId){
 }
 
 function renderSidebar(filter){
-  filter=(filter||'').toLowerCase();
-  let html='';
-  html+='<div class="sec-hdr">Chat</div>';
-  for(const [id,r] of spyRooms){
-    const label=r.name||id;
-    if(filter&&!label.toLowerCase().includes(filter)) continue;
-    const msgs=spyMsgs.get(id)||[];
-    const last=msgs[msgs.length-1];
-    const badge=unread.get(id)||0;
-    const sel=curView==='room'&&curRoom===id;
-    html+=\`<div class="sid-item\${sel?' sel':''}" onclick="selectRoom('\${esc(id)}')">
-      <div class="sid-av">\${avHtml(label,null)}</div>
-      <div class="sid-info">
-        <div class="sid-name">\${esc(label)}</div>
-        <div class="sid-prev">\${last?esc(last.fromName)+': '+esc(last.text.slice(0,40)):'<span style="opacity:.4">No messages</span>'}</div>
-      </div>
-      <div class="sid-meta">
-        \${last?'<div class="sid-time">'+fmtTime(last.ts)+'</div>':''}
-        \${badge?'<div class="sid-badge">'+badge+'</div>':''}
-      </div>
-    </div>\`;
-  }
-  const devs=adminData.connectedDevices||[];
+  var f=(filter||'').toLowerCase();
+  var h='';
+  h+='<div class="sec-hdr">Chat</div>';
+  spyRooms.forEach(function(r,id){
+    var label=r.name||id;
+    if(f&&label.toLowerCase().indexOf(f)<0) return;
+    var msgs=spyMsgs.get(id)||[];
+    var last=msgs[msgs.length-1];
+    var badge=unread.get(id)||0;
+    var sel=curView==='room'&&curRoom===id;
+    h+='<div class="sid-item'+(sel?' sel':'')+'" onclick="selectRoom(\''+q(id)+'\')">';
+    h+='<div class="sid-av">'+avHtml(label,null)+'</div>';
+    h+='<div class="sid-info"><div class="sid-name">'+esc(label)+'</div>';
+    h+='<div class="sid-prev">'+(last?esc(last.fromName)+': '+esc((last.text||'').slice(0,40)):'<span style="opacity:.4">No messages</span>')+'</div></div>';
+    h+='<div class="sid-meta">'+(last?'<div class="sid-time">'+fmtTime(last.ts)+'</div>':'')+(badge?'<div class="sid-badge">'+badge+'</div>':'')+'</div>';
+    h+='</div>';
+  });
+  var devs=adminData.connectedDevices||[];
   if(devs.length){
-    html+='<div class="sec-hdr">Devices ('+devs.length+')</div>';
-    for(const d of devs){
-      const name=d.user?.displayName||d.deviceId.slice(0,10)+'…';
-      if(filter&&!name.toLowerCase().includes(filter)) continue;
-      const track=d.player?.track;
-      const prev=track?'&#9835; '+track.name+' – '+track.artists:'Connected';
-      const sel=curView==='device'&&curDevice===d.deviceId;
-      html+=\`<div class="sid-item\${sel?' sel':''}" onclick="selectDevice('\${esc(d.deviceId)}')">
-        <div class="sid-av">\${avHtml(name,null)}<div class="dot on"></div></div>
-        <div class="sid-info">
-          <div class="sid-name">\${esc(name)}</div>
-          <div class="sid-prev">\${esc(prev)}</div>
-        </div>
-        <div class="sid-meta">
-          \${d.player?.isPlaying?'<span class="pill p-g">&#9654;</span>':''}
-          <span class="pill p-b">\${d.tabs}t</span>
-        </div>
-      </div>\`;
-    }
+    h+='<div class="sec-hdr">Devices ('+devs.length+')</div>';
+    devs.forEach(function(d){
+      var name=(d.user&&d.user.displayName)||d.deviceId.slice(0,10)+'…';
+      if(f&&name.toLowerCase().indexOf(f)<0) return;
+      var track=d.player&&d.player.track;
+      var prev=track?'♫ '+track.name+' – '+track.artists:'Connected';
+      var sel=curView==='device'&&curDevice===d.deviceId;
+      h+='<div class="sid-item'+(sel?' sel':'')+'" onclick="selectDevice(\''+q(d.deviceId)+'\')">';
+      h+='<div class="sid-av">'+avHtml(name,null)+'<div class="dot on"></div></div>';
+      h+='<div class="sid-info"><div class="sid-name">'+esc(name)+'</div><div class="sid-prev">'+esc(prev)+'</div></div>';
+      h+='<div class="sid-meta">'+(d.player&&d.player.isPlaying?'<span class="pill p-g">&#9654;</span>':'')+'<span class="pill p-b">'+d.tabs+'t</span></div>';
+      h+='</div>';
+    });
   }
-  html+='<div class="sec-hdr">System</div>';
-  html+=\`<div class="sid-item\${curView==='terminal'?' sel':''}" onclick="selectView('terminal')">
-    <div class="sid-av" style="font-size:.7rem;font-family:monospace">&gt;_</div>
-    <div class="sid-info"><div class="sid-name">Terminal</div><div class="sid-prev">Server shell</div></div>
-  </div>
-  <div class="sid-item\${curView==='config'?' sel':''}" onclick="selectView('config')">
-    <div class="sid-av">&#9881;</div>
-    <div class="sid-info"><div class="sid-name">Config &amp; Accounts</div><div class="sid-prev">OAuth keys · chat profiles</div></div>
-  </div>\`;
-  const sys=adminData.system;
-  if(sys) html+=\`<div style="padding:8px 16px 12px;font-size:.7rem;color:#3a4a54">\${esc(sys.hostname)} &middot; up \${fmtUp(sys.uptime)} &middot; load \${sys.loadAvg?.[0]?.toFixed(2)||'?'} &middot; RAM \${sys.memPct}%</div>\`;
-  document.getElementById('sid-body').innerHTML=html;
+  h+='<div class="sec-hdr">System</div>';
+  h+='<div class="sid-item'+(curView==='terminal'?' sel':'')+'" onclick="selectView(\'terminal\')">';
+  h+='<div class="sid-av" style="font-size:.7rem;font-family:monospace">&gt;_</div>';
+  h+='<div class="sid-info"><div class="sid-name">Terminal</div><div class="sid-prev">Server shell</div></div></div>';
+  h+='<div class="sid-item'+(curView==='config'?' sel':'')+'" onclick="selectView(\'config\')">';
+  h+='<div class="sid-av">&#9881;</div>';
+  h+='<div class="sid-info"><div class="sid-name">Config &amp; Accounts</div><div class="sid-prev">OAuth keys &middot; chat profiles</div></div></div>';
+  var sys=adminData.system;
+  if(sys) h+='<div style="padding:8px 16px 12px;font-size:.7rem;color:#3a4a54">'+esc(sys.hostname)+' &middot; up '+fmtUp(sys.uptime)+' &middot; load '+(sys.loadAvg&&sys.loadAvg[0]?sys.loadAvg[0].toFixed(2):'?')+' &middot; RAM '+sys.memPct+'%</div>';
+  document.getElementById('sid-body').innerHTML=h;
 }
 
 function renderMsgs(){
-  const inner=document.getElementById('msgs-inner');
-  const wrap=document.getElementById('msgs-wrap');
-  const msgs=spyMsgs.get(curRoom)||[];
+  var inner=document.getElementById('msgs-inner');
+  var wrap=document.getElementById('msgs-wrap');
+  var msgs=spyMsgs.get(curRoom)||[];
   if(!msgs.length){inner.innerHTML='<div class="msgs-empty">No messages yet</div>';return;}
-  let html='',lastDate='';
-  for(const m of msgs){
-    const d=fmtDate(m.ts);
-    if(d!==lastDate){html+=\`<div class="date-div"><span class="date-chip">\${esc(d)}</span></div>\`;lastDate=d;}
-    const k=(m.fromName||'').toLowerCase();
-    const av=m.avatarUrl?'<img src="'+esc(m.avatarUrl)+'" onerror="this.outerHTML=\'<span>'+initials(m.fromName)+'</span>\'">':'<span>'+initials(m.fromName)+'</span>';
-    html+=\`<div class="msg-row other">
-      <button class="msg-av" onclick="pmOpen('\${esc(k)}')">\${av}</button>
-      <div class="msg-body">
-        <button class="msg-sender" onclick="pmOpen('\${esc(k)}')">\${esc(m.fromName||'Unknown')}</button>
-        <div class="bubble">\${esc(m.text)}<span class="msg-time">\${fmtTime(m.ts)}</span></div>
-      </div>
-    </div>\`;
-  }
-  inner.innerHTML=html;
+  var h='',lastDate='';
+  msgs.forEach(function(m){
+    var d=fmtDate(m.ts);
+    if(d!==lastDate){h+='<div class="date-div"><span class="date-chip">'+esc(d)+'</span></div>';lastDate=d;}
+    var k=q((m.fromName||'').toLowerCase());
+    var av=m.avatarUrl?'<img src="'+esc(m.avatarUrl)+'" onerror="this.outerHTML=\'<span>'+ini(m.fromName)+'</span>\'">':'<span>'+ini(m.fromName)+'</span>';
+    h+='<div class="msg-row other">';
+    h+='<button class="msg-av" onclick="pmOpen(\''+k+'\')">'+av+'</button>';
+    h+='<div class="msg-body"><button class="msg-sender" onclick="pmOpen(\''+k+'\')">'+esc(m.fromName||'Unknown')+'</button>';
+    h+='<div class="bubble">'+esc(m.text)+'<span class="msg-time">'+fmtTime(m.ts)+'</span></div></div></div>';
+  });
+  inner.innerHTML=h;
   wrap.scrollTop=wrap.scrollHeight;
 }
 
 function appendMsg(m){
-  const inner=document.getElementById('msgs-inner');
-  const wrap=document.getElementById('msgs-wrap');
+  var inner=document.getElementById('msgs-inner');
+  var wrap=document.getElementById('msgs-wrap');
   if(!inner) return;
-  const empty=inner.querySelector('.msgs-empty');
+  var empty=inner.querySelector('.msgs-empty');
   if(empty) empty.remove();
-  const k=(m.fromName||'').toLowerCase();
-  const av=m.avatarUrl?'<img src="'+esc(m.avatarUrl)+'" onerror="this.outerHTML=\'<span>'+initials(m.fromName)+'</span>\'">':'<span>'+initials(m.fromName)+'</span>';
-  const row=document.createElement('div');
+  var k=q((m.fromName||'').toLowerCase());
+  var av=m.avatarUrl?'<img src="'+esc(m.avatarUrl)+'" onerror="this.outerHTML=\'<span>'+ini(m.fromName)+'</span>\'">':'<span>'+ini(m.fromName)+'</span>';
+  var row=document.createElement('div');
   row.className='msg-row other';
-  row.innerHTML=\`<button class="msg-av" onclick="pmOpen('\${esc(k)}')">\${av}</button>
-    <div class="msg-body">
-      <button class="msg-sender" onclick="pmOpen('\${esc(k)}')">\${esc(m.fromName||'Unknown')}</button>
-      <div class="bubble">\${esc(m.text)}<span class="msg-time">\${fmtTime(m.ts)}</span></div>
-    </div>\`;
+  row.innerHTML='<button class="msg-av" onclick="pmOpen(\''+k+'\')">'+av+'</button>'
+    +'<div class="msg-body"><button class="msg-sender" onclick="pmOpen(\''+k+'\')">'+esc(m.fromName||'Unknown')+'</button>'
+    +'<div class="bubble">'+esc(m.text)+'<span class="msg-time">'+fmtTime(m.ts)+'</span></div></div>';
   inner.appendChild(row);
   wrap.scrollTop=wrap.scrollHeight;
 }
@@ -554,79 +543,76 @@ function clearRoom(){
 }
 
 function renderDevice(){
-  const all=[...(adminData.connectedDevices||[]),...(adminData.offlineDevices||[])];
-  const d=all.find(x=>x.deviceId===curDevice);
+  var all=(adminData.connectedDevices||[]).concat(adminData.offlineDevices||[]);
+  var d=null;
+  for(var i=0;i<all.length;i++){if(all[i].deviceId===curDevice){d=all[i];break;}}
   if(!d){document.getElementById('dev-body').innerHTML='<div style="padding:20px;color:var(--sec)">Device not found</div>';return;}
-  const name=d.user?.displayName||d.deviceId.slice(0,10)+'…';
+  var name=(d.user&&d.user.displayName)||d.deviceId.slice(0,10)+'…';
   document.getElementById('dh-av').innerHTML=avHtml(name,null);
   document.getElementById('dh-name').textContent=name;
-  document.getElementById('dh-sub').textContent=d.user?.email||(d.tabs?d.tabs+' tab(s)':'Offline');
-  const p=d.player,t=p?.track;
-  let html=\`<div class="dc"><div class="dc-title">Connection</div>
-    <div class="dc-row"><span class="dc-k">Device ID</span><span class="dc-v">\${esc(d.deviceId.slice(0,16))}…</span></div>
-    <div class="dc-row"><span class="dc-k">Tabs</span><span class="dc-v">\${d.tabs||0}</span></div>
-    <div class="dc-row"><span class="dc-k">IPs</span><span class="dc-v">\${esc((d.ips||[]).join(', ')||'—')}</span></div>
-    <div class="dc-row"><span class="dc-k">Spotify</span><span>\${d.authenticated?'<span class="pill p-g">Linked</span>':'<span class="pill p-n">Not linked</span>'}</span></div>
-  </div>\`;
-  if(d.user) html+=\`<div class="dc"><div class="dc-title">Spotify Account</div>
-    <div class="dc-row"><span class="dc-k">Name</span><span class="dc-v">\${esc(d.user.displayName||'—')}</span></div>
-    <div class="dc-row"><span class="dc-k">Email</span><span class="dc-v">\${esc(d.user.email||'—')}</span></div>
-    <div class="dc-row"><span class="dc-k">Plan</span><span class="dc-v">\${esc(d.user.product||'—')}</span></div>
-  </div>\`;
-  if(t){
-    const pct=t.durationMs?Math.min(100,(t.progressMs||0)/t.durationMs*100).toFixed(1):0;
-    html+=\`<div class="dc"><div class="dc-title">Now Playing</div>
-      <div class="album-row">
-        \${t.albumArt?'<img class="album-art" src="'+esc(t.albumArt)+'" onerror="this.style.display=\'none\'">':'<div class="album-art"></div>'}
-        <div><div class="track-name">\${esc(t.name)}</div><div class="track-sub">\${esc(t.artists)}</div><div class="track-sub">\${esc(t.album||'')}</div></div>
-      </div>
-      <div class="prog-bar"><div class="prog-fill" style="width:\${pct}%"></div></div>
-      <div class="dc-row" style="margin-top:6px">
-        <span>\${p.isPlaying?'<span class="pill p-g">&#9654; Playing</span>':'<span class="pill p-n">&#9646;&#9646; Paused</span>'}\${p.repeatState&&p.repeatState!=='off'?'<span class="pill p-b">&#8635;</span>':''}\${p.shuffleState?'<span class="pill p-b">&#8652;</span>':''}</span>
-        <span class="dc-v">\${fmtDur(t.progressMs||0)} / \${fmtDur(t.durationMs||0)}</span>
-      </div>
-      \${p.device?'<div class="dc-row"><span class="dc-k">Output</span><span class="dc-v">'+esc(p.device.name)+' ('+esc(p.device.type)+')</span></div>':''}
-    </div>\`;
+  document.getElementById('dh-sub').textContent=(d.user&&d.user.email)||(d.tabs?d.tabs+' tab(s)':'Offline');
+  var p=d.player,t=p&&p.track;
+  var h='<div class="dc"><div class="dc-title">Connection</div>';
+  h+='<div class="dc-row"><span class="dc-k">Device ID</span><span class="dc-v">'+esc(d.deviceId.slice(0,16))+'&hellip;</span></div>';
+  h+='<div class="dc-row"><span class="dc-k">Tabs</span><span class="dc-v">'+(d.tabs||0)+'</span></div>';
+  h+='<div class="dc-row"><span class="dc-k">IPs</span><span class="dc-v">'+esc((d.ips||[]).join(', ')||'—')+'</span></div>';
+  h+='<div class="dc-row"><span class="dc-k">Spotify</span><span>'+(d.authenticated?'<span class="pill p-g">Linked</span>':'<span class="pill p-n">Not linked</span>')+'</span></div></div>';
+  if(d.user){
+    h+='<div class="dc"><div class="dc-title">Spotify Account</div>';
+    h+='<div class="dc-row"><span class="dc-k">Name</span><span class="dc-v">'+esc(d.user.displayName||'—')+'</span></div>';
+    h+='<div class="dc-row"><span class="dc-k">Email</span><span class="dc-v">'+esc(d.user.email||'—')+'</span></div>';
+    h+='<div class="dc-row"><span class="dc-k">Plan</span><span class="dc-v">'+esc(d.user.product||'—')+'</span></div></div>';
   }
-  if(d.radio) html+=\`<div class="dc"><div class="dc-title">Radio</div><div class="dc-row"><span class="dc-k">Station</span><span class="dc-v">\${esc(d.radio.name||'—')}</span></div></div>\`;
-  document.getElementById('dev-body').innerHTML=html;
+  if(t){
+    var pct=t.durationMs?Math.min(100,(t.progressMs||0)/t.durationMs*100).toFixed(1):0;
+    h+='<div class="dc"><div class="dc-title">Now Playing</div><div class="album-row">';
+    h+=t.albumArt?'<img class="album-art" src="'+esc(t.albumArt)+'" onerror="this.style.display=\'none\'">':'<div class="album-art"></div>';
+    h+='<div><div class="track-name">'+esc(t.name)+'</div><div class="track-sub">'+esc(t.artists)+'</div><div class="track-sub">'+esc(t.album||'')+'</div></div></div>';
+    h+='<div class="prog-bar"><div class="prog-fill" style="width:'+pct+'%"></div></div>';
+    h+='<div class="dc-row" style="margin-top:6px"><span>'+(p.isPlaying?'<span class="pill p-g">&#9654; Playing</span>':'<span class="pill p-n">&#9646;&#9646; Paused</span>')+(p.repeatState&&p.repeatState!=='off'?'<span class="pill p-b">&#8635;</span>':'')+(p.shuffleState?'<span class="pill p-b">&#8652;</span>':'')+'</span>';
+    h+='<span class="dc-v">'+fmtDur(t.progressMs||0)+' / '+fmtDur(t.durationMs||0)+'</span></div>';
+    if(p.device) h+='<div class="dc-row"><span class="dc-k">Output</span><span class="dc-v">'+esc(p.device.name)+' ('+esc(p.device.type)+')</span></div>';
+    h+='</div>';
+  }
+  if(d.radio){h+='<div class="dc"><div class="dc-title">Radio</div><div class="dc-row"><span class="dc-k">Station</span><span class="dc-v">'+esc(d.radio.name||'—')+'</span></div></div>';}
+  document.getElementById('dev-body').innerHTML=h;
 }
 
 async function refreshAdmin(){
   try{
-    const r=await fetch(P+'/api/admin');
+    var r=await fetch(P+'/api/admin');
     if(r.status===401){location.reload();return;}
-    const {overview}=await r.json();
-    if(!overview) return;
-    adminData=overview;
+    var j=await r.json();
+    if(!j.overview) return;
+    adminData=j.overview;
     renderSidebar(document.getElementById('search-inp').value);
     if(curView==='device') renderDevice();
-  }catch{}
+  }catch(e){}
 }
 
 async function loadConfig(){
   try{
-    const r=await fetch(P+'/api/env',{credentials:'include'});
-    const d=await r.json();
-    const set=(id,val)=>{const el=document.getElementById(id);if(el){el.value=val||'';el.classList.toggle('is-set',!!val);}};
+    var r=await fetch(P+'/api/env',{credentials:'include'});
+    var d=await r.json();
+    var set=function(id,val){var el=document.getElementById(id);if(el){el.value=val||'';el.classList.toggle('is-set',!!val);}};
     set('cfg-discord-id',d.DISCORD_CLIENT_ID);
     set('cfg-discord-secret',d.DISCORD_CLIENT_SECRET);
     set('cfg-google-id',d.GOOGLE_CLIENT_ID);
     set('cfg-google-secret',d.GOOGLE_CLIENT_SECRET);
-  }catch{}
+  }catch(e){}
 }
 async function cfgSave(){
-  const btn=document.getElementById('cfg-save'),msg=document.getElementById('cfg-msg');
+  var btn=document.getElementById('cfg-save'),msg=document.getElementById('cfg-msg');
   btn.disabled=true;msg.style.color='#8696a0';msg.textContent='Saving…';
-  const body={
+  var body={
     DISCORD_CLIENT_ID:document.getElementById('cfg-discord-id').value.trim(),
     DISCORD_CLIENT_SECRET:document.getElementById('cfg-discord-secret').value.trim(),
     GOOGLE_CLIENT_ID:document.getElementById('cfg-google-id').value.trim(),
     GOOGLE_CLIENT_SECRET:document.getElementById('cfg-google-secret').value.trim(),
   };
   try{
-    const r=await fetch(P+'/api/env',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    const d=await r.json();
+    var r=await fetch(P+'/api/env',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    var d=await r.json();
     if(d.ok){msg.style.color='#00a884';msg.textContent='✓ Saved — server restarting…';}
     else{msg.style.color='#ff6b6b';msg.textContent=d.error||'Save failed';}
   }catch(e){msg.style.color='#ff6b6b';msg.textContent='Error: '+e.message;}
@@ -635,26 +621,30 @@ async function cfgSave(){
 
 async function loadAccounts(){
   try{
-    const r=await fetch(P+'/api/chat-accounts');
+    var r=await fetch(P+'/api/chat-accounts');
     if(!r.ok) return;
-    const d=await r.json();
+    var d=await r.json();
     chatAccounts=d.accounts||[];
     renderAccounts();
-  }catch{}
+  }catch(e){}
 }
 function renderAccounts(){
-  const el=document.getElementById('accs-list');
+  var el=document.getElementById('accs-list');
   if(!chatAccounts.length){el.innerHTML='<div style="color:var(--sec);font-size:.8rem">No accounts yet</div>';return;}
-  el.innerHTML=chatAccounts.map(a=>\`<div class="acc-item">
-    <div class="acc-av">\${avHtml(a.name,a.avatarUrl)}</div>
-    <div style="flex:1;min-width:0"><div class="acc-name">\${esc(a.name)}</div><div class="acc-key">\${esc(a.key)}</div></div>
-    <button class="acc-edit" onclick="pmOpen('\${esc(a.key)}')">&#9998; Edit</button>
-  </div>\`).join('');
+  var h='';
+  chatAccounts.forEach(function(a){
+    h+='<div class="acc-item"><div class="acc-av">'+avHtml(a.name,a.avatarUrl)+'</div>';
+    h+='<div style="flex:1;min-width:0"><div class="acc-name">'+esc(a.name)+'</div><div class="acc-key">'+esc(a.key)+'</div></div>';
+    h+='<button class="acc-edit" onclick="pmOpen(\''+q(a.key)+'\')">&#9998; Edit</button></div>';
+  });
+  el.innerHTML=h;
 }
 
 function pmOpen(key){
   pmKey=key;
-  const acc=chatAccounts.find(a=>a.key===key)||{name:key,avatarUrl:null};
+  var acc=null;
+  for(var i=0;i<chatAccounts.length;i++){if(chatAccounts[i].key===key){acc=chatAccounts[i];break;}}
+  acc=acc||{name:key,avatarUrl:null};
   document.getElementById('pm-name').value=acc.name||'';
   document.getElementById('pm-avatar-url').value=acc.avatarUrl||'';
   document.getElementById('pm-msg').textContent='';
@@ -663,22 +653,21 @@ function pmOpen(key){
 }
 function pmClose(){document.getElementById('pm-overlay').classList.remove('vis');pmKey=null;}
 function pmPreview(url,name){
-  const u=url!==undefined?url:document.getElementById('pm-avatar-url').value;
-  const n=name||document.getElementById('pm-name').value||pmKey||'?';
+  var u=url!==undefined?url:document.getElementById('pm-avatar-url').value;
+  var n=name||document.getElementById('pm-name').value||pmKey||'?';
   document.getElementById('pm-av').innerHTML=avHtml(n,u||null);
 }
 async function pmSave(){
   if(!pmKey) return pmClose();
-  const btn=document.getElementById('pm-save'),msg=document.getElementById('pm-msg');
+  var btn=document.getElementById('pm-save'),msg=document.getElementById('pm-msg');
   btn.disabled=true;msg.style.color='#8696a0';msg.textContent='Saving…';
-  const body={key:pmKey,name:document.getElementById('pm-name').value.trim(),avatarUrl:document.getElementById('pm-avatar-url').value.trim()||null};
+  var body={key:pmKey,name:document.getElementById('pm-name').value.trim(),avatarUrl:document.getElementById('pm-avatar-url').value.trim()||null};
   try{
-    const r=await fetch(P+'/api/chat-account',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    const d=await r.json();
+    var r=await fetch(P+'/api/chat-account',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    var d=await r.json();
     if(d.ok){
       msg.style.color='#00a884';msg.textContent='✓ Saved';
-      const a=chatAccounts.find(a=>a.key===pmKey);
-      if(a){a.name=d.name;a.avatarUrl=d.avatarUrl;}
+      for(var i=0;i<chatAccounts.length;i++){if(chatAccounts[i].key===pmKey){chatAccounts[i].name=d.name;chatAccounts[i].avatarUrl=d.avatarUrl;break;}}
       renderAccounts();
       setTimeout(pmClose,900);
     }else{msg.style.color='#ff6b6b';msg.textContent=d.error||'Failed';}
@@ -687,46 +676,45 @@ async function pmSave(){
 }
 
 async function doRestart(){
-  const btn=document.getElementById('restart-btn');
+  var btn=document.getElementById('restart-btn');
   btn.textContent='⌛';btn.disabled=true;
-  try{const r=await fetch(P+'/api/restart-server',{method:'POST'});const d=await r.json();btn.textContent=d.ok?'✓':'✗';}
-  catch{btn.textContent='✗';}
-  setTimeout(()=>{btn.textContent='↻';btn.disabled=false;},3000);
+  try{var r=await fetch(P+'/api/restart-server',{method:'POST'});var d=await r.json();btn.textContent=d.ok?'✓':'✗';}
+  catch(e){btn.textContent='✗';}
+  setTimeout(function(){btn.textContent='↻';btn.disabled=false;},3000);
 }
 async function logout(){await fetch(P+'/api/logout',{method:'POST'});location.reload();}
 
 async function spyConnect(){
   if(spyWs&&spyWs.readyState<2) return;
   try{
-    const r=await fetch(P+'/api/ghost-token');
+    var r=await fetch(P+'/api/ghost-token');
     if(!r.ok) return;
-    const {token}=await r.json();
-    if(!token) return;
-    const proto=location.protocol==='https:'?'wss:':'ws:';
-    const ghostId='ghost-'+Math.random().toString(36).slice(2);
-    // When accessed directly (no panel proxy), connect to main server port
-    const wsHost=P?location.host:location.hostname+':'+MAIN_PORT;
+    var j=await r.json();
+    if(!j.token) return;
+    var proto=location.protocol==='https:'?'wss:':'ws:';
+    var ghostId='ghost-'+Math.random().toString(36).slice(2);
+    var wsHost=P?location.host:location.hostname+':'+MAIN_PORT;
     spyWs=new WebSocket(proto+'//'+wsHost);
-    spyWs.onopen=()=>{
+    spyWs.onopen=function(){
       spyWs.send(JSON.stringify({type:'join',deviceId:ghostId}));
-      spyWs.send(JSON.stringify({type:'chat:ghost-join',token}));
+      spyWs.send(JSON.stringify({type:'chat:ghost-join',token:j.token}));
     };
-    spyWs.onmessage=e=>{try{spyMsg(JSON.parse(e.data));}catch{}};
-    spyWs.onclose=()=>setTimeout(spyConnect,5000);
-    spyWs.onerror=()=>spyWs.close();
-  }catch{}
+    spyWs.onmessage=function(e){try{spyMsg(JSON.parse(e.data));}catch(err){}};
+    spyWs.onclose=function(){setTimeout(spyConnect,5000);};
+    spyWs.onerror=function(){spyWs.close();};
+  }catch(e){}
 }
 function spyMsg(m){
   if(m.type==='chat:ghost-state'){
     spyMsgs.set('global',m.global||[]);
-    for(const g of m.groups||[]){
-      spyRooms.set(g.id,{name:g.name,type:'group',memberCount:g.memberCount||g.members?.length||0});
+    (m.groups||[]).forEach(function(g){
+      spyRooms.set(g.id,{name:g.name,type:'group',memberCount:g.memberCount||0});
       spyMsgs.set(g.id,g.messages||[]);
-    }
-    for(const d of m.dms||[]){
+    });
+    (m.dms||[]).forEach(function(d){
       spyRooms.set(d.room,{name:'DM: '+d.room.slice(3,22)+'…',type:'dm',memberCount:2});
       spyMsgs.set(d.room,d.messages||[]);
-    }
+    });
     renderSidebar(document.getElementById('search-inp').value);
     if(curView==='room'&&curRoom) renderMsgs();
     return;
@@ -751,43 +739,33 @@ function spyMsg(m){
   }
 }
 
-// Boot — run these first, before terminal which may throw
-renderSidebar();
-refreshAdmin();
-setInterval(refreshAdmin,4000);
-spyConnect();
-
-// Terminal — in try/catch so CDN failures don't break the rest of the UI
-let term=null,fit=null,ws=null;
+var term=null,fit=null,ws=null;
 try{
-  term=new Terminal({
-    cursorBlink:true,scrollback:10000,
-    theme:{background:'#080a0e',foreground:'#e9edef',cursor:'#00a884',selectionBackground:'#2a3942'},
-    fontFamily:'ui-monospace, Menlo, monospace',fontSize:13,lineHeight:1.2,
-  });
+  term=new Terminal({cursorBlink:true,scrollback:10000,theme:{background:'#080a0e',foreground:'#e9edef',cursor:'#00a884',selectionBackground:'#2a3942'},fontFamily:'ui-monospace, Menlo, monospace',fontSize:13,lineHeight:1.2});
   fit=new FitAddon.FitAddon();
   term.loadAddon(fit);
   term.open(document.getElementById('terminal'));
   fit.fit();
-}catch(e){console.error('xterm init failed:',e);}
+}catch(e){console.error('xterm:',e);}
 function connect(){
   if(!term){document.getElementById('term-status').textContent='xterm not loaded';return;}
   if(ws&&ws.readyState<2) ws.close();
-  const proto=location.protocol==='https:'?'wss:':'ws:';
+  var proto=location.protocol==='https:'?'wss:':'ws:';
   ws=new WebSocket(proto+'//'+location.host+P+'/terminal');
-  ws.onopen=()=>{
-    document.getElementById('term-dot').classList.add('on');
-    document.getElementById('term-status').textContent='Connected';
-    if(fit)fit.fit();ws.send(JSON.stringify({type:'resize',cols:term.cols,rows:term.rows}));
-  };
-  ws.onmessage=e=>{try{const m=JSON.parse(e.data);if(m.type==='data')term.write(m.data);}catch{term.write(e.data);}};
-  ws.onclose=()=>{document.getElementById('term-dot').classList.remove('on');document.getElementById('term-status').textContent='Disconnected (reconnecting…)';setTimeout(connect,3000);};
-  ws.onerror=()=>ws.close();
-  term.onData(d=>ws&&ws.readyState===1&&ws.send(JSON.stringify({type:'data',data:d})));
-  term.onResize(({cols,rows})=>ws&&ws.readyState===1&&ws.send(JSON.stringify({type:'resize',cols,rows})));
+  ws.onopen=function(){document.getElementById('term-dot').classList.add('on');document.getElementById('term-status').textContent='Connected';if(fit)fit.fit();ws.send(JSON.stringify({type:'resize',cols:term.cols,rows:term.rows}));};
+  ws.onmessage=function(e){try{var m=JSON.parse(e.data);if(m.type==='data')term.write(m.data);}catch(err){term.write(e.data);}};
+  ws.onclose=function(){document.getElementById('term-dot').classList.remove('on');document.getElementById('term-status').textContent='Disconnected (reconnecting…)';setTimeout(connect,3000);};
+  ws.onerror=function(){ws.close();};
+  term.onData(function(d){if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:'data',data:d}));});
+  term.onResize(function(s){if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:'resize',cols:s.cols,rows:s.rows}));});
 }
-if(term) new ResizeObserver(()=>fit&&fit.fit()).observe(document.getElementById('terminal-wrap'));
+if(term) new ResizeObserver(function(){if(fit)fit.fit();}).observe(document.getElementById('terminal-wrap'));
 connect();
+
+renderSidebar();
+refreshAdmin();
+setInterval(refreshAdmin,4000);
+spyConnect();
 </script>
 </body>
 </html>`;
