@@ -6,77 +6,133 @@
 let _chatReady     = false;
 let chatRoom       = 'global';
 let chatMyName     = localStorage.getItem('chatName') || '';
-const chatFriendMap  = {};   // id → name
+let chatMyAvatar   = localStorage.getItem('chatAvatar') || null;
+let chatMyProvider = localStorage.getItem('chatProvider') || null;
+const chatFriendMap  = {};   // id → { name, avatarUrl }
 const chatGroupMap   = {};   // id → { id, name }
 const chatRoomUnread = {};   // room → count
 const chatRoomMsgs   = {};   // room → [msg, ...]
 
 // Call state
-let chatInCall       = false;
-let chatCallRoom     = null;
-const chatPeers      = {};   // peerId → { pc }
-let chatLocalStream  = null;
-let chatMuted        = false;
-const chatCallPeers  = {};   // peerId → { id, name }
-const ICE_SERVERS    = [{ urls: 'stun:stun.l.google.com:19302' }];
+let chatInCall      = false;
+let chatCallRoom    = null;
+const chatPeers     = {};   // peerId → { pc }
+let chatLocalStream = null;
+let chatMuted       = false;
+const chatCallPeers = {};   // peerId → { id, name, avatarUrl }
+const ICE_SERVERS   = [{ urls: 'stun:stun.l.google.com:19302' }];
 
-// ── Tiny utils ────────────────────────────────────────────────────────────────
+// ── Utils ─────────────────────────────────────────────────────────────────────
 function esc(s) {
   return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 function chatEl(id) { return document.getElementById(id); }
+function avatarHtml(name, url, size = 32) {
+  const initials = esc((name || '?').slice(0, 2).toUpperCase());
+  if (url) {
+    return `<div class="chat-avatar" style="width:${size}px;height:${size}px"><img src="${esc(url)}" alt="${esc(name)}" onerror="this.parentElement.innerHTML='${initials}'"></div>`;
+  }
+  return `<div class="chat-avatar" style="width:${size}px;height:${size}px">${initials}</div>`;
+}
 
-// ── Init (called from navigate() after view.html is injected) ─────────────────
+// ── Init ──────────────────────────────────────────────────────────────────────
 function chatInit() {
   if (_chatReady) return;
   _chatReady = true;
 
-  // Show device ID chip
+  // Device ID chip
   const chip = chatEl('chat-did-chip');
   if (chip) {
-    chip.textContent = 'ID: ' + deviceId.slice(0, 16) + '…';
-    chip.title = 'Click to copy your full Device ID';
+    chip.textContent = 'ID: ' + deviceId.slice(0, 18) + '…';
+    chip.title = 'Click to copy your Device ID';
     chip.onclick = () => {
       navigator.clipboard.writeText(deviceId).catch(() => {});
       chip.textContent = 'Copied!';
-      setTimeout(() => { chip.textContent = 'ID: ' + deviceId.slice(0, 16) + '…'; }, 1500);
+      setTimeout(() => { chip.textContent = 'ID: ' + deviceId.slice(0, 18) + '…'; }, 1500);
     };
   }
 
-  if (chatMyName) {
-    chatEl('chat-name-overlay').style.display = 'none';
-    if (wsReady) {
-      ws.send(JSON.stringify({ type: 'chat:set-name', name: chatMyName }));
-      ws.send(JSON.stringify({ type: 'chat:join', room: 'global' }));
+  // Wire up OAuth buttons
+  const discordBtn = chatEl('chat-discord-btn');
+  const googleBtn  = chatEl('chat-google-btn');
+  if (discordBtn) discordBtn.href = `/auth/chat/discord?device=${encodeURIComponent(deviceId)}`;
+  if (googleBtn)  googleBtn.href  = `/auth/chat/google?device=${encodeURIComponent(deviceId)}`;
+
+  // Check if provider buttons are configured
+  fetch('/api/chat/me?device=' + deviceId).then(r => r.json()).then(profile => {
+    if (profile.name && profile.name !== 'User-' + deviceId.slice(0, 6)) {
+      chatMyName     = profile.name;
+      chatMyAvatar   = profile.avatarUrl;
+      chatMyProvider = profile.provider;
+      localStorage.setItem('chatName',     chatMyName);
+      if (chatMyAvatar) localStorage.setItem('chatAvatar', chatMyAvatar);
+      if (chatMyProvider) localStorage.setItem('chatProvider', chatMyProvider);
+      chatHideLogin();
+      chatJoinRoom('global');
+    } else if (chatMyName) {
+      // Previously set name — re-register it
+      if (wsReady) ws.send(JSON.stringify({ type: 'chat:set-name', name: chatMyName }));
+      chatHideLogin();
+      chatJoinRoom('global');
+    } else {
+      chatShowLogin();
     }
+  }).catch(() => {
+    if (chatMyName) {
+      chatHideLogin();
+      chatJoinRoom('global');
+    } else {
+      chatShowLogin();
+    }
+  });
+
+  // Check for OAuth error param
+  const chatErr = new URLSearchParams(location.search).get('chat_error');
+  if (chatErr) {
+    const errEl = chatEl('chat-login-err');
+    if (errEl) errEl.textContent = 'Login failed — try again or use a display name.';
+    history.replaceState(null, '', location.pathname + (location.search.replace(/[?&]chat_error=[^&]*/g,'').replace(/^&/,'?') || ''));
   }
+
   chatRenderSidebar();
-  chatRenderMessages();
 }
 window.chatInit = chatInit;
 
-// ── Name setup ────────────────────────────────────────────────────────────────
+// ── Login ─────────────────────────────────────────────────────────────────────
+function chatShowLogin() {
+  const el = chatEl('chat-login-overlay');
+  if (el) el.style.display = '';
+}
+function chatHideLogin() {
+  const el = chatEl('chat-login-overlay');
+  if (el) el.style.display = 'none';
+}
+
 function chatSaveName() {
   const inp = chatEl('chat-name-inp');
   const name = (inp?.value || '').trim();
-  if (!name) { inp?.focus(); return; }
+  const errEl = chatEl('chat-login-err');
+  if (!name) { if (errEl) errEl.textContent = 'Enter a display name'; inp?.focus(); return; }
+  if (errEl) errEl.textContent = '';
   chatMyName = name;
+  chatMyAvatar = null;
+  chatMyProvider = null;
   localStorage.setItem('chatName', name);
-  if (wsReady) {
-    ws.send(JSON.stringify({ type: 'chat:set-name', name }));
-    ws.send(JSON.stringify({ type: 'chat:join', room: 'global' }));
-  }
-  chatEl('chat-name-overlay').style.display = 'none';
+  localStorage.removeItem('chatAvatar');
+  localStorage.removeItem('chatProvider');
+  if (wsReady) ws.send(JSON.stringify({ type: 'chat:set-name', name }));
+  chatHideLogin();
+  chatJoinRoom('global');
 }
 window.chatSaveName = chatSaveName;
 
-// ── Room helpers ──────────────────────────────────────────────────────────────
+// ── Room ──────────────────────────────────────────────────────────────────────
 function chatRoomLabel(room) {
   if (room === 'global') return 'Global';
   if (room.startsWith('group:')) return chatGroupMap[room]?.name || 'Group';
   if (room.startsWith('dm:')) {
     const otherId = room.slice(3).split(':').find(id => id !== deviceId);
-    return chatFriendMap[otherId] || 'DM';
+    return chatFriendMap[otherId]?.name || 'DM';
   }
   return room;
 }
@@ -93,7 +149,6 @@ function chatJoinRoom(room) {
 }
 
 function chatOpenRoom(room) {
-  if (room === chatRoom && _chatReady) return;
   chatJoinRoom(room);
   document.querySelectorAll('.chat-room-item').forEach(el => {
     el.classList.toggle('active', el.dataset.room === room);
@@ -105,26 +160,27 @@ window.chatOpenRoom = chatOpenRoom;
 function chatRenderSidebar() {
   if (!_chatReady) return;
 
-  // Friends
   const friendEl = chatEl('chat-friends-list');
   if (friendEl) {
     const entries = Object.entries(chatFriendMap);
     if (!entries.length) {
       friendEl.innerHTML = '<div style="font-size:.7rem;color:#444;padding:3px 8px">No friends yet</div>';
     } else {
-      friendEl.innerHTML = entries.map(([id, name]) => {
+      friendEl.innerHTML = entries.map(([id, f]) => {
         const room = 'dm:' + [deviceId, id].sort().join(':');
         const u = chatRoomUnread[room] || 0;
+        const av = f.avatarUrl
+          ? `<div class="chat-room-icon"><img src="${esc(f.avatarUrl)}" alt="${esc(f.name)}"></div>`
+          : `<div class="chat-room-icon" style="font-size:11px">${esc(f.name.slice(0,2).toUpperCase())}</div>`;
         return `<div class="chat-room-item${room === chatRoom ? ' active' : ''}" data-room="${room}" onclick="chatOpenRoom('${room}')">
-          <div class="chat-room-icon" style="font-size:11px">${esc(name.slice(0,2).toUpperCase())}</div>
-          <div class="chat-room-name">${esc(name)}</div>
+          ${av}
+          <div class="chat-room-name">${esc(f.name)}</div>
           ${u ? `<div class="chat-room-badge">${u}</div>` : ''}
         </div>`;
       }).join('');
     }
   }
 
-  // Groups
   const groupEl = chatEl('chat-groups-list');
   if (groupEl) {
     const groups = Object.values(chatGroupMap);
@@ -134,7 +190,7 @@ function chatRenderSidebar() {
       groupEl.innerHTML = groups.map(g => {
         const u = chatRoomUnread[g.id] || 0;
         return `<div class="chat-room-item${g.id === chatRoom ? ' active' : ''}" data-room="${g.id}" onclick="chatOpenRoom('${g.id}')">
-          <div class="chat-room-icon" style="font-size:12px">#</div>
+          <div class="chat-room-icon" style="font-size:13px">#</div>
           <div class="chat-room-name">${esc(g.name)}</div>
           ${u ? `<div class="chat-room-badge">${u}</div>` : ''}
         </div>`;
@@ -142,7 +198,6 @@ function chatRenderSidebar() {
     }
   }
 
-  // Global badge
   const gu = chatRoomUnread['global'] || 0;
   const gb = chatEl('chat-unread-global');
   if (gb) { gb.textContent = gu; gb.style.display = gu ? '' : 'none'; }
@@ -151,43 +206,48 @@ function chatRenderSidebar() {
 // ── Messages ──────────────────────────────────────────────────────────────────
 function chatRenderMessages() {
   if (!_chatReady) return;
-  const el = chatEl('chat-messages');
-  if (!el) return;
-  const msgs = chatRoomMsgs[chatRoom] || [];
-  const empty = chatEl('chat-empty');
+  const container = chatEl('chat-messages-inner');
+  const emptyEl   = chatEl('chat-empty');
+  if (!container) return;
 
+  const msgs = chatRoomMsgs[chatRoom] || [];
   if (!msgs.length) {
-    el.innerHTML = '';
-    if (empty) el.appendChild(empty);
-    if (empty) empty.style.display = '';
+    container.innerHTML = '';
+    if (emptyEl) emptyEl.style.display = '';
     return;
   }
-  if (empty) empty.style.display = 'none';
+  if (emptyEl) emptyEl.style.display = 'none';
 
   let html = '';
   let lastDate = '';
+  let lastFrom = '';
   for (const m of msgs) {
     const d = new Date(m.ts);
     const dateStr = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     if (dateStr !== lastDate) {
       html += `<div class="chat-date-divider"><span>${esc(dateStr)}</span></div>`;
       lastDate = dateStr;
+      lastFrom = '';
     }
     const own = m.from === deviceId;
-    const initials = esc((m.fromName || '?').slice(0, 2).toUpperCase());
+    const showName = !own && m.from !== lastFrom;
+    lastFrom = m.from;
     const timeStr = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+
     html += `<div class="chat-msg${own ? ' own' : ''}">
-      <div class="chat-msg-avatar" title="${esc(m.fromName)}">${initials}</div>
-      <div style="min-width:0">
-        ${!own ? `<span class="chat-msg-name">${esc(m.fromName)}</span>` : ''}
+      ${avatarHtml(m.fromName, m.avatarUrl)}
+      <div class="chat-msg-body">
+        ${showName ? `<div class="chat-msg-name">${esc(m.fromName)}</div>` : ''}
         <div class="chat-msg-bubble">${esc(m.text)}</div>
-        <span class="chat-msg-time">${esc(timeStr)}</span>
+        <div class="chat-msg-time">${esc(timeStr)}</div>
       </div>
     </div>`;
   }
-  el.innerHTML = html;
-  if (empty) el.appendChild(empty);
-  el.scrollTop = el.scrollHeight;
+  container.innerHTML = html;
+
+  // Scroll to bottom
+  const el = chatEl('chat-messages');
+  if (el) el.scrollTop = el.scrollHeight;
 }
 
 function chatAppendMessage(room, m) {
@@ -195,7 +255,7 @@ function chatAppendMessage(room, m) {
   chatRoomMsgs[room].push(m);
   if (room === chatRoom && _chatReady) {
     const el = chatEl('chat-messages');
-    const atBottom = el ? (el.scrollHeight - el.scrollTop - el.clientHeight < 80) : false;
+    const atBottom = el ? (el.scrollHeight - el.scrollTop - el.clientHeight < 100) : true;
     chatRenderMessages();
     if (atBottom && el) el.scrollTop = el.scrollHeight;
   } else {
@@ -214,7 +274,7 @@ function chatSend() {
 }
 window.chatSend = chatSend;
 
-// ── WS message dispatcher (registered in index.html) ─────────────────────────
+// ── WS message dispatcher ─────────────────────────────────────────────────────
 window.chatOnMessage = function (m) {
   if (m.type === 'chat:history') {
     chatRoomMsgs[m.room] = m.messages || [];
@@ -230,16 +290,28 @@ window.chatOnMessage = function (m) {
     if (m.room === chatRoom) chatRenderMessages();
     return;
   }
+  if (m.type === 'chat:profile') {
+    // Received after OAuth login (server pushes to this device)
+    chatMyName     = m.name;
+    chatMyAvatar   = m.avatarUrl;
+    chatMyProvider = m.provider;
+    localStorage.setItem('chatName', m.name);
+    if (m.avatarUrl) localStorage.setItem('chatAvatar', m.avatarUrl);
+    if (m.provider)  localStorage.setItem('chatProvider', m.provider);
+    chatHideLogin();
+    if (!chatRoomMsgs['global']) chatJoinRoom('global');
+    return;
+  }
   if (m.type === 'chat:name-set') {
     chatMyName = m.name;
     return;
   }
   if (m.type === 'chat:friend-req') {
-    chatShowFriendReq(m.fromId, m.fromName);
+    chatShowFriendReq(m.fromId, m.fromName, m.avatarUrl);
     return;
   }
   if (m.type === 'chat:friend-accepted') {
-    chatFriendMap[m.byId] = m.byName;
+    chatFriendMap[m.byId] = { name: m.byName, avatarUrl: m.byAvatarUrl || null };
     chatRenderSidebar();
     return;
   }
@@ -249,7 +321,7 @@ window.chatOnMessage = function (m) {
     return;
   }
   if (m.type === 'chat:error') {
-    const errEl = document.getElementById('chat-modal-err') || document.getElementById('cg-err') || document.getElementById('jg-err') || document.getElementById('jg-err2');
+    const errEl = document.querySelector('#cg-err,#jg-err,#jg-err2,#af-err,#chat-login-err');
     if (errEl) errEl.textContent = m.error;
     return;
   }
@@ -276,14 +348,16 @@ window.chatOnMessage = function (m) {
   }
 };
 
-// ── Friend request UI ─────────────────────────────────────────────────────────
-function chatShowFriendReq(fromId, fromName) {
+// ── Friend requests ───────────────────────────────────────────────────────────
+function chatShowFriendReq(fromId, fromName, avatarUrl) {
+  if (!_chatReady) return;
   const el = chatEl('chat-friend-reqs');
   if (!el) return;
   const div = document.createElement('div');
   div.className = 'chat-notif';
   div.dataset.fromId = fromId;
-  div.innerHTML = `<div class="chat-notif-text"><b>${esc(fromName)}</b> wants to be friends</div>
+  const av = avatarUrl ? `<img src="${esc(avatarUrl)}" style="width:20px;height:20px;border-radius:4px;vertical-align:middle;margin-right:4px">` : '';
+  div.innerHTML = `<div class="chat-notif-text">${av}<b>${esc(fromName)}</b> wants to be friends</div>
     <button class="chat-notif-btn" style="color:#3ddc84" onclick="chatAcceptFriend('${fromId}',this)">✓</button>
     <button class="chat-notif-btn" style="color:#ff6060" onclick="chatRejectFriend('${fromId}',this)">✕</button>`;
   el.appendChild(div);
@@ -301,13 +375,13 @@ function chatRejectFriend(fromId, btn) {
 }
 window.chatRejectFriend = chatRejectFriend;
 
-// ── Add friend modal ──────────────────────────────────────────────────────────
+// ── Group/friend modals ───────────────────────────────────────────────────────
 function chatShowAddFriend() {
   const m = document.createElement('div');
   m.className = 'chat-modal-overlay';
   m.innerHTML = `<div class="chat-modal">
     <h3>Add Friend</h3>
-    <div style="font-size:.76rem;color:#8b93a3">Paste their Device ID (they can find it in the Chat sidebar)</div>
+    <div style="font-size:.76rem;color:#8b93a3">Paste their Device ID (in the Chat sidebar, tap the ID chip)</div>
     <input class="chat-modal-inp" id="af-id-inp" placeholder="Device ID…" autocomplete="off"
       onkeydown="if(event.key==='Enter')chatSendFriendReq()">
     <div class="chat-modal-err" id="af-err"></div>
@@ -330,7 +404,6 @@ function chatSendFriendReq() {
 }
 window.chatSendFriendReq = chatSendFriendReq;
 
-// ── Group modals ──────────────────────────────────────────────────────────────
 function chatShowGroupMenu() {
   const m = document.createElement('div');
   m.className = 'chat-modal-overlay';
@@ -348,12 +421,12 @@ function chatShowGroupMenu() {
   fetch('/api/chat/groups?device=' + deviceId).then(r => r.json()).then(d => {
     const el = document.getElementById('group-list-area');
     if (!el) return;
-    if (!d.groups?.length) { el.innerHTML = '<div style="font-size:.76rem;color:#556">No groups exist yet. Create one!</div>'; return; }
-    el.innerHTML = '<div class="chat-group-list">' + d.groups.map(g => `
-      <div class="chat-group-row" onclick="chatJoinGroupFromList('${g.id}','${esc(g.name)}')">
+    if (!d.groups?.length) { el.innerHTML = '<div style="font-size:.76rem;color:#556">No groups yet. Create one!</div>'; return; }
+    el.innerHTML = '<div class="chat-group-list">' + d.groups.map(g =>
+      `<div class="chat-group-row" onclick="chatJoinGroupFromList('${g.id}','${esc(g.name)}')">
         <div class="chat-group-row-name">${esc(g.name)}</div>
         <div class="chat-group-row-count">${g.memberCount} member${g.memberCount !== 1 ? 's' : ''}</div>
-        ${g.hasCall ? '<div style="font-size:.72rem;color:#3ddc84">📞</div>' : ''}
+        ${g.hasCall ? '<span style="font-size:.72rem;color:#3ddc84">📞</span>' : ''}
       </div>`).join('') + '</div>';
   }).catch(() => {});
 }
@@ -365,7 +438,7 @@ function chatShowCreateGroup() {
   m.className = 'chat-modal-overlay';
   m.innerHTML = `<div class="chat-modal">
     <h3>Create Group</h3>
-    <input class="chat-modal-inp" id="cg-name" placeholder="Group name…" maxlength="50" autocomplete="off"
+    <input class="chat-modal-inp" id="cg-name" placeholder="Group name…" maxlength="50"
       onkeydown="if(event.key==='Enter')document.getElementById('cg-pass').focus()">
     <input class="chat-modal-inp" id="cg-pass" type="password" placeholder="Password (share with members)…"
       onkeydown="if(event.key==='Enter')chatCreateGroup()">
@@ -396,7 +469,7 @@ function chatShowJoinGroup() {
   m.className = 'chat-modal-overlay';
   m.innerHTML = `<div class="chat-modal">
     <h3>Join Group by ID</h3>
-    <input class="chat-modal-inp" id="jg-id" placeholder="Group ID (starts with group:)…" autocomplete="off"
+    <input class="chat-modal-inp" id="jg-id" placeholder="Group ID…"
       onkeydown="if(event.key==='Enter')document.getElementById('jg-pass').focus()">
     <input class="chat-modal-inp" id="jg-pass" type="password" placeholder="Password…"
       onkeydown="if(event.key==='Enter')chatDoJoinGroup()">
@@ -433,7 +506,7 @@ window.chatJoinGroupFromList = chatJoinGroupFromList;
 function chatDoJoinGroup() {
   const groupId  = (document.getElementById('jg-id')?.value || '').trim();
   const password = (document.getElementById('jg-pass')?.value || '').trim();
-  const errEl    = document.getElementById('jg-err');
+  const errEl = document.getElementById('jg-err');
   if (!groupId || !password) { if (errEl) errEl.textContent = 'ID and password required'; return; }
   ws.send(JSON.stringify({ type: 'chat:group-join', groupId, password }));
   document.querySelector('.chat-modal-overlay')?.remove();
@@ -442,7 +515,7 @@ window.chatDoJoinGroup = chatDoJoinGroup;
 
 function chatDoJoinGroup2(groupId) {
   const password = (document.getElementById('jg-pass2')?.value || '').trim();
-  const errEl    = document.getElementById('jg-err2');
+  const errEl = document.getElementById('jg-err2');
   if (!password) { if (errEl) errEl.textContent = 'Password required'; return; }
   ws.send(JSON.stringify({ type: 'chat:group-join', groupId, password }));
   document.querySelector('.chat-modal-overlay')?.remove();
@@ -462,8 +535,10 @@ function chatUpdateCallBar() {
   }
   if (active) {
     const peersEl = chatEl('chat-call-peers');
-    if (peersEl) peersEl.innerHTML = Object.values(chatCallPeers)
-      .map(p => `<div class="chat-call-peer">${esc(p.name)}</div>`).join('');
+    if (peersEl) peersEl.innerHTML = Object.values(chatCallPeers).map(p => {
+      const av = p.avatarUrl ? `<img src="${esc(p.avatarUrl)}" alt="">` : '';
+      return `<div class="chat-call-peer">${av}${esc(p.name)}</div>`;
+    }).join('');
   }
 }
 
@@ -477,11 +552,10 @@ async function chatJoinCall(room) {
   try {
     chatLocalStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
   } catch (e) {
-    alert('Mic access required for calls: ' + e.message);
+    alert('Microphone access required for calls: ' + e.message);
     return;
   }
-  chatInCall   = true;
-  chatCallRoom = room;
+  chatInCall = true; chatCallRoom = room;
   ws.send(JSON.stringify({ type: 'chat:call-join', room }));
   chatUpdateCallBar();
 }
@@ -513,7 +587,6 @@ function chatAddCallPeer(p) {
   chatCallPeers[p.id] = p;
   chatUpdateCallBar();
 }
-
 function chatRemoveCallPeer(id) {
   delete chatCallPeers[id];
   if (chatPeers[id]) {
@@ -523,8 +596,8 @@ function chatRemoveCallPeer(id) {
   }
   chatUpdateCallBar();
 }
-
 function chatMakePeerConn(peerId) {
+  if (!chatPeers[peerId]) chatPeers[peerId] = {};
   const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
   if (chatLocalStream) chatLocalStream.getTracks().forEach(t => pc.addTrack(t, chatLocalStream));
   pc.onicecandidate = e => {
@@ -532,16 +605,13 @@ function chatMakePeerConn(peerId) {
   };
   pc.ontrack = e => {
     const audio = document.createElement('audio');
-    audio.srcObject = e.streams[0];
-    audio.autoplay = true;
-    audio.style.display = 'none';
+    audio.srcObject = e.streams[0]; audio.autoplay = true; audio.style.display = 'none';
     document.body.appendChild(audio);
     chatPeers[peerId]._audioEl = audio;
   };
-  chatPeers[peerId] = { pc };
+  chatPeers[peerId].pc = pc;
   return pc;
 }
-
 async function chatCreateOffer(peerId) {
   const pc = chatMakePeerConn(peerId);
   try {
@@ -550,11 +620,10 @@ async function chatCreateOffer(peerId) {
     ws.send(JSON.stringify({ type: 'chat:signal', to: peerId, room: chatCallRoom, signal: { type: 'offer', sdp: pc.localDescription } }));
   } catch (e) { console.warn('[chat] offer', e); }
 }
-
 async function chatHandleSignal(fromId, signal) {
   if (!chatInCall) return;
   if (signal.type === 'offer') {
-    if (!chatPeers[fromId]) chatMakePeerConn(fromId);
+    if (!chatPeers[fromId]?.pc) chatMakePeerConn(fromId);
     const pc = chatPeers[fromId].pc;
     try {
       await pc.setRemoteDescription(signal.sdp);
@@ -564,10 +633,10 @@ async function chatHandleSignal(fromId, signal) {
     } catch (e) { console.warn('[chat] answer', e); }
   } else if (signal.type === 'answer') {
     const peer = chatPeers[fromId];
-    if (peer) try { await peer.pc.setRemoteDescription(signal.sdp); } catch (e) { console.warn('[chat] setRemote', e); }
+    if (peer?.pc) try { await peer.pc.setRemoteDescription(signal.sdp); } catch (e) { console.warn('[chat] setRemote', e); }
   } else if (signal.type === 'ice') {
     const peer = chatPeers[fromId];
-    if (peer) try { await peer.pc.addIceCandidate(signal.candidate); } catch {}
+    if (peer?.pc) try { await peer.pc.addIceCandidate(signal.candidate); } catch {}
   }
 }
 
