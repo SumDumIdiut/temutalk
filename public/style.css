@@ -482,3 +482,58 @@ body[data-tab="weather"] .b3 { background: radial-gradient(circle, rgba(62,245,1
 @media (prefers-reduced-motion: reduce) {
   .blob { animation: none; }
 }
+
+/* ── Mobile layout (bottom nav) ─────────────────────────────────────────── */
+@media (max-width: 640px) {
+  :root {
+    --nav-w: 0px;
+    --nav-h: 58px;
+  }
+
+  .view {
+    left: 0 !important;
+    bottom: var(--nav-h) !important;
+    top: 0 !important;
+  }
+
+  .nav {
+    top: auto;
+    left: 0; right: 0; bottom: 0;
+    width: 100%;
+    height: var(--nav-h);
+    flex-direction: row;
+    padding: 0 4px env(safe-area-inset-bottom, 0);
+    border-right: none;
+    border-top: 1px solid rgba(255,255,255,.1);
+    justify-content: space-around;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+  .nav::-webkit-scrollbar { display: none; }
+
+  .nav-item {
+    flex: 1 0 auto;
+    min-width: 52px;
+    padding: 6px 0 4px;
+    gap: 2px;
+  }
+
+  .nav-pill {
+    width: 44px;
+    height: 30px;
+    border-radius: 12px;
+  }
+
+  .nav-label { font-size: 8px; }
+
+  .toast {
+    bottom: calc(var(--nav-h) + 8px);
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* Home top bar compact */
+  .home-topbar { padding: 10px 14px; }
+}
