@@ -17,7 +17,7 @@ try { pty = require('node-pty'); } catch {}
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 const KEY_HASH_FILE    = path.join(RUN_DIR, 'panel-key-hash');
-const SESSION_TTL_MS   = 30 * 1000; // 30s — refreshed on every authenticated request
+const SESSION_TTL_MS   = 4 * 60 * 60 * 1000; // 4h — refreshed on every authenticated request
 const MAX_ATTEMPTS     = 5;
 const ATTEMPT_WINDOW_MS = 5 * 60 * 1000;
 const LOCKOUT_MS       = 10 * 60 * 1000;
@@ -443,7 +443,7 @@ async function cfgOpen() {
   document.getElementById('cfg-overlay').classList.add('vis');
   document.getElementById('cfg-msg').textContent = '';
   try {
-    const r = await fetch(P + '/api/env');
+    const r = await fetch(P + '/api/env', { credentials: 'include' });
     const d = await r.json();
     const set = (id, val) => { const el = document.getElementById(id); if (el) { el.value = val || ''; el.classList.toggle('set', !!val); } };
     set('cfg-discord-id',     d.DISCORD_CLIENT_ID);
@@ -464,7 +464,7 @@ async function cfgSave() {
     GOOGLE_CLIENT_SECRET:  document.getElementById('cfg-google-secret').value.trim(),
   };
   try {
-    const r = await fetch(P + '/api/env', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const r = await fetch(P + '/api/env', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const d = await r.json();
     if (d.ok) { msg.style.color = '#5ddd8a'; msg.textContent = '✓ Saved — server restarting…'; setTimeout(cfgClose, 1800); }
     else { msg.style.color = '#ff8080'; msg.textContent = d.error || 'Save failed'; }
