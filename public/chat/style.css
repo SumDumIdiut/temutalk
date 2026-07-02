@@ -154,27 +154,47 @@
 
 /* ── Announcement bar (pinned panel bot message) ─────────────────────────────── */
 .chat-ann-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 600;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 7px 16px;
-  background: rgba(210,153,34,.07);
-  border-bottom: 1px solid rgba(210,153,34,.18);
-  border-left: 3px solid #d29922;
+  gap: 14px;
+  padding: 14px 28px;
+  background: linear-gradient(90deg, rgba(120,80,0,.97), rgba(160,110,0,.97));
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 2px solid rgba(240,185,50,.35);
+  box-shadow: 0 6px 40px rgba(0,0,0,.55), 0 2px 0 rgba(240,185,50,.15);
+}
+.chat-ann-icon {
+  font-size: 22px;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 6px rgba(255,200,50,.4));
+}
+.chat-ann-label {
+  font-size: .62rem;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: rgba(255,210,80,.6);
   flex-shrink: 0;
 }
-.chat-ann-icon { font-size: 14px; flex-shrink: 0; }
 .chat-ann-text {
   flex: 1;
-  font-size: .82rem;
-  color: #e8c060;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #fff8e0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-shadow: 0 1px 4px rgba(0,0,0,.4);
 }
 .chat-ann-time {
-  font-size: .66rem;
-  color: rgba(210,153,34,.5);
+  font-size: .72rem;
+  color: rgba(255,210,80,.55);
   flex-shrink: 0;
 }
 
