@@ -1639,7 +1639,7 @@ app.get('/auth/chat/discord', (req, res) => {
   const deviceId = resolveDevice(req);
   if (!deviceId) return res.status(400).send('device required');
   const clientId = process.env.DISCORD_CLIENT_ID;
-  if (!clientId) return res.status(400).send('Discord not configured — add DISCORD_CLIENT_ID to .env');
+  if (!clientId) return res.redirect('/?tab=chat&chat_error=Discord+not+configured+%E2%80%94+add+DISCORD_CLIENT_ID+to+.env');
   const state = crypto.randomBytes(16).toString('hex');
   chatAuthStates.set(state, { deviceId });
   setTimeout(() => chatAuthStates.delete(state), 5 * 60_000);
@@ -1681,7 +1681,7 @@ app.get('/auth/chat/google', (req, res) => {
   const deviceId = resolveDevice(req);
   if (!deviceId) return res.status(400).send('device required');
   const clientId = process.env.GOOGLE_CLIENT_ID;
-  if (!clientId) return res.status(400).send('Google not configured — add GOOGLE_CLIENT_ID to .env');
+  if (!clientId) return res.redirect('/?tab=chat&chat_error=Google+not+configured+%E2%80%94+add+GOOGLE_CLIENT_ID+to+.env');
   const state = crypto.randomBytes(16).toString('hex');
   chatAuthStates.set(state, { deviceId });
   setTimeout(() => chatAuthStates.delete(state), 5 * 60_000);
@@ -1713,6 +1713,10 @@ app.get('/auth/chat/google/callback', async (req, res) => {
     console.error('[chat:google]', e.response?.data || e.message);
     res.redirect('/?tab=chat&chat_error=1');
   }
+});
+
+app.get('/api/chat/providers', (_req, res) => {
+  res.json({ discord: !!process.env.DISCORD_CLIENT_ID, google: !!process.env.GOOGLE_CLIENT_ID });
 });
 
 app.get('/api/chat/me', (req, res) => {
