@@ -74,6 +74,10 @@ function _initBrowserPlayer() {
   browserPlayer.addListener('authentication_error', ({ message }) => _setBrowserPlayerStatus('auth error: ' + message));
   browserPlayer.addListener('account_error',        ({ message }) => _setBrowserPlayerStatus('account error: ' + message));
   browserPlayer.connect().then(ok => console.log('[player] connect() resolved:', ok));
+  setTimeout(() => {
+    const iframe = document.querySelector('iframe[allow*="encrypted-media"]');
+    console.log('[player] iframe in DOM:', !!iframe, iframe?.src);
+  }, 2000);
   document.addEventListener('click', function _activate() {
     browserPlayer.activateElement();
     document.removeEventListener('click', _activate);
