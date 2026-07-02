@@ -5,10 +5,9 @@
 // ── State ─────────────────────────────────────────────────────────────────────
 let _chatReady     = false;
 let chatRoom       = 'global';
-let chatMyName     = localStorage.getItem('chatName') || '';
-let chatMyAvatar   = localStorage.getItem('chatAvatar') || null;
-let chatMyProvider = localStorage.getItem('chatProvider') || null;
-const chatFriendMap  = {};   // id → { name, avatarUrl }
+let chatMyName     = '';
+let chatMyAvatar   = null;
+let chatMyProvider = null;
 const chatGroupMap   = {};   // id → { id, name }
 const chatRoomUnread = {};   // room → count
 const chatRoomMsgs   = {};   // room → [msg, ...]
@@ -47,8 +46,8 @@ function chatInit() {
   // Check Spotify link; show overlay if not linked
   fetch('/api/chat/me?device=' + deviceId).then(r => r.json()).then(profile => {
     if (profile.authenticated) {
-      chatMyName   = profile.name;
-      chatMyAvatar = profile.avatarUrl;
+      chatMyName     = profile.name;
+      chatMyAvatar   = profile.avatarUrl;
       chatMyProvider = 'spotify';
       chatHideLogin();
       chatUpdateAccountRow();
@@ -134,42 +133,17 @@ window.chatOpenRoom = chatOpenRoom;
 function chatRenderSidebar() {
   if (!_chatReady) return;
 
-  const friendEl = chatEl('chat-friends-list');
-  if (friendEl) {
-    const entries = Object.entries(chatFriendMap);
-    if (!entries.length) {
-      friendEl.innerHTML = '<div style="font-size:.7rem;color:#444;padding:3px 8px">No friends yet</div>';
-    } else {
-      friendEl.innerHTML = entries.map(([id, f]) => {
-        const room = 'dm:' + [deviceId, id].sort().join(':');
-        const u = chatRoomUnread[room] || 0;
-        const av = f.avatarUrl
-          ? `<div class="chat-room-icon"><img src="${esc(f.avatarUrl)}" alt="${esc(f.name)}"></div>`
-          : `<div class="chat-room-icon" style="font-size:11px">${esc(f.name.slice(0,2).toUpperCase())}</div>`;
-        return `<div class="chat-room-item${room === chatRoom ? ' active' : ''}" data-room="${room}" onclick="chatOpenRoom('${room}')">
-          ${av}
-          <div class="chat-room-name">${esc(f.name)}</div>
-          ${u ? `<div class="chat-room-badge">${u}</div>` : ''}
-        </div>`;
-      }).join('');
-    }
-  }
-
   const groupEl = chatEl('chat-groups-list');
   if (groupEl) {
     const groups = Object.values(chatGroupMap);
-    if (!groups.length) {
-      groupEl.innerHTML = '<div style="font-size:.7rem;color:#444;padding:3px 8px">No groups yet</div>';
-    } else {
-      groupEl.innerHTML = groups.map(g => {
-        const u = chatRoomUnread[g.id] || 0;
-        return `<div class="chat-room-item${g.id === chatRoom ? ' active' : ''}" data-room="${g.id}" onclick="chatOpenRoom('${g.id}')">
-          <div class="chat-room-icon" style="font-size:13px">#</div>
-          <div class="chat-room-name">${esc(g.name)}</div>
-          ${u ? `<div class="chat-room-badge">${u}</div>` : ''}
-        </div>`;
-      }).join('');
-    }
+    groupEl.innerHTML = groups.map(g => {
+      const u = chatRoomUnread[g.id] || 0;
+      return `<div class="chat-room-item${g.id === chatRoom ? ' active' : ''}" data-room="${g.id}" onclick="chatOpenRoom('${g.id}')">
+        <div class="chat-room-icon" style="font-size:14px">#</div>
+        <div class="chat-room-name">${esc(g.name)}</div>
+        ${u ? `<div class="chat-room-badge">${u}</div>` : ''}
+      </div>`;
+    }).join('');
   }
 
   const gu = chatRoomUnread['global'] || 0;
@@ -265,29 +239,12 @@ window.chatOnMessage = function (m) {
     return;
   }
   if (m.type === 'chat:profile') {
-    // Received after OAuth login (server pushes to this device)
     chatMyName     = m.name;
     chatMyAvatar   = m.avatarUrl;
     chatMyProvider = m.provider;
-    localStorage.setItem('chatName', m.name);
-    if (m.avatarUrl) localStorage.setItem('chatAvatar', m.avatarUrl);
-    if (m.provider)  localStorage.setItem('chatProvider', m.provider);
     chatHideLogin();
     chatUpdateAccountRow();
     if (!chatRoomMsgs['global']) chatJoinRoom('global');
-    return;
-  }
-  if (m.type === 'chat:name-set') {
-    chatMyName = m.name;
-    return;
-  }
-  if (m.type === 'chat:friend-req') {
-    chatShowFriendReq(m.fromId, m.fromName, m.avatarUrl);
-    return;
-  }
-  if (m.type === 'chat:friend-accepted') {
-    chatFriendMap[m.byId] = { name: m.byName, avatarUrl: m.byAvatarUrl || null };
-    chatRenderSidebar();
     return;
   }
   if (m.type === 'chat:group-created') {
@@ -323,61 +280,6 @@ window.chatOnMessage = function (m) {
   }
 };
 
-// ── Friend requests ───────────────────────────────────────────────────────────
-function chatShowFriendReq(fromId, fromName, avatarUrl) {
-  if (!_chatReady) return;
-  const el = chatEl('chat-friend-reqs');
-  if (!el) return;
-  const div = document.createElement('div');
-  div.className = 'chat-notif';
-  div.dataset.fromId = fromId;
-  const av = avatarUrl ? `<img src="${esc(avatarUrl)}" style="width:20px;height:20px;border-radius:4px;vertical-align:middle;margin-right:4px">` : '';
-  div.innerHTML = `<div class="chat-notif-text">${av}<b>${esc(fromName)}</b> wants to be friends</div>
-    <button class="chat-notif-btn" style="color:#3ddc84" onclick="chatAcceptFriend('${fromId}',this)">✓</button>
-    <button class="chat-notif-btn" style="color:#ff6060" onclick="chatRejectFriend('${fromId}',this)">✕</button>`;
-  el.appendChild(div);
-}
-
-function chatAcceptFriend(fromId, btn) {
-  ws.send(JSON.stringify({ type: 'chat:friend-accept', fromId }));
-  btn.closest('.chat-notif')?.remove();
-}
-window.chatAcceptFriend = chatAcceptFriend;
-
-function chatRejectFriend(fromId, btn) {
-  ws.send(JSON.stringify({ type: 'chat:friend-reject', fromId }));
-  btn.closest('.chat-notif')?.remove();
-}
-window.chatRejectFriend = chatRejectFriend;
-
-// ── Group/friend modals ───────────────────────────────────────────────────────
-function chatShowAddFriend() {
-  const m = document.createElement('div');
-  m.className = 'chat-modal-overlay';
-  m.innerHTML = `<div class="chat-modal">
-    <h3>Add Friend</h3>
-    <div style="font-size:.76rem;color:#8b93a3">Paste their Device ID (in the Chat sidebar, tap the ID chip)</div>
-    <input class="chat-modal-inp" id="af-id-inp" placeholder="Device ID…" autocomplete="off"
-      onkeydown="if(event.key==='Enter')chatSendFriendReq()">
-    <div class="chat-modal-err" id="af-err"></div>
-    <div class="chat-modal-row">
-      <button class="chat-modal-btn chat-modal-btn-cancel" onclick="this.closest('.chat-modal-overlay').remove()">Cancel</button>
-      <button class="chat-modal-btn chat-modal-btn-primary" onclick="chatSendFriendReq()">Send Request</button>
-    </div>
-  </div>`;
-  document.body.appendChild(m);
-  m.querySelector('#af-id-inp').focus();
-}
-window.chatShowAddFriend = chatShowAddFriend;
-
-function chatSendFriendReq() {
-  const targetId = (document.getElementById('af-id-inp')?.value || '').trim();
-  const errEl = document.getElementById('af-err');
-  if (!targetId) { if (errEl) errEl.textContent = 'Enter a device ID'; return; }
-  ws.send(JSON.stringify({ type: 'chat:friend-req', targetId }));
-  document.querySelector('.chat-modal-overlay')?.remove();
-}
-window.chatSendFriendReq = chatSendFriendReq;
 
 function chatShowGroupMenu() {
   const m = document.createElement('div');
