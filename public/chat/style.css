@@ -303,10 +303,10 @@
 
 /* ── Login overlay ───────────────────────────────────────────────────────────── */
 .chat-login-overlay {
-  position: absolute; inset: 0;
-  background: rgba(6,8,16,.94);
+  position: fixed; inset: 0;
+  background: rgba(6,8,16,.72);
   display: flex; align-items: center; justify-content: center;
-  z-index: 10; backdrop-filter: blur(8px);
+  z-index: 300; backdrop-filter: blur(12px);
 }
 .chat-login-box {
   background: rgba(255,255,255,.05);
