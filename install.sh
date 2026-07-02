@@ -403,7 +403,14 @@ do_check_updates() {
       ok "Updated."
       if server_running; then
         read -rp "  Restart server to apply changes? [y/N] " r
-        [[ "$r" =~ ^[Yy]$ ]] && { stop_node; start_node; }
+        if [[ "$r" =~ ^[Yy]$ ]]; then
+          local lpid; lpid="$(server_pid)"
+          if [ -n "$lpid" ] && kill -USR1 "$lpid" 2>/dev/null; then
+            ok "Server restarting (tunnel stays up)..."
+          else
+            stop_node; start_node
+          fi
+        fi
       fi
     else
       err "Pull failed — resolve manually with 'git status'."
