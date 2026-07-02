@@ -919,7 +919,7 @@ window.addEventListener('load',function(){parent.postMessage({type:'SP_DEBUG',ms
       }
       // Wrap embedded index.js body in try-catch to surface any throw
       if (path === 'embedded/index.js') {
-        text = `try{\n${text}\n}catch(e){parent.postMessage({type:'SP_DEBUG',msg:'index.js threw: '+String(e)+(e&&e.stack?'\n'+e.stack:'')},'*');}`;
+        text = `try{\n${text}\n}catch(e){parent.postMessage({type:'SP_DEBUG',msg:'index.js threw: '+String(e)+(e&&e.stack?' '+e.stack:'')},'*');}`;
       }
       res.send(text);
     } else {
