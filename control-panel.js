@@ -17,7 +17,7 @@ try { pty = require('node-pty'); } catch {}
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 const KEY_HASH_FILE    = path.join(RUN_DIR, 'panel-key-hash');
-const SESSION_TTL_MS   = 12 * 60 * 60 * 1000;
+const SESSION_TTL_MS   = 30 * 1000; // 30s — refreshed on every authenticated request
 const MAX_ATTEMPTS     = 5;
 const ATTEMPT_WINDOW_MS = 5 * 60 * 1000;
 const LOCKOUT_MS       = 10 * 60 * 1000;
@@ -57,6 +57,12 @@ function parseCookies(req) {
   return out;
 }
 function isAuthed(req) { return verifySession(parseCookies(req).panel_session); }
+
+function refreshSession(req, res, cookiePath) {
+  if (!isAuthed(req)) return;
+  const payload = `s:${Date.now() + SESSION_TTL_MS}`;
+  res.setHeader('Set-Cookie', `panel_session=${signSession(payload)}; Path=${cookiePath}; HttpOnly; Secure; SameSite=Strict; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}`);
+}
 
 const attempts = new Map();
 function checkRateLimit(ip) {
@@ -428,12 +434,21 @@ async function handleRequest(req, res) {
   }
 
   if (url.pathname === '/') {
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(isAuthed(req) ? page(base) : loginPage(base));
+    if (isAuthed(req)) {
+      refreshSession(req, res, cookiePath);
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(page(base));
+    } else {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(loginPage(base));
+    }
     return;
   }
 
   if (!isAuthed(req)) { sendJson(res, 401, { error: 'Not authenticated' }); return; }
+
+  // Slide the session window on every authenticated request
+  refreshSession(req, res, cookiePath);
 
   if (req.method === 'GET' && url.pathname === '/api/admin') {
     const overview = await fetchServerJson('/api/admin/overview');
