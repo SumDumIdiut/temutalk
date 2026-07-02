@@ -1115,6 +1115,8 @@ const spotifyUserCache = new Map();   // deviceId → { displayName, email, prod
 const chatGhostTokens  = new Map();   // token → expiresAt ms
 const chatGhostDevices = new Set();   // deviceIds in stealth mode
 const chatNames        = new Map();   // deviceId → display name override
+const chatProfiles     = new Map();   // deviceId → { name, avatarUrl, provider, providerId }
+const chatAuthStates   = new Map();   // OAuth state → { deviceId }
 const chatGlobal       = { messages: [] };
 const chatGroups       = new Map();   // id → { id, name, passwordHash, messages[], members: Set }
 const chatDMs          = new Map();   // roomKey → { messages[] }
@@ -1123,6 +1125,45 @@ const chatFriendReqs   = new Map();   // targetId → Set<fromId>
 const chatCalls        = new Map();   // roomId → Set<deviceId>
 const CHAT_MSG_LIMIT       = 200;
 const CHAT_GLOBAL_CLEAR_MS = 12 * 60 * 60 * 1000;
+const CHAT_STATE_FILE = path.join(__dirname, '.chat-state.json');
+let   chatSaveTimer   = null;
+
+function chatSave() {
+  clearTimeout(chatSaveTimer);
+  chatSaveTimer = setTimeout(() => {
+    const data = {
+      profiles: Object.fromEntries(chatProfiles),
+      names:    Object.fromEntries(chatNames),
+      groups:   [...chatGroups.values()].map(g => ({
+        id: g.id, name: g.name, passwordHash: g.passwordHash,
+        messages: g.messages.slice(-CHAT_MSG_LIMIT),
+        members:  [...g.members],
+        created:  g.created,
+      })),
+      dms:     [...chatDMs.entries()].map(([k, v]) => ({ key: k, messages: v.messages.slice(-CHAT_MSG_LIMIT) })),
+      friends: [...chatFriends.entries()].map(([k, v]) => [k, [...v]]),
+      global:  chatGlobal.messages.slice(-CHAT_MSG_LIMIT),
+    };
+    fs.writeFile(CHAT_STATE_FILE, JSON.stringify(data), err => {
+      if (err) console.error('[chat] save error:', err.message);
+    });
+  }, 2000);
+}
+
+(function chatLoad() {
+  try {
+    const data = JSON.parse(fs.readFileSync(CHAT_STATE_FILE, 'utf8'));
+    for (const [k, v] of Object.entries(data.profiles || {})) chatProfiles.set(k, v);
+    for (const [k, v] of Object.entries(data.names    || {})) chatNames.set(k, v);
+    for (const g of (data.groups || [])) {
+      chatGroups.set(g.id, { ...g, members: new Set(g.members || []), messages: g.messages || [] });
+    }
+    for (const { key, messages } of (data.dms || [])) chatDMs.set(key, { messages: messages || [] });
+    for (const [k, v] of (data.friends || [])) chatFriends.set(k, new Set(v));
+    if (data.global) chatGlobal.messages = data.global;
+    console.log('[chat] state loaded');
+  } catch (e) { if (e.code !== 'ENOENT') console.error('[chat] load error:', e.message); }
+})();
 
 function chatScheduleGlobalClear() {
   const now  = Date.now();
@@ -1130,6 +1171,7 @@ function chatScheduleGlobalClear() {
   setTimeout(() => {
     chatGlobal.messages = [];
     chatBroadcastAll({ type: 'chat:clear', room: 'global' });
+    chatSave();
     chatScheduleGlobalClear();
   }, next - now).unref();
 }
@@ -1143,11 +1185,13 @@ function chatBroadcastAll(data) {
 }
 
 function chatGetName(id) {
-  if (chatNames.has(id)) return chatNames.get(id);
+  if (chatProfiles.has(id)) return chatProfiles.get(id).name;
+  if (chatNames.has(id))    return chatNames.get(id);
   const u = spotifyUserCache.get(id);
   if (u?.displayName) return u.displayName;
   return 'User-' + id.slice(0, 6);
 }
+function chatGetAvatarUrl(id) { return chatProfiles.get(id)?.avatarUrl || null; }
 
 function chatDMKey(a, b) { return 'dm:' + [a, b].sort().join(':'); }
 
@@ -1303,7 +1347,7 @@ wss.on('connection', (ws, req) => {
 
     if (msg.type === 'chat:set-name' && wsDeviceId) {
       const name = String(msg.name || '').trim().slice(0, 32);
-      if (name) chatNames.set(wsDeviceId, name);
+      if (name) { chatNames.set(wsDeviceId, name); chatSave(); }
       ws.send(JSON.stringify({ type: 'chat:name-set', name: chatGetName(wsDeviceId) }));
       return;
     }
@@ -1345,10 +1389,11 @@ wss.on('connection', (ws, req) => {
           msgs = chatDMs.get(room).messages;
         } else return;
       }
-      const m = { id: crypto.randomBytes(6).toString('hex'), from: wsDeviceId, fromName: chatGetName(wsDeviceId), text, ts: Date.now() };
+      const m = { id: crypto.randomBytes(6).toString('hex'), from: wsDeviceId, fromName: chatGetName(wsDeviceId), avatarUrl: chatGetAvatarUrl(wsDeviceId), text, ts: Date.now() };
       msgs.push(m);
       if (msgs.length > CHAT_MSG_LIMIT) msgs.splice(0, msgs.length - CHAT_MSG_LIMIT);
       chatBroadcastRoom(room, { type: 'chat:msg', room, ...m });
+      chatSave();
       return;
     }
 
@@ -1369,6 +1414,7 @@ wss.on('connection', (ws, req) => {
       if (!chatFriends.has(fromId)) chatFriends.set(fromId, new Set());
       chatFriends.get(wsDeviceId).add(fromId);
       chatFriends.get(fromId).add(wsDeviceId);
+      chatSave();
       broadcastToDevice(fromId, { type: 'chat:friend-accepted', byId: wsDeviceId, byName: chatGetName(wsDeviceId) });
       ws.send(JSON.stringify({ type: 'chat:friend-accepted', byId: fromId, byName: chatGetName(fromId) }));
       return;
@@ -1385,6 +1431,7 @@ wss.on('connection', (ws, req) => {
       if (!name || !pass) { ws.send(JSON.stringify({ type: 'chat:error', error: 'Name and password required' })); return; }
       const id = 'group:' + crypto.randomBytes(8).toString('hex');
       chatGroups.set(id, { id, name, passwordHash: crypto.createHash('sha256').update(pass).digest('hex'), messages: [], members: new Set([wsDeviceId]), created: Date.now() });
+      chatSave();
       ws.send(JSON.stringify({ type: 'chat:group-created', group: { id, name } }));
       ws.send(JSON.stringify({ type: 'chat:history', room: id, messages: [] }));
       return;
@@ -1400,6 +1447,7 @@ wss.on('connection', (ws, req) => {
         ws.send(JSON.stringify({ type: 'chat:error', error: 'Wrong password' })); return;
       }
       group.members.add(wsDeviceId);
+      chatSave();
       ws.send(JSON.stringify({ type: 'chat:history', room: groupId, messages: group.messages.slice(-100) }));
       ws.send(JSON.stringify({
         type: 'chat:members', room: groupId,
@@ -1415,6 +1463,7 @@ wss.on('connection', (ws, req) => {
       const group = chatGroups.get(String(msg.groupId || ''));
       if (group) {
         group.members.delete(wsDeviceId);
+        chatSave();
         chatBroadcastRoom(msg.groupId, { type: 'chat:member-leave', room: msg.groupId, memberId: wsDeviceId }, wsDeviceId);
       }
       return;
@@ -1580,6 +1629,94 @@ app.get('/api/admin/overview', (req, res) => {
       cpuModel: cpus[0]?.model?.trim() || 'Unknown', cpuCount: cpus.length,
     },
   });
+});
+
+// ─── Chat OAuth ───────────────────────────────────────────────────────────────
+app.get('/auth/chat/discord', (req, res) => {
+  const deviceId = resolveDevice(req);
+  if (!deviceId) return res.status(400).send('device required');
+  const clientId = process.env.DISCORD_CLIENT_ID;
+  if (!clientId) return res.status(400).send('Discord not configured — add DISCORD_CLIENT_ID to .env');
+  const state = crypto.randomBytes(16).toString('hex');
+  chatAuthStates.set(state, { deviceId });
+  setTimeout(() => chatAuthStates.delete(state), 5 * 60_000);
+  const redirectUri = `${MAIN_BASE}/auth/chat/discord/callback`;
+  res.redirect('https://discord.com/api/oauth2/authorize?' + new URLSearchParams({
+    client_id: clientId, redirect_uri: redirectUri,
+    response_type: 'code', scope: 'identify', state,
+  }));
+});
+
+app.get('/auth/chat/discord/callback', async (req, res) => {
+  const { code, state } = req.query;
+  const entry = chatAuthStates.get(state);
+  chatAuthStates.delete(state);
+  if (!entry || !code) return res.redirect('/?tab=chat&chat_error=1');
+  try {
+    const redirectUri = `${MAIN_BASE}/auth/chat/discord/callback`;
+    const tok = await axios.post('https://discord.com/api/oauth2/token',
+      new URLSearchParams({ client_id: process.env.DISCORD_CLIENT_ID, client_secret: process.env.DISCORD_CLIENT_SECRET, grant_type: 'authorization_code', code, redirect_uri: redirectUri }),
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+    );
+    const u = (await axios.get('https://discord.com/api/users/@me', { headers: { Authorization: `Bearer ${tok.data.access_token}` } })).data;
+    const name = u.global_name || u.username;
+    const avatarUrl = u.avatar
+      ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png?size=128`
+      : `https://cdn.discordapp.com/embed/avatars/${parseInt(u.discriminator || '0') % 5}.png`;
+    chatProfiles.set(entry.deviceId, { name, avatarUrl, provider: 'discord', providerId: u.id });
+    chatNames.set(entry.deviceId, name);
+    chatSave();
+    broadcastToDevice(entry.deviceId, { type: 'chat:profile', name, avatarUrl, provider: 'discord' });
+    res.redirect('/?tab=chat');
+  } catch (e) {
+    console.error('[chat:discord]', e.response?.data || e.message);
+    res.redirect('/?tab=chat&chat_error=1');
+  }
+});
+
+app.get('/auth/chat/google', (req, res) => {
+  const deviceId = resolveDevice(req);
+  if (!deviceId) return res.status(400).send('device required');
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  if (!clientId) return res.status(400).send('Google not configured — add GOOGLE_CLIENT_ID to .env');
+  const state = crypto.randomBytes(16).toString('hex');
+  chatAuthStates.set(state, { deviceId });
+  setTimeout(() => chatAuthStates.delete(state), 5 * 60_000);
+  res.redirect('https://accounts.google.com/o/oauth2/v2/auth?' + new URLSearchParams({
+    client_id: clientId, redirect_uri: `${MAIN_BASE}/auth/chat/google/callback`,
+    response_type: 'code', scope: 'openid profile', state, access_type: 'online',
+  }));
+});
+
+app.get('/auth/chat/google/callback', async (req, res) => {
+  const { code, state } = req.query;
+  const entry = chatAuthStates.get(state);
+  chatAuthStates.delete(state);
+  if (!entry || !code) return res.redirect('/?tab=chat&chat_error=1');
+  try {
+    const redirectUri = `${MAIN_BASE}/auth/chat/google/callback`;
+    const tok = await axios.post('https://oauth2.googleapis.com/token',
+      new URLSearchParams({ client_id: process.env.GOOGLE_CLIENT_ID, client_secret: process.env.GOOGLE_CLIENT_SECRET, grant_type: 'authorization_code', code, redirect_uri: redirectUri }),
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+    );
+    const u = (await axios.get('https://www.googleapis.com/oauth2/v2/userinfo', { headers: { Authorization: `Bearer ${tok.data.access_token}` } })).data;
+    const name = u.name || u.email;
+    chatProfiles.set(entry.deviceId, { name, avatarUrl: u.picture || null, provider: 'google', providerId: u.id });
+    chatNames.set(entry.deviceId, name);
+    chatSave();
+    broadcastToDevice(entry.deviceId, { type: 'chat:profile', name, avatarUrl: u.picture || null, provider: 'google' });
+    res.redirect('/?tab=chat');
+  } catch (e) {
+    console.error('[chat:google]', e.response?.data || e.message);
+    res.redirect('/?tab=chat&chat_error=1');
+  }
+});
+
+app.get('/api/chat/me', (req, res) => {
+  const deviceId = resolveDevice(req);
+  if (!deviceId) return res.status(400).json({ error: 'device required' });
+  const p = chatProfiles.get(deviceId);
+  res.json({ name: chatGetName(deviceId), avatarUrl: p?.avatarUrl || null, provider: p?.provider || null, deviceId });
 });
 
 // ─── Chat REST ────────────────────────────────────────────────────────────────
