@@ -447,6 +447,123 @@
 .chat-group-row-name  { flex: 1; font-size: .82rem; font-weight: 600; }
 .chat-group-row-count { font-size: .7rem; color: var(--text-muted, #8b93a3); }
 
+/* ── User card popup ─────────────────────────────────────────────────────────── */
+.chat-user-card {
+  position: fixed;
+  z-index: 500;
+  background: #0e1420;
+  border: 1px solid rgba(255,255,255,.11);
+  border-radius: 14px;
+  padding: 16px;
+  width: 190px;
+  box-shadow: 0 16px 48px rgba(0,0,0,.7);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.chat-card-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: rgba(255,255,255,.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  overflow: hidden;
+  color: hsl(var(--accent-h,248),var(--accent-s,72%),72%);
+}
+.chat-card-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.chat-card-name {
+  font-size: .88rem;
+  font-weight: 700;
+  text-align: center;
+  word-break: break-word;
+}
+.chat-card-actions { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.chat-card-btn {
+  width: 100%;
+  padding: 7px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-size: .8rem;
+  font-weight: 700;
+  font-family: inherit;
+  transition: opacity .14s;
+}
+.chat-card-btn:hover:not(:disabled) { opacity: .84; }
+.chat-card-btn:disabled { cursor: default; opacity: .6; }
+.chat-card-btn-msg     { background: rgba(255,255,255,.09); color: var(--text, #e6e8ec); }
+.chat-card-btn-primary { background: hsl(var(--accent-h,248),var(--accent-s,72%),52%); color: #fff; }
+.chat-card-btn-friends { background: rgba(61,220,132,.1); color: #3ddc84; }
+.chat-card-btn-muted   { background: rgba(255,255,255,.05); color: var(--text-muted, #556); }
+
+/* ── DM pending requests ─────────────────────────────────────────────────────── */
+.chat-dm-req-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 8px;
+  border-radius: 9px;
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.05);
+  margin-bottom: 3px;
+}
+.chat-dm-req-av {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.chat-dm-req-av-init {
+  background: rgba(255,255,255,.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 700;
+  color: hsl(var(--accent-h,248),var(--accent-s,72%),72%);
+}
+.chat-dm-req-name {
+  flex: 1;
+  font-size: .77rem;
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-dm-req-btns { display: flex; gap: 4px; flex-shrink: 0; }
+.chat-dm-req-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  border: none;
+  cursor: pointer;
+  font-size: .72rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .14s;
+}
+.chat-dm-req-accept { background: rgba(61,220,132,.15); color: #3ddc84; }
+.chat-dm-req-accept:hover { background: rgba(61,220,132,.3); }
+.chat-dm-req-reject { background: rgba(255,80,80,.1); color: #ff6060; }
+.chat-dm-req-reject:hover { background: rgba(255,80,80,.22); }
+
+/* Clickable name in messages */
+.chat-msg-name.clickable {
+  cursor: pointer;
+}
+.chat-msg-name.clickable:hover {
+  color: hsl(var(--accent-h,248),var(--accent-s,72%),65%);
+}
+
 @media (max-width: 540px) {
   .chat-sidebar { width: 52px; }
   .chat-room-name, .chat-section-label { display: none; }
