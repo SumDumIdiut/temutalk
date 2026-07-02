@@ -20,20 +20,41 @@ function showApp() {
 let browserPlayer = null;
 let browserPlayerReady = false;
 
+function _setBrowserPlayerStatus(s) {
+  const el = document.getElementById('browser-player-status');
+  if (el) el.textContent = s;
+  console.log('[player]', s);
+}
+
 function loadBrowserPlayer() {
   if (browserPlayer) return;
+  console.log('[player] loadBrowserPlayer called, window.Spotify=', !!window.Spotify);
   if (window.Spotify) { _initBrowserPlayer(); return; }
-  if (document.querySelector('script[src*="spotify-player"]')) return;
-  const tag = document.createElement('script');
-  tag.src = '/sp/spotify-player.js';
-  tag.addEventListener('error', () => console.error('[player] SDK script failed to load'));
-  document.head.appendChild(tag);
-  const prev = window.onSpotifyWebPlaybackSDKReady;
-  window.onSpotifyWebPlaybackSDKReady = () => { if (prev) prev(); _initBrowserPlayer(); };
+
+  // Always (re)set the callback in case it was missed
+  window.onSpotifyWebPlaybackSDKReady = _initBrowserPlayer;
+
+  if (!document.querySelector('script[src*="spotify-player"]')) {
+    _setBrowserPlayerStatus('loading SDK…');
+    const tag = document.createElement('script');
+    tag.src = '/sp/spotify-player.js';
+    tag.addEventListener('load',  () => console.log('[player] SDK script element loaded'));
+    tag.addEventListener('error', () => console.error('[player] SDK script FAILED to load'));
+    document.head.appendChild(tag);
+  }
+
+  // Polling fallback — in case the callback fired before we set it
+  let polls = 0;
+  const poll = setInterval(() => {
+    polls++;
+    if (window.Spotify && !browserPlayer) { clearInterval(poll); _initBrowserPlayer(); return; }
+    if (polls > 60) { clearInterval(poll); _setBrowserPlayerStatus('SDK load timed out'); }
+  }, 500);
 }
 
 function _initBrowserPlayer() {
   if (browserPlayer) return;
+  _setBrowserPlayerStatus('connecting…');
   const vol = (document.getElementById('fp-vol')?.value ?? 50) / 100;
   browserPlayer = new Spotify.Player({
     name: 'TemuTalk',
@@ -43,17 +64,16 @@ function _initBrowserPlayer() {
     volume: vol,
   });
   browserPlayer.addListener('ready', ({ device_id }) => {
-    console.log('[player] ready, device_id:', device_id);
     browserPlayerReady = true;
     browserPlayer._deviceId = device_id;
+    _setBrowserPlayerStatus('ready ✓ ' + device_id.slice(0,8));
     api('/api/transfer', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ device_id, play: false }) }).catch(() => {});
   });
-  browserPlayer.addListener('not_ready', ({ device_id }) => { console.warn('[player] not_ready', device_id); browserPlayerReady = false; });
-  browserPlayer.addListener('initialization_error', ({ message }) => console.error('[player] init error:', message));
-  browserPlayer.addListener('authentication_error', ({ message }) => console.error('[player] auth error:', message));
-  browserPlayer.addListener('account_error', ({ message }) => console.error('[player] account error:', message));
-  console.log('[player] connecting…');
-  browserPlayer.connect().then(ok => console.log('[player] connect:', ok));
+  browserPlayer.addListener('not_ready', ({ device_id }) => { browserPlayerReady = false; _setBrowserPlayerStatus('not ready'); });
+  browserPlayer.addListener('initialization_error', ({ message }) => _setBrowserPlayerStatus('init error: ' + message));
+  browserPlayer.addListener('authentication_error', ({ message }) => _setBrowserPlayerStatus('auth error: ' + message));
+  browserPlayer.addListener('account_error',        ({ message }) => _setBrowserPlayerStatus('account error: ' + message));
+  browserPlayer.connect().then(ok => console.log('[player] connect() resolved:', ok));
   document.addEventListener('click', function _activate() {
     browserPlayer.activateElement();
     document.removeEventListener('click', _activate);
