@@ -1746,6 +1746,9 @@ app.post('/api/admin/test-msg', express.json(), (req, res) => {
     roomMsgs = chatGlobal.messages;
   } else if (room.startsWith('group:') && chatGroups.has(room)) {
     roomMsgs = chatGroups.get(room).messages;
+  } else if (room.startsWith('dm:')) {
+    if (!chatDMs.has(room)) chatDMs.set(room, { messages: [] });
+    roomMsgs = chatDMs.get(room).messages;
   } else {
     return res.status(404).json({ error: 'room not found' });
   }
