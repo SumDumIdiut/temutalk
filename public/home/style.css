@@ -186,7 +186,7 @@
     .snip-markets.mkt-up   .home-snip-name { color: var(--green); }
 
     /* ── Mobile home ─────────────────────────────────────────────────────────── */
-    @media (max-width: 640px) {
+    @media (max-width: 640px), (max-width: 900px) and (pointer: coarse) {
       #view-home .page { padding: 0 12px; }
       .home-topbar { padding: 10px 4px 0; }
       .home-time { font-size: clamp(60px, 18vw, 100px); letter-spacing: -4px; }
