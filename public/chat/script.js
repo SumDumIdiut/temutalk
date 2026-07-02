@@ -52,11 +52,15 @@ function chatInit() {
     };
   }
 
-  // Wire up OAuth buttons
+  // Wire up OAuth buttons; disable ones the server hasn't configured
   const discordBtn = chatEl('chat-discord-btn');
   const googleBtn  = chatEl('chat-google-btn');
   if (discordBtn) discordBtn.href = `/auth/chat/discord?device=${encodeURIComponent(deviceId)}`;
   if (googleBtn)  googleBtn.href  = `/auth/chat/google?device=${encodeURIComponent(deviceId)}`;
+  fetch('/api/chat/providers').then(r => r.json()).then(p => {
+    if (!p.discord && discordBtn) { discordBtn.classList.add('disabled'); discordBtn.title = 'Discord not configured'; }
+    if (!p.google  && googleBtn)  { googleBtn.classList.add('disabled');  googleBtn.title  = 'Google not configured'; }
+  }).catch(() => {});
 
   // Check server for OAuth profile; show login unless OAuth-authenticated
   fetch('/api/chat/me?device=' + deviceId).then(r => r.json()).then(profile => {
@@ -93,7 +97,7 @@ function chatInit() {
   const chatErr = new URLSearchParams(location.search).get('chat_error');
   if (chatErr) {
     const errEl = chatEl('chat-login-err');
-    if (errEl) errEl.textContent = 'Login failed — try again or use a display name.';
+    if (errEl) errEl.textContent = decodeURIComponent(chatErr.replace(/\+/g, ' '));
     history.replaceState(null, '', location.pathname + (location.search.replace(/[?&]chat_error=[^&]*/g,'').replace(/^&/,'?') || ''));
   }
 
