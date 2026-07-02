@@ -898,7 +898,7 @@ app.get('/api/weather', async (req, res) => {
 // We proxy the entire sdk.scdn.co origin and rewrite internal URLs.
 async function spotifySdkProxy(path, res) {
   try {
-    const r = await axios.get('https://sdk.scdn.co/' + path, { responseType: 'arraybuffer', timeout: 10000 });
+    const r = await axios.get('https://sdk.scdn.co/' + path, { responseType: 'arraybuffer', timeout: 10000, headers: { 'Accept-Encoding': 'identity' } });
     const ct = (r.headers['content-type'] || 'application/octet-stream').split(';')[0].trim();
     const isText = ['text/html','text/javascript','application/javascript','text/css'].includes(ct);
     res.setHeader('Content-Type', r.headers['content-type'] || ct);
