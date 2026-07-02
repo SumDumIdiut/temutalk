@@ -907,6 +907,19 @@ async function spotifySdkProxy(path, res) {
     if (isText) {
       let text = Buffer.from(r.data).toString('utf-8');
       text = text.replace(/https:\/\/sdk\.scdn\.co\//g, '/sp/');
+      // Inject debug shim into the embedded iframe HTML
+      if (path === 'embedded/index.html') {
+        text = text.replace('</head>', `<script>
+window.onerror=function(m,s,l,c,e){parent.postMessage({type:'SP_DEBUG',msg:'onerror: '+m,src:s,line:l,err:String(e)},'*');return false;};
+window.addEventListener('unhandledrejection',function(e){parent.postMessage({type:'SP_DEBUG',msg:'unhandledrejection: '+String(e.reason)},'*');});
+window.addEventListener('DOMContentLoaded',function(){parent.postMessage({type:'SP_DEBUG',msg:'iframe DOMContentLoaded'},'*');});
+window.addEventListener('load',function(){parent.postMessage({type:'SP_DEBUG',msg:'iframe load event'},'*');});
+</script></head>`);
+      }
+      // Wrap embedded index.js body in try-catch to surface any throw
+      if (path === 'embedded/index.js') {
+        text = `try{\n${text}\n}catch(e){parent.postMessage({type:'SP_DEBUG',msg:'index.js threw: '+String(e)+(e&&e.stack?'\n'+e.stack:'')},'*');}`;
+      }
       res.send(text);
     } else {
       res.send(Buffer.from(r.data));
