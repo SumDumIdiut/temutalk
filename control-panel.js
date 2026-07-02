@@ -303,6 +303,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .pm-acts{display:flex;gap:8px}
 .pm-save{flex:1;background:var(--acc);color:#000;border:none;border-radius:7px;padding:9px;cursor:pointer;font-weight:700;font-size:13px}
 .pm-cancel{background:none;border:1px solid var(--bor);color:var(--sec);border-radius:7px;padding:9px 16px;cursor:pointer;font-size:13px}
+.m-compose{padding:10px 14px;border-top:1px solid var(--bor);background:var(--sur);flex-shrink:0;display:flex;gap:8px;align-items:flex-end}
+.m-inp{flex:1;background:var(--sur2);border:1px solid var(--bor);border-radius:8px;padding:8px 10px;color:var(--tx);font-size:13px;font-family:inherit;resize:none;outline:none;line-height:1.4;min-height:36px}
+.m-inp:focus{border-color:#a06800}
+.m-send{background:#7a4800;border:none;border-radius:8px;padding:8px 14px;color:#f8c060;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;white-space:nowrap;transition:background .12s}
+.m-send:hover{background:#9a5a00}
+.ann-bubble{background:rgba(210,153,34,.08);border-left:3px solid #d29922;border-radius:0 8px 8px 8px;padding:7px 12px;font-size:13px;line-height:1.5;word-break:break-word;display:inline-block;max-width:520px;color:#e8c060}
+.ann-sender{color:#d29922}
 </style>
 </head>
 <body>
@@ -350,6 +357,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       </div>
       <div class="m-body" id="msgs-wrap">
         <div class="m-empty"><div class="m-empty-ico">&#128172;</div><div>Select a conversation</div></div>
+      </div>
+      <div class="m-compose" id="m-compose" style="display:none">
+        <textarea class="m-inp" id="m-inp" placeholder="Type announcement… (Ctrl+Enter to send)" rows="2"
+          onkeydown="if(event.key==='Enter'&&event.ctrlKey){event.preventDefault();broadcastMsg();}"></textarea>
+        <button class="m-send" onclick="broadcastMsg()">&#128226; Broadcast</button>
       </div>
     </div>
   </div>
@@ -470,8 +482,10 @@ function selectRoom(id){
   var r=spyRooms.get(id)||{name:id};
   var hdrName=document.getElementById('m-hdr-name');
   var clearBtn=document.getElementById('clear-btn');
+  var compose=document.getElementById('m-compose');
   if(hdrName) hdrName.textContent=r.name||id;
   if(clearBtn) clearBtn.style.display='';
+  if(compose&&r.type!=='dm') compose.style.display='';
   renderMsgs();
 }
 
@@ -491,6 +505,14 @@ function renderMsgs(){
   msgs.forEach(function(m){
     var d=fmtDate(m.ts);
     if(d!==lastDate){h+='<div class="date-row"><span class="date-chip">'+esc(d)+'</span></div>';lastDate=d;}
+    if(m.from==='panel-bot'||m.isPanelMsg){
+      h+='<div class="m-row">'
+        +'<div class="m-avbtn"><div class="r-av" style="background:rgba(210,153,34,.15);color:#d29922">&#128226;</div></div>'
+        +'<div class="m-bi"><span class="m-sender ann-sender" style="cursor:default">Server <span style="font-size:10px;background:rgba(210,153,34,.15);color:#d29922;border-radius:3px;padding:1px 5px;font-weight:700">ADMIN</span></span>'
+        +'<span class="ann-bubble">'+esc(m.text||'')+'<span class="m-time">'+fmtTime(m.ts)+'</span></span>'
+        +'</div></div>';
+      return;
+    }
     var av=m.avatarUrl?'<img src="'+esc(m.avatarUrl)+'" alt="'+esc(m.fromName||'')+'" onerror="avErr(this)">':'<span>'+ini(m.fromName)+'</span>';
     var k=esc((m.fromName||'').toLowerCase());
     h+='<div class="m-row">'
@@ -508,14 +530,21 @@ function appendMsg(m){
   if(!wrap) return;
   var empty=wrap.querySelector('.m-empty');
   if(empty) wrap.innerHTML='';
-  var av=m.avatarUrl?'<img src="'+esc(m.avatarUrl)+'" alt="'+esc(m.fromName||'')+'" onerror="avErr(this)">':'<span>'+ini(m.fromName)+'</span>';
-  var k=esc((m.fromName||'').toLowerCase());
   var row=document.createElement('div');
   row.className='m-row';
-  row.innerHTML='<button class="m-avbtn" data-key="'+k+'" onclick="pmOpen(this.dataset.key)"><div class="r-av">'+av+'</div></button>'
-    +'<div class="m-bi"><button class="m-sender" data-key="'+k+'" onclick="pmOpen(this.dataset.key)">'+esc(m.fromName||'Unknown')+'</button>'
-    +'<span class="bubble">'+esc(m.text||'')+'<span class="m-time">'+fmtTime(m.ts)+'</span></span>'
-    +'</div>';
+  if(m.from==='panel-bot'||m.isPanelMsg){
+    row.innerHTML='<div class="m-avbtn"><div class="r-av" style="background:rgba(210,153,34,.15);color:#d29922">&#128226;</div></div>'
+      +'<div class="m-bi"><span class="m-sender ann-sender" style="cursor:default">Server <span style="font-size:10px;background:rgba(210,153,34,.15);color:#d29922;border-radius:3px;padding:1px 5px;font-weight:700">ADMIN</span></span>'
+      +'<span class="ann-bubble">'+esc(m.text||'')+'<span class="m-time">'+fmtTime(m.ts)+'</span></span>'
+      +'</div>';
+  } else {
+    var av=m.avatarUrl?'<img src="'+esc(m.avatarUrl)+'" alt="'+esc(m.fromName||'')+'" onerror="avErr(this)">':'<span>'+ini(m.fromName)+'</span>';
+    var k=esc((m.fromName||'').toLowerCase());
+    row.innerHTML='<button class="m-avbtn" data-key="'+k+'" onclick="pmOpen(this.dataset.key)"><div class="r-av">'+av+'</div></button>'
+      +'<div class="m-bi"><button class="m-sender" data-key="'+k+'" onclick="pmOpen(this.dataset.key)">'+esc(m.fromName||'Unknown')+'</button>'
+      +'<span class="bubble">'+esc(m.text||'')+'<span class="m-time">'+fmtTime(m.ts)+'</span></span>'
+      +'</div>';
+  }
   wrap.appendChild(row);
   wrap.scrollTop=wrap.scrollHeight;
 }
@@ -524,6 +553,22 @@ function clearRoom(){
   if(!curRoom||!confirm('Clear all messages in this room?')) return;
   spyMsgs.set(curRoom,[]);
   renderMsgs();
+}
+
+async function broadcastMsg(){
+  var room=curRoom;
+  var inp=document.getElementById('m-inp');
+  var text=(inp&&inp.value||'').trim();
+  if(!room||!text) return;
+  var btn=document.querySelector('.m-send');
+  if(btn) btn.disabled=true;
+  try{
+    var r=await fetch(P+'/api/panel-broadcast',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({room:room,text:text})});
+    var d=await r.json();
+    if(d.ok){if(inp)inp.value='';}
+    else{alert(d.error||'Failed to broadcast');}
+  }catch(e){alert('Broadcast error: '+e.message);}
+  if(btn){btn.disabled=false;}
 }
 
 function renderDeviceList(){
@@ -950,6 +995,19 @@ async function handleRequest(req, res) {
     const groupId = decodeURIComponent(url.pathname.slice('/api/admin/chat-group/'.length));
     const data = await callServerJson(`/api/admin/chat-group/${encodeURIComponent(groupId)}`, 'DELETE');
     sendJson(res, data ? 200 : 502, data || { error: 'unavailable' });
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/panel-broadcast') {
+    let body = '';
+    req.on('data', c => body += c);
+    req.on('end', async () => {
+      try {
+        const parsed = JSON.parse(body);
+        const data = await callServerJson('/api/admin/panel-broadcast', 'POST', parsed);
+        sendJson(res, data ? 200 : 502, data || { error: 'unavailable' });
+      } catch (e) { sendJson(res, 400, { error: e.message }); }
+    });
     return;
   }
 

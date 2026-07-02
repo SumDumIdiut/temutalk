@@ -1123,6 +1123,7 @@ const chatFriends      = new Map();   // deviceId → Set<deviceId>
 const chatFriendReqs   = new Map();   // targetId → Set<fromId>
 const chatCalls        = new Map();   // roomId → Set<deviceId>
 const chatAccounts     = new Map();   // nameLower → { name, passwordHash, avatarUrl }
+const PANEL_BOT_ID         = 'panel-bot';
 const CHAT_MSG_LIMIT       = 200;
 const CHAT_GLOBAL_CLEAR_MS = 12 * 60 * 60 * 1000;
 const CHAT_STATE_FILE = path.join(__dirname, '.chat-state.json');
@@ -1189,6 +1190,7 @@ function chatBroadcastAll(data) {
 }
 
 function chatGetName(id) {
+  if (id === PANEL_BOT_ID) return 'Server';
   const u = spotifyUserCache.get(id);
   if (u?.displayName) return u.displayName;
   if (chatProfiles.has(id)) return chatProfiles.get(id).name;
@@ -1196,6 +1198,7 @@ function chatGetName(id) {
   return 'User-' + id.slice(0, 6);
 }
 function chatGetAvatarUrl(id) {
+  if (id === PANEL_BOT_ID) return null;
   return spotifyUserCache.get(id)?.avatarUrl || chatProfiles.get(id)?.avatarUrl || null;
 }
 
@@ -1720,6 +1723,28 @@ app.delete('/api/admin/chat-group/:id', (req, res) => {
   chatGroups.delete(id);
   chatSave();
   chatBroadcastAll({ type: 'chat:group-deleted', groupId: id });
+  res.json({ ok: true });
+});
+
+app.post('/api/admin/panel-broadcast', express.json(), (req, res) => {
+  const ip = req.socket.remoteAddress || '';
+  if (!['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(ip)) return res.status(403).json({ error: 'forbidden' });
+  const room = String(req.body?.room || '').trim();
+  const text = String(req.body?.text || '').trim().slice(0, 2000);
+  if (!room || !text) return res.status(400).json({ error: 'room and text required' });
+  let roomMsgs;
+  if (room === 'global') {
+    roomMsgs = chatGlobal.messages;
+  } else if (room.startsWith('group:') && chatGroups.has(room)) {
+    roomMsgs = chatGroups.get(room).messages;
+  } else {
+    return res.status(404).json({ error: 'room not found' });
+  }
+  const m = { id: crypto.randomBytes(6).toString('hex'), from: PANEL_BOT_ID, fromName: 'Server', avatarUrl: null, text, ts: Date.now(), isPanelMsg: true };
+  roomMsgs.push(m);
+  if (roomMsgs.length > CHAT_MSG_LIMIT) roomMsgs.splice(0, roomMsgs.length - CHAT_MSG_LIMIT);
+  chatBroadcastRoom(room, { type: 'chat:msg', room, ...m });
+  chatSave();
   res.json({ ok: true });
 });
 
