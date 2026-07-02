@@ -306,6 +306,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .m-compose{padding:10px 14px;border-top:1px solid var(--bor);background:var(--sur);flex-shrink:0;display:flex;gap:8px;align-items:flex-end}
 .m-inp{flex:1;background:var(--sur2);border:1px solid var(--bor);border-radius:8px;padding:8px 10px;color:var(--tx);font-size:13px;font-family:inherit;resize:none;outline:none;line-height:1.4;min-height:36px}
 .m-inp:focus{border-color:#a06800}
+.m-sender-sel{background:var(--sur2);border:1px solid var(--bor);border-radius:6px;padding:6px 8px;color:var(--tx);font-size:12px;cursor:pointer;flex-shrink:0;min-width:0}
 .m-send{background:#7a4800;border:none;border-radius:8px;padding:8px 14px;color:#f8c060;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;white-space:nowrap;transition:background .12s}
 .m-send:hover{background:#9a5a00}
 .ann-bubble{background:rgba(210,153,34,.08);border-left:3px solid #d29922;border-radius:0 8px 8px 8px;padding:7px 12px;font-size:13px;line-height:1.5;word-break:break-word;display:inline-block;max-width:520px;color:#e8c060}
@@ -359,9 +360,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <div class="m-empty"><div class="m-empty-ico">&#128172;</div><div>Select a conversation</div></div>
       </div>
       <div class="m-compose" id="m-compose" style="display:none">
-        <textarea class="m-inp" id="m-inp" placeholder="Type announcement… (Ctrl+Enter to send)" rows="2"
-          onkeydown="if(event.key==='Enter'&&event.ctrlKey){event.preventDefault();broadcastMsg();}"></textarea>
-        <button class="m-send" onclick="broadcastMsg()">&#128226; Broadcast</button>
+        <select class="m-sender-sel" id="m-sender" title="Send as">
+          <option value="server">&#128226; Server</option>
+          <option value="testuser">&#128100; Test User</option>
+        </select>
+        <textarea class="m-inp" id="m-inp" placeholder="Type message… (Ctrl+Enter to send)" rows="2"
+          onkeydown="if(event.key==='Enter'&&event.ctrlKey){event.preventDefault();panelSend();}"></textarea>
+        <button class="m-send" onclick="panelSend()">Send</button>
       </div>
     </div>
   </div>
@@ -504,7 +509,7 @@ function selectRoom(id){
   var compose=document.getElementById('m-compose');
   if(hdrName) hdrName.textContent=r.name||id;
   if(clearBtn) clearBtn.style.display='';
-  if(compose&&r.type!=='dm') compose.style.display='';
+  if(compose) compose.style.display='';
   renderMsgs();
 }
 
@@ -615,7 +620,8 @@ async function testAcceptReq(fromId){
   }catch(e){alert('Error: '+e.message);}
 }
 
-async function broadcastMsg(){
+async function panelSend(){
+  var sender=(document.getElementById('m-sender')||{}).value||'server';
   var room=curRoom;
   var inp=document.getElementById('m-inp');
   var text=(inp&&inp.value||'').trim();
@@ -623,13 +629,15 @@ async function broadcastMsg(){
   var btn=document.querySelector('.m-send');
   if(btn) btn.disabled=true;
   try{
-    var r=await fetch(P+'/api/panel-broadcast',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({room:room,text:text})});
+    var endpoint=sender==='testuser'?'/api/test-msg':'/api/panel-broadcast';
+    var r=await fetch(P+endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({room:room,text:text})});
     var d=await r.json();
     if(d.ok){if(inp)inp.value='';}
-    else{alert(d.error||'Failed to broadcast');}
-  }catch(e){alert('Broadcast error: '+e.message);}
-  if(btn){btn.disabled=false;}
+    else{alert(d.error||'Failed');}
+  }catch(e){alert('Error: '+e.message);}
+  if(btn) btn.disabled=false;
 }
+function broadcastMsg(){panelSend();}
 
 function renderDeviceList(){
   var col=document.getElementById('dev-list');
@@ -853,7 +861,9 @@ function spyMsg(m){
       spyMsgs.set(g.id,g.messages||[]);
     });
     (m.dms||[]).forEach(function(d){
-      spyRooms.set(d.room,{name:'DM',type:'dm'});
+      var dmMsgs=d.messages||[];
+      var dmParts=[...new Set(dmMsgs.map(function(msg){return msg.fromName||'';}))].filter(Boolean);
+      spyRooms.set(d.room,{name:dmParts.length?dmParts.join(' ↔ '):'DM',type:'dm'});
       spyMsgs.set(d.room,d.messages||[]);
     });
     if(curTab==='chat') renderRooms();
