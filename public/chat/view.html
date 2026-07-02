@@ -12,30 +12,22 @@
 
   <!-- Sidebar -->
   <div class="chat-sidebar">
-    <div class="chat-sidebar-hdr">
-      <div class="chat-sidebar-title">Chat</div>
-    </div>
     <div class="chat-sidebar-body" id="chat-sidebar-body">
+      <div class="chat-section-label" style="padding-top:12px">Rooms</div>
       <div class="chat-room-item active" id="chat-room-global" data-room="global" onclick="chatOpenRoom('global')">
         <div class="chat-room-icon">🌐</div>
         <div class="chat-room-name">Global</div>
         <div class="chat-room-badge" id="chat-unread-global" style="display:none">0</div>
       </div>
-      <div id="chat-friend-reqs"></div>
-      <div class="chat-section-label">
-        <span>Friends</span>
-        <button class="chat-add-btn" title="Add friend" onclick="chatShowAddFriend()">+</button>
-      </div>
-      <div id="chat-friends-list"></div>
       <div class="chat-section-label">
         <span>Groups</span>
         <button class="chat-add-btn" title="Create or join a group" onclick="chatShowGroupMenu()">+</button>
       </div>
       <div id="chat-groups-list"></div>
-      <div class="chat-account-row" id="chat-account-row" style="display:none">
-        <div id="chat-account-avatar"></div>
-        <div class="chat-account-name" id="chat-account-name"></div>
-      </div>
+    </div>
+    <div class="chat-account-row" id="chat-account-row" style="display:none">
+      <div id="chat-account-avatar"></div>
+      <div class="chat-account-name" id="chat-account-name"></div>
     </div>
   </div>
 
