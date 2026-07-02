@@ -1733,6 +1733,35 @@ app.get('/api/admin/ghost-token', (req, res) => {
   res.json({ token: chatGenerateGhostToken() });
 });
 
+app.get('/api/admin/chat-accounts', (req, res) => {
+  const ip = req.socket.remoteAddress || '';
+  if (!['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(ip)) return res.status(403).json({ error: 'forbidden' });
+  res.json({
+    accounts: [...chatAccounts.entries()].map(([key, a]) => ({ key, name: a.name, avatarUrl: a.avatarUrl || null })),
+    groups: [...chatGroups.values()].map(g => ({ id: g.id, name: g.name, memberCount: g.members.size })),
+  });
+});
+
+app.patch('/api/admin/chat-account', (req, res) => {
+  const ip = req.socket.remoteAddress || '';
+  if (!['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(ip)) return res.status(403).json({ error: 'forbidden' });
+  const { key, name, avatarUrl } = req.body || {};
+  if (!key) return res.status(400).json({ error: 'key required' });
+  const acc = chatAccounts.get(key);
+  if (!acc) return res.status(404).json({ error: 'account not found' });
+  if (name !== undefined) acc.name = String(name).trim().slice(0, 32) || acc.name;
+  if (avatarUrl !== undefined) acc.avatarUrl = avatarUrl || null;
+  for (const [deviceId, profile] of chatProfiles) {
+    if (profile.providerId !== key) continue;
+    profile.name = acc.name;
+    profile.avatarUrl = acc.avatarUrl;
+    chatNames.set(deviceId, acc.name);
+    broadcastToDevice(deviceId, { type: 'chat:profile', name: acc.name, avatarUrl: acc.avatarUrl, provider: profile.provider });
+  }
+  chatSave();
+  res.json({ ok: true, name: acc.name, avatarUrl: acc.avatarUrl });
+});
+
 app.get('/api/chat/groups', (req, res) => {
   res.json({
     groups: [...chatGroups.values()].map(g => ({
