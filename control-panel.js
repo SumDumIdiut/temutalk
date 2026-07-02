@@ -375,21 +375,15 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
     </div>
     <div class="view" id="view-config">
       <div class="v-hdr">
-        <div><div class="v-title">&#9881; Config &amp; Accounts</div><div class="v-sub">OAuth credentials and chat profiles</div></div>
-        <div class="v-acts"><button class="v-btn" onclick="loadConfig();loadAccounts()">&#8635; Reload</button></div>
+        <div><div class="v-title">&#9881; Accounts &amp; Groups</div><div class="v-sub">Spotify-linked chat profiles and groups</div></div>
+        <div class="v-acts"><button class="v-btn" onclick="loadAccounts()">&#8635; Reload</button></div>
       </div>
       <div class="cfg-body">
         <div class="cfg-inner">
-          <div class="cfg-sec">Discord OAuth</div>
-          <div class="cfg-field"><div class="cfg-lbl">Client ID</div><input class="cfg-inp" id="cfg-discord-id" placeholder="paste here…" autocomplete="off"></div>
-          <div class="cfg-field"><div class="cfg-lbl">Client Secret</div><input class="cfg-inp" id="cfg-discord-secret" type="password" placeholder="paste here…" autocomplete="off"></div>
-          <div class="cfg-sec">Google OAuth</div>
-          <div class="cfg-field"><div class="cfg-lbl">Client ID</div><input class="cfg-inp" id="cfg-google-id" placeholder="paste here…" autocomplete="off"></div>
-          <div class="cfg-field"><div class="cfg-lbl">Client Secret</div><input class="cfg-inp" id="cfg-google-secret" type="password" placeholder="paste here…" autocomplete="off"></div>
-          <div class="cfg-msg" id="cfg-msg"></div>
-          <button class="cfg-save" id="cfg-save" onclick="cfgSave()">&#128190; Save &amp; Restart Server</button>
-          <div class="cfg-sec">Chat Accounts</div>
+          <div class="cfg-sec">Connected Users</div>
           <div class="accs-list" id="accs-list"><div style="color:var(--sec);font-size:.8rem">Loading…</div></div>
+          <div class="cfg-sec" style="margin-top:20px">Groups</div>
+          <div class="accs-list" id="groups-list"><div style="color:var(--sec);font-size:.8rem">Loading…</div></div>
         </div>
       </div>
     </div>
@@ -440,7 +434,7 @@ function selectView(id){
   curView=id;
   renderSidebar(document.getElementById('search-inp').value);
   if(id==='terminal') setTimeout(function(){if(fit)fit.fit();},40);
-  if(id==='config'){loadConfig();loadAccounts();}
+  if(id==='config') loadAccounts();
 }
 function selectRoom(roomId){
   curRoom=roomId; unread.set(roomId,0);
@@ -592,35 +586,6 @@ async function refreshAdmin(){
   }catch(e){}
 }
 
-async function loadConfig(){
-  try{
-    var r=await fetch(P+'/api/env',{credentials:'include'});
-    var d=await r.json();
-    var set=function(id,val){var el=document.getElementById(id);if(el){el.value=val||'';el.classList.toggle('is-set',!!val);}};
-    set('cfg-discord-id',d.DISCORD_CLIENT_ID);
-    set('cfg-discord-secret',d.DISCORD_CLIENT_SECRET);
-    set('cfg-google-id',d.GOOGLE_CLIENT_ID);
-    set('cfg-google-secret',d.GOOGLE_CLIENT_SECRET);
-  }catch(e){}
-}
-async function cfgSave(){
-  var btn=document.getElementById('cfg-save'),msg=document.getElementById('cfg-msg');
-  btn.disabled=true;msg.style.color='#8696a0';msg.textContent='Saving…';
-  var body={
-    DISCORD_CLIENT_ID:document.getElementById('cfg-discord-id').value.trim(),
-    DISCORD_CLIENT_SECRET:document.getElementById('cfg-discord-secret').value.trim(),
-    GOOGLE_CLIENT_ID:document.getElementById('cfg-google-id').value.trim(),
-    GOOGLE_CLIENT_SECRET:document.getElementById('cfg-google-secret').value.trim(),
-  };
-  try{
-    var r=await fetch(P+'/api/env',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    var d=await r.json();
-    if(d.ok){msg.style.color='#00a884';msg.textContent='✓ Saved — server restarting…';}
-    else{msg.style.color='#ff6b6b';msg.textContent=d.error||'Save failed';}
-  }catch(e){msg.style.color='#ff6b6b';msg.textContent='Error: '+e.message;}
-  btn.disabled=false;
-}
-
 async function loadAccounts(){
   try{
     var r=await fetch(P+'/api/chat-accounts');
@@ -628,11 +593,13 @@ async function loadAccounts(){
     var d=await r.json();
     chatAccounts=d.accounts||[];
     renderAccounts();
+    renderGroups(d.groups||[]);
   }catch(e){}
 }
 function renderAccounts(){
   var el=document.getElementById('accs-list');
-  if(!chatAccounts.length){el.innerHTML='<div style="color:var(--sec);font-size:.8rem">No accounts yet</div>';return;}
+  if(!el) return;
+  if(!chatAccounts.length){el.innerHTML='<div style="color:var(--sec);font-size:.8rem">No Spotify users online yet</div>';return;}
   var h='';
   chatAccounts.forEach(function(a){
     h+='<div class="acc-item"><div class="acc-av">'+avHtml(a.name,a.avatarUrl)+'</div>';
@@ -640,6 +607,27 @@ function renderAccounts(){
     h+='<button class="acc-edit" data-key="'+esc(a.key)+'" onclick="pmOpen(this.dataset.key)">&#9998; Edit</button></div>';
   });
   el.innerHTML=h;
+}
+function renderGroups(groups){
+  var el=document.getElementById('groups-list');
+  if(!el) return;
+  if(!groups.length){el.innerHTML='<div style="color:var(--sec);font-size:.8rem">No groups yet</div>';return;}
+  var h='';
+  groups.forEach(function(g){
+    h+='<div class="acc-item"><div class="acc-av" style="font-size:.75rem">&#128101;</div>';
+    h+='<div style="flex:1;min-width:0"><div class="acc-name">'+esc(g.name)+'</div><div class="acc-key">'+g.memberCount+' member'+(g.memberCount!==1?'s':'')+'</div></div>';
+    h+='<button class="acc-edit" style="background:#3d0000;color:#ff8080" data-gid="'+esc(g.id)+'" onclick="deleteGroup(this.dataset.gid)">&#128465; Delete</button></div>';
+  });
+  el.innerHTML=h;
+}
+async function deleteGroup(id){
+  if(!confirm('Delete this group and all its messages?')) return;
+  try{
+    var r=await fetch(P+'/api/admin/chat-group/'+encodeURIComponent(id),{method:'DELETE'});
+    var d=await r.json();
+    if(d.ok) loadAccounts();
+    else alert(d.error||'Delete failed');
+  }catch(e){alert('Error: '+e.message);}
 }
 
 function pmOpen(key){
@@ -906,6 +894,13 @@ async function handleRequest(req, res) {
         sendJson(res, data ? 200 : 502, data || { error: 'unavailable' });
       } catch (e) { sendJson(res, 400, { error: e.message }); }
     });
+    return;
+  }
+
+  if (req.method === 'DELETE' && url.pathname.startsWith('/api/admin/chat-group/')) {
+    const groupId = url.pathname.slice('/api/admin/chat-group/'.length);
+    const data = await callServerJson(`/api/admin/chat-group/${encodeURIComponent(groupId)}`, 'DELETE');
+    sendJson(res, data ? 200 : 502, data || { error: 'unavailable' });
     return;
   }
 

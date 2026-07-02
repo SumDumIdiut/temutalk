@@ -1116,7 +1116,6 @@ const chatGhostTokens  = new Map();   // token → expiresAt ms
 const chatGhostDevices = new Set();   // deviceIds in stealth mode
 const chatNames        = new Map();   // deviceId → display name override
 const chatProfiles     = new Map();   // deviceId → { name, avatarUrl, provider, providerId }
-const chatAuthStates   = new Map();   // OAuth state → { deviceId }
 const chatGlobal       = { messages: [] };
 const chatGroups       = new Map();   // id → { id, name, passwordHash, messages[], members: Set }
 const chatDMs          = new Map();   // roomKey → { messages[] }
@@ -1188,13 +1187,15 @@ function chatBroadcastAll(data) {
 }
 
 function chatGetName(id) {
-  if (chatProfiles.has(id)) return chatProfiles.get(id).name;
-  if (chatNames.has(id))    return chatNames.get(id);
   const u = spotifyUserCache.get(id);
   if (u?.displayName) return u.displayName;
+  if (chatProfiles.has(id)) return chatProfiles.get(id).name;
+  if (chatNames.has(id))    return chatNames.get(id);
   return 'User-' + id.slice(0, 6);
 }
-function chatGetAvatarUrl(id) { return chatProfiles.get(id)?.avatarUrl || null; }
+function chatGetAvatarUrl(id) {
+  return spotifyUserCache.get(id)?.avatarUrl || chatProfiles.get(id)?.avatarUrl || null;
+}
 
 function chatDMKey(a, b) { return 'dm:' + [a, b].sort().join(':'); }
 
@@ -1563,7 +1564,7 @@ async function pushAllDeviceStates() {
       }
       if (userRes.status === 'fulfilled' && userRes.value) {
         const u = userRes.value.data;
-        spotifyUserCache.set(deviceId, { displayName: u.display_name, email: u.email, product: u.product, country: u.country });
+        spotifyUserCache.set(deviceId, { displayName: u.display_name, email: u.email, product: u.product, country: u.country, avatarUrl: u.images?.[0]?.url || null });
       }
     } catch (_) {}
   }
@@ -1580,6 +1581,7 @@ app.get('/api/admin/overview', (req, res) => {
   const connectedDevices = [];
   for (const [deviceId, wsSet] of deviceClients) {
     if (!wsSet.size) continue;
+    if (deviceId.startsWith('ghost-')) continue;
     const ips = [...new Set([...wsSet].map(w => wsClientIps.get(w) || '').filter(Boolean))];
     const player = playerStateCache.get(deviceId) || null;
     const user   = spotifyUserCache.get(deviceId) || null;
@@ -1634,96 +1636,19 @@ app.get('/api/admin/overview', (req, res) => {
   });
 });
 
-// ─── Chat OAuth ───────────────────────────────────────────────────────────────
-app.get('/auth/chat/discord', (req, res) => {
-  const deviceId = resolveDevice(req);
-  if (!deviceId) return res.status(400).send('device required');
-  const clientId = process.env.DISCORD_CLIENT_ID;
-  if (!clientId) return res.redirect('/?tab=chat&chat_error=Discord+not+configured+%E2%80%94+add+DISCORD_CLIENT_ID+to+.env');
-  const state = crypto.randomBytes(16).toString('hex');
-  chatAuthStates.set(state, { deviceId });
-  setTimeout(() => chatAuthStates.delete(state), 5 * 60_000);
-  const redirectUri = `${MAIN_BASE}/auth/chat/discord/callback`;
-  res.redirect('https://discord.com/api/oauth2/authorize?' + new URLSearchParams({
-    client_id: clientId, redirect_uri: redirectUri,
-    response_type: 'code', scope: 'identify', state,
-  }));
-});
-
-app.get('/auth/chat/discord/callback', async (req, res) => {
-  const { code, state } = req.query;
-  const entry = chatAuthStates.get(state);
-  chatAuthStates.delete(state);
-  if (!entry || !code) return res.redirect('/?tab=chat&chat_error=1');
-  try {
-    const redirectUri = `${MAIN_BASE}/auth/chat/discord/callback`;
-    const tok = await axios.post('https://discord.com/api/oauth2/token',
-      new URLSearchParams({ client_id: process.env.DISCORD_CLIENT_ID, client_secret: process.env.DISCORD_CLIENT_SECRET, grant_type: 'authorization_code', code, redirect_uri: redirectUri }),
-      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
-    );
-    const u = (await axios.get('https://discord.com/api/users/@me', { headers: { Authorization: `Bearer ${tok.data.access_token}` } })).data;
-    const name = u.global_name || u.username;
-    const avatarUrl = u.avatar
-      ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png?size=128`
-      : `https://cdn.discordapp.com/embed/avatars/${parseInt(u.discriminator || '0') % 5}.png`;
-    chatProfiles.set(entry.deviceId, { name, avatarUrl, provider: 'discord', providerId: u.id });
-    chatNames.set(entry.deviceId, name);
-    chatSave();
-    broadcastToDevice(entry.deviceId, { type: 'chat:profile', name, avatarUrl, provider: 'discord' });
-    res.redirect('/?tab=chat');
-  } catch (e) {
-    console.error('[chat:discord]', e.response?.data || e.message);
-    res.redirect('/?tab=chat&chat_error=1');
-  }
-});
-
-app.get('/auth/chat/google', (req, res) => {
-  const deviceId = resolveDevice(req);
-  if (!deviceId) return res.status(400).send('device required');
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  if (!clientId) return res.redirect('/?tab=chat&chat_error=Google+not+configured+%E2%80%94+add+GOOGLE_CLIENT_ID+to+.env');
-  const state = crypto.randomBytes(16).toString('hex');
-  chatAuthStates.set(state, { deviceId });
-  setTimeout(() => chatAuthStates.delete(state), 5 * 60_000);
-  res.redirect('https://accounts.google.com/o/oauth2/v2/auth?' + new URLSearchParams({
-    client_id: clientId, redirect_uri: `${MAIN_BASE}/auth/chat/google/callback`,
-    response_type: 'code', scope: 'openid profile', state, access_type: 'online',
-  }));
-});
-
-app.get('/auth/chat/google/callback', async (req, res) => {
-  const { code, state } = req.query;
-  const entry = chatAuthStates.get(state);
-  chatAuthStates.delete(state);
-  if (!entry || !code) return res.redirect('/?tab=chat&chat_error=1');
-  try {
-    const redirectUri = `${MAIN_BASE}/auth/chat/google/callback`;
-    const tok = await axios.post('https://oauth2.googleapis.com/token',
-      new URLSearchParams({ client_id: process.env.GOOGLE_CLIENT_ID, client_secret: process.env.GOOGLE_CLIENT_SECRET, grant_type: 'authorization_code', code, redirect_uri: redirectUri }),
-      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
-    );
-    const u = (await axios.get('https://www.googleapis.com/oauth2/v2/userinfo', { headers: { Authorization: `Bearer ${tok.data.access_token}` } })).data;
-    const name = u.name || u.email;
-    chatProfiles.set(entry.deviceId, { name, avatarUrl: u.picture || null, provider: 'google', providerId: u.id });
-    chatNames.set(entry.deviceId, name);
-    chatSave();
-    broadcastToDevice(entry.deviceId, { type: 'chat:profile', name, avatarUrl: u.picture || null, provider: 'google' });
-    res.redirect('/?tab=chat');
-  } catch (e) {
-    console.error('[chat:google]', e.response?.data || e.message);
-    res.redirect('/?tab=chat&chat_error=1');
-  }
-});
-
-app.get('/api/chat/providers', (_req, res) => {
-  res.json({ discord: !!process.env.DISCORD_CLIENT_ID, google: !!process.env.GOOGLE_CLIENT_ID });
-});
 
 app.get('/api/chat/me', (req, res) => {
   const deviceId = resolveDevice(req);
   if (!deviceId) return res.status(400).json({ error: 'device required' });
-  const p = chatProfiles.get(deviceId);
-  res.json({ name: chatGetName(deviceId), avatarUrl: p?.avatarUrl || null, provider: p?.provider || null, deviceId });
+  const spotify = spotifyUserCache.get(deviceId);
+  const authenticated = !!(spotify?.displayName);
+  res.json({
+    name: chatGetName(deviceId),
+    avatarUrl: chatGetAvatarUrl(deviceId),
+    provider: authenticated ? 'spotify' : null,
+    authenticated,
+    deviceId,
+  });
 });
 
 // ─── Chat REST ────────────────────────────────────────────────────────────────
@@ -1771,43 +1696,15 @@ app.get('/api/chat/groups', (req, res) => {
   });
 });
 
-app.post('/api/chat/login', (req, res) => {
-  const deviceId = resolveDevice(req);
-  if (!deviceId) return res.status(400).json({ error: 'device required' });
-  const name = String(req.body?.name || '').trim().slice(0, 32);
-  const pass = String(req.body?.password || '').trim();
-  if (!name) return res.json({ ok: false, error: 'Name is required' });
-  if (!pass) return res.json({ ok: false, error: 'Password is required' });
-  if (pass.length < 4) return res.json({ ok: false, error: 'Password must be at least 4 characters' });
-  const key  = name.toLowerCase();
-  const hash = crypto.createHash('sha256').update(pass).digest('hex');
-  const existing = chatAccounts.get(key);
-  if (existing) {
-    const hashBuf = Buffer.from(hash);
-    const expBuf  = Buffer.from(existing.passwordHash);
-    if (hashBuf.length !== expBuf.length || !crypto.timingSafeEqual(hashBuf, expBuf)) {
-      return res.json({ ok: false, error: 'Wrong password' });
-    }
-    // Correct password — link this device to the account
-    chatProfiles.set(deviceId, { name: existing.name, avatarUrl: existing.avatarUrl || null, provider: 'password', providerId: key });
-    chatNames.set(deviceId, existing.name);
-  } else {
-    // New account
-    chatAccounts.set(key, { name, passwordHash: hash, avatarUrl: null });
-    chatProfiles.set(deviceId, { name, avatarUrl: null, provider: 'password', providerId: key });
-    chatNames.set(deviceId, name);
-  }
+app.delete('/api/admin/chat-group/:id', (req, res) => {
+  const ip = req.socket.remoteAddress || '';
+  if (!['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(ip)) return res.status(403).json({ error: 'forbidden' });
+  const { id } = req.params;
+  if (!chatGroups.has(id)) return res.status(404).json({ error: 'group not found' });
+  chatGroups.delete(id);
   chatSave();
-  broadcastToDevice(deviceId, { type: 'chat:profile', name: chatGetName(deviceId), avatarUrl: chatGetAvatarUrl(deviceId), provider: 'password' });
-  res.json({ ok: true, name: chatGetName(deviceId), avatarUrl: chatGetAvatarUrl(deviceId) });
-});
-
-app.post('/api/chat/set-name', (req, res) => {
-  const deviceId = resolveDevice(req);
-  if (!deviceId) return res.status(400).json({ error: 'device required' });
-  const name = String(req.body?.name || '').trim().slice(0, 32);
-  if (name) chatNames.set(deviceId, name);
-  res.json({ name: chatGetName(deviceId) });
+  chatBroadcastAll({ type: 'chat:group-deleted', groupId: id });
+  res.json({ ok: true });
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────

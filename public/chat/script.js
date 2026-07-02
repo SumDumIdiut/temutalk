@@ -44,66 +44,28 @@ function chatInit() {
   const _ov = chatEl('chat-login-overlay');
   if (_ov && _ov.parentElement !== document.body) document.body.appendChild(_ov);
 
-  // Device ID chip
-  const chip = chatEl('chat-did-chip');
-  if (chip) {
-    chip.textContent = 'ID: ' + deviceId.slice(0, 18) + '…';
-    chip.title = 'Click to copy your Device ID';
-    chip.onclick = () => {
-      navigator.clipboard.writeText(deviceId).catch(() => {});
-      chip.textContent = 'Copied!';
-      setTimeout(() => { chip.textContent = 'ID: ' + deviceId.slice(0, 18) + '…'; }, 1500);
-    };
-  }
-
-  // Wire up OAuth buttons; disable ones the server hasn't configured
-  const discordBtn = chatEl('chat-discord-btn');
-  const googleBtn  = chatEl('chat-google-btn');
-  if (discordBtn) discordBtn.href = `/auth/chat/discord?device=${encodeURIComponent(deviceId)}`;
-  if (googleBtn)  googleBtn.href  = `/auth/chat/google?device=${encodeURIComponent(deviceId)}`;
-  fetch('/api/chat/providers').then(r => r.json()).then(p => {
-    if (!p.discord && discordBtn) { discordBtn.classList.add('disabled'); discordBtn.title = 'Discord not configured'; }
-    if (!p.google  && googleBtn)  { googleBtn.classList.add('disabled');  googleBtn.title  = 'Google not configured'; }
-  }).catch(() => {});
-
-  // Check server for OAuth profile; show login unless OAuth-authenticated
+  // Check Spotify link; show overlay if not linked
   fetch('/api/chat/me?device=' + deviceId).then(r => r.json()).then(profile => {
-    if (profile.provider) {
-      chatMyName     = profile.name;
-      chatMyAvatar   = profile.avatarUrl;
-      chatMyProvider = profile.provider;
-      localStorage.setItem('chatName',     chatMyName);
-      localStorage.setItem('chatProvider', chatMyProvider);
-      if (chatMyAvatar) localStorage.setItem('chatAvatar', chatMyAvatar);
+    if (profile.authenticated) {
+      chatMyName   = profile.name;
+      chatMyAvatar = profile.avatarUrl;
+      chatMyProvider = 'spotify';
       chatHideLogin();
       chatUpdateAccountRow();
       chatJoinRoom('global');
     } else {
-      const inp = chatEl('chat-name-inp');
-      if (inp && chatMyName) inp.value = chatMyName;
       chatShowLogin();
     }
   }).catch(() => {
-    if (chatMyProvider) {
-      // Trust cached provider on network error
+    // On network error, let them in with cached name if available
+    if (chatMyName) {
       chatHideLogin();
-      if (wsReady) ws.send(JSON.stringify({ type: 'chat:set-name', name: chatMyName }));
       chatUpdateAccountRow();
       chatJoinRoom('global');
     } else {
-      const inp = chatEl('chat-name-inp');
-      if (inp && chatMyName) inp.value = chatMyName;
       chatShowLogin();
     }
   });
-
-  // Check for OAuth error param
-  const chatErr = new URLSearchParams(location.search).get('chat_error');
-  if (chatErr) {
-    const errEl = chatEl('chat-login-err');
-    if (errEl) errEl.textContent = decodeURIComponent(chatErr.replace(/\+/g, ' '));
-    history.replaceState(null, '', location.pathname + (location.search.replace(/[?&]chat_error=[^&]*/g,'').replace(/^&/,'?') || ''));
-  }
 
   chatRenderSidebar();
 }
@@ -137,52 +99,6 @@ function chatUpdateAccountRow() {
   }
 }
 
-function chatSwitchAccount() {
-  chatMyName = ''; chatMyAvatar = null; chatMyProvider = null;
-  localStorage.removeItem('chatName');
-  localStorage.removeItem('chatAvatar');
-  localStorage.removeItem('chatProvider');
-  const row = chatEl('chat-account-row');
-  if (row) row.style.display = 'none';
-  const inp = chatEl('chat-name-inp');
-  if (inp) inp.value = '';
-  chatShowLogin();
-}
-window.chatSwitchAccount = chatSwitchAccount;
-
-function chatSaveName() {
-  const nameInp = chatEl('chat-name-inp');
-  const passInp = chatEl('chat-pass-inp');
-  const errEl   = chatEl('chat-login-err');
-  const name = (nameInp?.value || '').trim();
-  const pass = (passInp?.value || '').trim();
-  if (!name) { if (errEl) errEl.textContent = 'Enter a name'; nameInp?.focus(); return; }
-  if (!pass) { if (errEl) errEl.textContent = 'Enter a password'; passInp?.focus(); return; }
-  if (errEl) errEl.textContent = '';
-  const btn = document.querySelector('.chat-name-save-btn');
-  if (btn) btn.disabled = true;
-  fetch(`/api/chat/login?device=${encodeURIComponent(deviceId)}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, password: pass }),
-  }).then(r => r.json()).then(d => {
-    if (btn) btn.disabled = false;
-    if (!d.ok) { if (errEl) errEl.textContent = d.error || 'Login failed'; return; }
-    chatMyName     = d.name;
-    chatMyAvatar   = d.avatarUrl || null;
-    chatMyProvider = 'password';
-    localStorage.setItem('chatName',     chatMyName);
-    localStorage.setItem('chatProvider', 'password');
-    if (chatMyAvatar) localStorage.setItem('chatAvatar', chatMyAvatar);
-    chatHideLogin();
-    chatUpdateAccountRow();
-    chatJoinRoom('global');
-  }).catch(() => {
-    if (btn) btn.disabled = false;
-    if (errEl) errEl.textContent = 'Network error — try again';
-  });
-}
-window.chatSaveName = chatSaveName;
 
 // ── Room ──────────────────────────────────────────────────────────────────────
 function chatRoomLabel(room) {
