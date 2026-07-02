@@ -1124,6 +1124,7 @@ const chatFriendReqs   = new Map();   // targetId → Set<fromId>
 const chatCalls        = new Map();   // roomId → Set<deviceId>
 const chatAccounts     = new Map();   // nameLower → { name, passwordHash, avatarUrl }
 const PANEL_BOT_ID         = 'panel-bot';
+const TEST_USER_ID         = 'test-user';
 const CHAT_MSG_LIMIT       = 200;
 const CHAT_GLOBAL_CLEAR_MS = 12 * 60 * 60 * 1000;
 const CHAT_STATE_FILE = path.join(__dirname, '.chat-state.json');
@@ -1191,6 +1192,7 @@ function chatBroadcastAll(data) {
 
 function chatGetName(id) {
   if (id === PANEL_BOT_ID) return 'Server';
+  if (id === TEST_USER_ID) return 'Test User';
   const u = spotifyUserCache.get(id);
   if (u?.displayName) return u.displayName;
   if (chatProfiles.has(id)) return chatProfiles.get(id).name;
@@ -1199,6 +1201,7 @@ function chatGetName(id) {
 }
 function chatGetAvatarUrl(id) {
   if (id === PANEL_BOT_ID) return null;
+  if (id === TEST_USER_ID) return null;
   return spotifyUserCache.get(id)?.avatarUrl || chatProfiles.get(id)?.avatarUrl || null;
 }
 
@@ -1723,6 +1726,51 @@ app.delete('/api/admin/chat-group/:id', (req, res) => {
   chatGroups.delete(id);
   chatSave();
   chatBroadcastAll({ type: 'chat:group-deleted', groupId: id });
+  res.json({ ok: true });
+});
+
+app.post('/api/admin/test-msg', express.json(), (req, res) => {
+  const ip = req.socket.remoteAddress || '';
+  if (!['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(ip)) return res.status(403).json({ error: 'forbidden' });
+  const room = String(req.body?.room || '').trim();
+  const text = String(req.body?.text || '').trim().slice(0, 2000);
+  if (!room || !text) return res.status(400).json({ error: 'room and text required' });
+  let roomMsgs;
+  if (room === 'global') {
+    roomMsgs = chatGlobal.messages;
+  } else if (room.startsWith('group:') && chatGroups.has(room)) {
+    roomMsgs = chatGroups.get(room).messages;
+  } else {
+    return res.status(404).json({ error: 'room not found' });
+  }
+  const m = { id: crypto.randomBytes(6).toString('hex'), from: TEST_USER_ID, fromName: 'Test User', avatarUrl: null, text, ts: Date.now() };
+  roomMsgs.push(m);
+  if (roomMsgs.length > CHAT_MSG_LIMIT) roomMsgs.splice(0, roomMsgs.length - CHAT_MSG_LIMIT);
+  chatBroadcastRoom(room, { type: 'chat:msg', room, ...m });
+  chatSave();
+  res.json({ ok: true });
+});
+
+app.get('/api/admin/test-friend-reqs', (req, res) => {
+  const ip = req.socket.remoteAddress || '';
+  if (!['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(ip)) return res.status(403).json({ error: 'forbidden' });
+  const pending = chatFriendReqs.get(TEST_USER_ID) || new Set();
+  res.json({ reqs: [...pending].map(id => ({ id, name: chatGetName(id), avatarUrl: chatGetAvatarUrl(id) })) });
+});
+
+app.post('/api/admin/test-accept-req', express.json(), (req, res) => {
+  const ip = req.socket.remoteAddress || '';
+  if (!['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(ip)) return res.status(403).json({ error: 'forbidden' });
+  const fromId = String(req.body?.fromId || '').trim();
+  if (!fromId) return res.status(400).json({ error: 'fromId required' });
+  if (!chatFriendReqs.get(TEST_USER_ID)?.has(fromId)) return res.status(404).json({ error: 'no pending request' });
+  chatFriendReqs.get(TEST_USER_ID).delete(fromId);
+  if (!chatFriends.has(TEST_USER_ID)) chatFriends.set(TEST_USER_ID, new Set());
+  if (!chatFriends.has(fromId)) chatFriends.set(fromId, new Set());
+  chatFriends.get(TEST_USER_ID).add(fromId);
+  chatFriends.get(fromId).add(TEST_USER_ID);
+  chatSave();
+  broadcastToDevice(fromId, { type: 'chat:friend-accepted', byId: TEST_USER_ID, byName: 'Test User', byAvatarUrl: null });
   res.json({ ok: true });
 });
 

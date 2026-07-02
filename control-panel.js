@@ -394,6 +394,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div class="pane" id="pane-accounts">
   <div class="accs-body">
     <div class="accs-sec">
+      <div class="accs-sec-hdr">Test User</div>
+      <div class="acc-item" style="gap:14px">
+        <div class="acc-av" style="background:rgba(88,166,255,.12);color:#58a6ff;font-size:11px">TU</div>
+        <div style="flex:1;min-width:0">
+          <div class="acc-name">Test User</div>
+          <div class="acc-key">ID: test-user &mdash; send messages &amp; accept friend requests for testing</div>
+        </div>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px">
+        <select class="pm-inp" id="tu-room" style="flex:0 0 auto;width:auto;min-width:120px">
+          <option value="global">Global Chat</option>
+        </select>
+        <input class="pm-inp" id="tu-msg" placeholder="Message as Test User…" style="flex:1"
+          onkeydown="if(event.key==='Enter')testUserSend()">
+        <button class="abtn" onclick="testUserSend()">Send</button>
+      </div>
+      <div id="tu-reqs" style="margin-top:10px"></div>
+    </div>
+    <div class="accs-sec">
       <div class="accs-sec-hdr">Connected Spotify Users</div>
       <div id="accs-list"></div>
     </div>
@@ -555,6 +574,47 @@ function clearRoom(){
   renderMsgs();
 }
 
+async function testUserSend(){
+  var room=(document.getElementById('tu-room')||{}).value||'global';
+  var inp=document.getElementById('tu-msg');
+  var text=(inp&&inp.value||'').trim();
+  if(!text) return;
+  try{
+    var r=await fetch(P+'/api/test-msg',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({room:room,text:text})});
+    var d=await r.json();
+    if(d.ok){if(inp)inp.value='';}
+    else{alert(d.error||'Failed');}
+  }catch(e){alert('Error: '+e.message);}
+}
+
+async function loadTestReqs(){
+  try{
+    var r=await fetch(P+'/api/test-friend-reqs');
+    var d=await r.json();
+    var el=document.getElementById('tu-reqs');
+    if(!el) return;
+    var reqs=d.reqs||[];
+    if(!reqs.length){el.innerHTML='<div style="color:var(--sec);font-size:12px;padding:2px 0">No pending friend requests to Test User</div>';return;}
+    var h='<div style="font-size:11px;color:var(--sec);margin-bottom:6px">Pending friend requests:</div>';
+    reqs.forEach(function(req){
+      h+='<div class="acc-item" style="padding:8px 12px"><div class="acc-av" style="width:28px;height:28px">'
+        +(req.avatarUrl?'<img src="'+esc(req.avatarUrl)+'" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">':'<span>'+ini(req.name)+'</span>')
+        +'</div><div style="flex:1;min-width:0"><div class="acc-name">'+esc(req.name)+'</div></div>'
+        +'<button class="abtn" data-id="'+esc(req.id)+'" onclick="testAcceptReq(this.dataset.id)">Accept</button></div>';
+    });
+    el.innerHTML=h;
+  }catch(e){}
+}
+
+async function testAcceptReq(fromId){
+  try{
+    var r=await fetch(P+'/api/test-accept-req',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fromId:fromId})});
+    var d=await r.json();
+    if(d.ok) loadTestReqs();
+    else alert(d.error||'Failed');
+  }catch(e){alert('Error: '+e.message);}
+}
+
 async function broadcastMsg(){
   var room=curRoom;
   var inp=document.getElementById('m-inp');
@@ -667,6 +727,7 @@ async function loadAccounts(){
     chatAccounts=d.accounts||[];
     renderAccounts();
     renderGroups(d.groups||[]);
+    loadTestReqs();
   }catch(e){}
 }
 
@@ -698,6 +759,16 @@ function renderGroups(groups){
     h+='</div>';
   });
   el.innerHTML=h;
+  // Populate test-user room select
+  var sel=document.getElementById('tu-room');
+  if(sel){
+    sel.innerHTML='<option value="global">Global Chat</option>';
+    groups.forEach(function(g){
+      var o=document.createElement('option');
+      o.value=g.id;o.textContent=g.name;
+      sel.appendChild(o);
+    });
+  }
 }
 
 async function deleteGroup(id){
@@ -1005,6 +1076,38 @@ async function handleRequest(req, res) {
       try {
         const parsed = JSON.parse(body);
         const data = await callServerJson('/api/admin/panel-broadcast', 'POST', parsed);
+        sendJson(res, data ? 200 : 502, data || { error: 'unavailable' });
+      } catch (e) { sendJson(res, 400, { error: e.message }); }
+    });
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/test-msg') {
+    let body = '';
+    req.on('data', c => body += c);
+    req.on('end', async () => {
+      try {
+        const parsed = JSON.parse(body);
+        const data = await callServerJson('/api/admin/test-msg', 'POST', parsed);
+        sendJson(res, data ? 200 : 502, data || { error: 'unavailable' });
+      } catch (e) { sendJson(res, 400, { error: e.message }); }
+    });
+    return;
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/test-friend-reqs') {
+    const data = await callServerJson('/api/admin/test-friend-reqs');
+    sendJson(res, data ? 200 : 502, data || { error: 'unavailable' });
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/test-accept-req') {
+    let body = '';
+    req.on('data', c => body += c);
+    req.on('end', async () => {
+      try {
+        const parsed = JSON.parse(body);
+        const data = await callServerJson('/api/admin/test-accept-req', 'POST', parsed);
         sendJson(res, data ? 200 : 502, data || { error: 'unavailable' });
       } catch (e) { sendJson(res, 400, { error: e.message }); }
     });

@@ -47,9 +47,11 @@ function chatInit() {
   if (_chatReady) return;
   _chatReady = true;
 
-  // Move login overlay to document.body so parent transforms don't clip it
+  // Move overlays to body so parent transforms don't clip fixed positioning
   const _ov = chatEl('chat-login-overlay');
   if (_ov && _ov.parentElement !== document.body) document.body.appendChild(_ov);
+  const _ab = chatEl('chat-ann-bar');
+  if (_ab && _ab.parentElement !== document.body) document.body.appendChild(_ab);
 
   // Check Spotify link; show overlay if not linked
   fetch('/api/chat/me?device=' + deviceId).then(r => r.json()).then(profile => {
