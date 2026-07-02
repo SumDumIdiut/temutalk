@@ -42,17 +42,17 @@ function _initBrowserPlayer() {
     volume: vol,
   });
   browserPlayer.addListener('ready', ({ device_id }) => {
+    console.log('[player] ready, device_id:', device_id);
     browserPlayerReady = true;
     browserPlayer._deviceId = device_id;
-    // Auto-transfer playback to the browser
     api('/api/transfer', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ device_id, play: false }) }).catch(() => {});
   });
-  browserPlayer.addListener('not_ready', () => { browserPlayerReady = false; });
-  browserPlayer.addListener('initialization_error', ({ message }) => console.error('[player]', message));
-  browserPlayer.addListener('authentication_error', ({ message }) => console.error('[player] auth', message));
-  browserPlayer.addListener('account_error', ({ message }) => console.error('[player] account (Premium required)', message));
-  browserPlayer.connect();
-  // SDK needs activateElement() called inside a user gesture to unsuspend AudioContext
+  browserPlayer.addListener('not_ready', ({ device_id }) => { console.warn('[player] not_ready', device_id); browserPlayerReady = false; });
+  browserPlayer.addListener('initialization_error', ({ message }) => console.error('[player] init error:', message));
+  browserPlayer.addListener('authentication_error', ({ message }) => console.error('[player] auth error:', message));
+  browserPlayer.addListener('account_error', ({ message }) => console.error('[player] account error:', message));
+  console.log('[player] connecting…');
+  browserPlayer.connect().then(ok => console.log('[player] connect:', ok));
   document.addEventListener('click', function _activate() {
     browserPlayer.activateElement();
     document.removeEventListener('click', _activate);
