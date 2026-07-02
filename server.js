@@ -978,6 +978,14 @@ app.post('/api/broadcast/stop', (req, res) => {
   res.json(stopFfmpeg());
 });
 
+// ─── Live channels ────────────────────────────────────────────────────────────
+app.get('/api/live', (req, res) => {
+  const list = [...liveChannels.entries()]
+    .filter(([, ch]) => ch.ws?.readyState === WebSocket.OPEN)
+    .map(([id, ch]) => ({ id, name: ch.name, avatarUrl: ch.avatarUrl, listeners: ch.listeners.size, mimeType: ch.mimeType, startedAt: ch.startedAt }));
+  res.json(list);
+});
+
 // ─── Broadcast control page ───────────────────────────────────────────────────
 app.get('/broadcast', (req, res) => {
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -1105,6 +1113,19 @@ let   mseBroadcaster   = null;
 let   mseMimeType      = null;
 let   mseInitChunk     = null;
 const mseListeners     = new Set();
+
+// ── Live multi-channel streaming ──────────────────────────────────────────────
+const liveChannels = new Map(); // deviceId → { ws, initChunk, mimeType, name, avatarUrl, listeners, startedAt }
+
+function broadcastLiveList() {
+  const list = [...liveChannels.entries()]
+    .filter(([, ch]) => ch.ws?.readyState === WebSocket.OPEN)
+    .map(([id, ch]) => ({ id, name: ch.name, avatarUrl: ch.avatarUrl, listeners: ch.listeners.size, mimeType: ch.mimeType, startedAt: ch.startedAt }));
+  const msg = JSON.stringify({ type: 'live-list', channels: list });
+  for (const [, sockets] of deviceClients) {
+    for (const s of sockets) if (s.readyState === WebSocket.OPEN) s.send(msg);
+  }
+}
 const streamListeners  = new Map();   // res → { ip, ua, connectedAt }
 const wsClientIps      = new WeakMap(); // ws → ip string
 const radioNowPlaying  = new Map();   // deviceId → { name, url, since }
@@ -1274,6 +1295,14 @@ wss.on('connection', (ws, req) => {
 
   ws.on('message', (raw, isBinary) => {
     if (isBinary) {
+      // Route to live channel listeners first
+      for (const [, ch] of liveChannels) {
+        if (ch.ws === ws) {
+          if (!ch.initChunk) ch.initChunk = Buffer.from(raw);
+          for (const cl of ch.listeners) if (cl.readyState === WebSocket.OPEN) cl.send(raw);
+          return;
+        }
+      }
       if (ws === mseBroadcaster) {
         if (!mseInitChunk) {
           mseInitChunk = Buffer.from(raw);
@@ -1354,6 +1383,42 @@ wss.on('connection', (ws, req) => {
     }
     if (msg.type === 'radio-stopped' && wsDeviceId) {
       radioNowPlaying.delete(wsDeviceId);
+      return;
+    }
+
+    // ── Live multi-channel ────────────────────────────────────────────────────
+    if (msg.type === 'live-start' && wsDeviceId) {
+      liveChannels.set(wsDeviceId, {
+        ws, initChunk: null, mimeType: msg.mimeType || 'audio/webm;codecs=opus',
+        name: chatGetName(wsDeviceId), avatarUrl: chatGetAvatarUrl(wsDeviceId),
+        listeners: new Set(), startedAt: Date.now(),
+      });
+      broadcastLiveList();
+      return;
+    }
+    if (msg.type === 'live-stop' && wsDeviceId) {
+      const ch = liveChannels.get(wsDeviceId);
+      if (ch) {
+        const end = JSON.stringify({ type: 'live-channel-ended', channelId: wsDeviceId });
+        for (const cl of ch.listeners) if (cl.readyState === WebSocket.OPEN) cl.send(end);
+        liveChannels.delete(wsDeviceId);
+      }
+      broadcastLiveList();
+      return;
+    }
+    if (msg.type === 'live-join') {
+      for (const c of liveChannels.values()) c.listeners.delete(ws);
+      const ch = liveChannels.get(msg.channelId);
+      if (ch) {
+        ch.listeners.add(ws);
+        if (ch.initChunk) ws.send(ch.initChunk);
+        broadcastLiveList();
+      }
+      return;
+    }
+    if (msg.type === 'live-leave') {
+      for (const ch of liveChannels.values()) ch.listeners.delete(ws);
+      broadcastLiveList();
       return;
     }
 
@@ -1562,6 +1627,15 @@ wss.on('connection', (ws, req) => {
       relayToClients(JSON.stringify({ type: 'mse-broadcaster-status', online: false }));
     }
     if (mseListeners.delete(ws)) broadcastListenerCount();
+    // Live channel cleanup
+    if (wsDeviceId && liveChannels.has(wsDeviceId)) {
+      const ch = liveChannels.get(wsDeviceId);
+      const end = JSON.stringify({ type: 'live-channel-ended', channelId: wsDeviceId });
+      for (const cl of ch.listeners) if (cl.readyState === WebSocket.OPEN) cl.send(end);
+      liveChannels.delete(wsDeviceId);
+      broadcastLiveList();
+    }
+    for (const ch of liveChannels.values()) ch.listeners.delete(ws);
   };
   ws.on('close', cleanup);
   ws.on('error', cleanup);

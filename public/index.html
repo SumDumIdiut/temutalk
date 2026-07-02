@@ -864,11 +864,14 @@ function wsConnect() {
   ws.onopen = () => {
     wsReady = true;
     ws.send(JSON.stringify({ type: 'join', deviceId }));
+    if (typeof liveInit === 'function') liveInit(ws);
   };
   ws.binaryType = 'arraybuffer';
   ws.onmessage = e => {
     if (e.data instanceof ArrayBuffer) {
-      if (mseSBuffer) { msePending.push(e.data); mseFlush(); }
+      if (typeof liveOnMessage === 'function' && typeof liveActiveChannel !== 'undefined' && liveActiveChannel) {
+        liveOnMessage({ _binary: e.data });
+      } else if (mseSBuffer) { msePending.push(e.data); mseFlush(); }
       return;
     }
     try {
@@ -889,6 +892,7 @@ function wsConnect() {
       }
       if (m.type === 'mse-broadcaster-status') mseSetBroadcasterOnline(m.online, m.mimeType);
       if (m.type && m.type.startsWith('chat:') && typeof chatOnMessage === 'function') chatOnMessage(m);
+      if ((m.type === 'live-list' || m.type === 'live-channel-ended') && typeof liveOnMessage === 'function') liveOnMessage(m);
     } catch {}
   };
   ws.onclose = ws.onerror = () => {

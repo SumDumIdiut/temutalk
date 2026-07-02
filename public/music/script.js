@@ -430,7 +430,7 @@ let discoverLoaded = false, libArtistsCache = null;
 let libSidebarCache = {};
 function setLibTab(tab) {
   libTab = tab;
-  ['playlists','artists','recent'].forEach(t =>
+  ['playlists','artists','recent','live'].forEach(t =>
     document.getElementById('lt-' + t)?.classList.toggle('active', t === tab)
   );
   const el = document.getElementById('sidebar-list');
@@ -459,6 +459,9 @@ function setLibTab(tab) {
       ).join('') || '<div style="color:var(--text-muted);font-size:13px;padding:8px;">No artists</div>';
       el.innerHTML = libSidebarCache.artists;
     }).catch(() => {});
+  } else if (tab === 'live') {
+    liveRenderSidebar();
+    return;
   } else if (tab === 'recent') {
     el.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:8px;">Loading…</div>';
     api('/api/recently-played').then(d => {
@@ -616,4 +619,173 @@ function updateLyricsHighlight() {
     }
   }
 }
+
+// ── Live multi-channel streaming ──────────────────────────────────────────────
+let liveChannelList = [];  // populated by WS live-list messages
+let liveActiveChannel = null; // channelId we are listening to
+let liveMse = null;        // { ms: MediaSource, sb: SourceBuffer, audio: HTMLAudioElement }
+let liveBroadcasting = false;
+let liveRecorder = null;
+let liveSpotifyPlayer = null;
+let liveWs = null; // reference to main WS (set by liveInit)
+
+function liveInit(ws) {
+  liveWs = ws;
+  // Fetch initial list
+  fetch('/api/live?' + 'device=' + deviceId).then(r => r.json()).then(list => {
+    liveChannelList = list;
+    if (libTab === 'live') liveRenderSidebar();
+  }).catch(() => {});
+}
+
+function liveRenderSidebar() {
+  const el = document.getElementById('sidebar-list');
+  if (!el) return;
+  const myChannel = liveChannelList.find(c => c.id === deviceId);
+  const broadcastBtn = `<div class="live-broadcast-btn ${liveBroadcasting ? 'live-active' : ''}" onclick="liveToggle()">
+    ${liveBroadcasting ? '⏹ Stop Broadcasting' : '🎙 Start Broadcasting'}
+  </div>`;
+  const channels = liveChannelList.filter(c => c.id !== deviceId);
+  const channelHtml = channels.length ? channels.map(c => `
+    <div class="live-card ${liveActiveChannel === c.id ? 'live-card-active' : ''}" onclick="liveJoin('${c.id}')">
+      ${c.avatarUrl ? `<img class="live-card-av" src="${esc(c.avatarUrl)}" alt="">` : '<div class="live-card-av live-card-av-placeholder">🎵</div>'}
+      <div class="live-card-info">
+        <div class="live-card-name">${esc(c.name)}</div>
+        <div class="live-card-sub">🎧 ${c.listeners} listener${c.listeners !== 1 ? 's' : ''}</div>
+      </div>
+      ${liveActiveChannel === c.id ? '<div class="live-card-badge">Listening</div>' : ''}
+    </div>`).join('') : '<div class="live-empty">No one is broadcasting right now.</div>';
+  el.innerHTML = broadcastBtn + channelHtml;
+}
+
+// ── Broadcaster ───────────────────────────────────────────────────────────────
+function liveToggle() {
+  if (liveBroadcasting) liveStop(); else liveStart();
+}
+
+function liveStart() {
+  if (liveBroadcasting) return;
+  liveBroadcasting = true;
+  liveRenderSidebar();
+
+  // Load Spotify Web Playback SDK, then tap its AudioContext
+  if (window.Spotify) { _liveSetupPlayer(); return; }
+  const tag = document.createElement('script');
+  tag.src = 'https://sdk.scdn.co/spotify-player.js';
+  document.head.appendChild(tag);
+  window.onSpotifyWebPlaybackSDKReady = _liveSetupPlayer;
+}
+
+function _liveSetupPlayer() {
+  fetch('/api/token?device=' + deviceId).then(r => r.json()).then(d => {
+    if (!d.access_token) { console.error('[live] no token'); return; }
+    let destNode = null;
+    let recording = false;
+
+    // Monkey-patch AudioNode.connect to intercept the SDK's graph
+    const _origConnect = AudioNode.prototype.connect;
+    AudioNode.prototype.connect = function(target, ...rest) {
+      const result = _origConnect.apply(this, [target, ...rest]);
+      if (!destNode && target instanceof AudioDestinationNode) {
+        const ctx = this.context;
+        const msDest = ctx.createMediaStreamDestination();
+        _origConnect.call(this, msDest);
+        if (!recording) {
+          recording = true;
+          _liveRecord(msDest.stream);
+        }
+      }
+      return result;
+    };
+
+    liveSpotifyPlayer = new Spotify.Player({
+      name: 'TemuTalk Live',
+      getOAuthToken: cb => cb(d.access_token),
+      volume: 0,
+    });
+    liveSpotifyPlayer.connect();
+  }).catch(err => { console.error('[live] token fetch failed', err); liveStop(); });
+}
+
+function _liveRecord(stream) {
+  const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+    ? 'audio/webm;codecs=opus' : 'audio/webm';
+  if (!liveWs || liveWs.readyState !== WebSocket.OPEN) { console.error('[live] ws not ready'); liveStop(); return; }
+  liveWs.send(JSON.stringify({ type: 'live-start', mimeType }));
+
+  liveRecorder = new MediaRecorder(stream, { mimeType, audioBitsPerSecond: 128000 });
+  liveRecorder.ondataavailable = e => {
+    if (e.data.size && liveWs?.readyState === WebSocket.OPEN) liveWs.send(e.data);
+  };
+  liveRecorder.onstop = () => {
+    if (liveWs?.readyState === WebSocket.OPEN) liveWs.send(JSON.stringify({ type: 'live-stop' }));
+  };
+  liveRecorder.start(200); // 200ms chunks
+}
+
+function liveStop() {
+  liveBroadcasting = false;
+  if (liveRecorder) { try { liveRecorder.stop(); } catch (_) {} liveRecorder = null; }
+  if (liveSpotifyPlayer) { try { liveSpotifyPlayer.disconnect(); } catch (_) {} liveSpotifyPlayer = null; }
+  liveRenderSidebar();
+}
+
+// ── Listener ──────────────────────────────────────────────────────────────────
+function liveJoin(channelId) {
+  if (liveActiveChannel === channelId) { liveLeave(); return; }
+  liveLeave();
+  const ch = liveChannelList.find(c => c.id === channelId);
+  if (!ch) return;
+  liveActiveChannel = channelId;
+  liveRenderSidebar();
+
+  const audio = new Audio();
+  audio.autoplay = true;
+  const ms = new MediaSource();
+  audio.src = URL.createObjectURL(ms);
+  let sb = null;
+  const queue = [];
+  let ready = false;
+
+  ms.addEventListener('sourceopen', () => {
+    sb = ms.addSourceBuffer(ch.mimeType || 'audio/webm;codecs=opus');
+    sb.mode = 'sequence';
+    sb.addEventListener('updateend', () => {
+      if (queue.length) sb.appendBuffer(queue.shift());
+    });
+    ready = true;
+    // flush anything queued before sourceopen
+    if (queue.length && !sb.updating) sb.appendBuffer(queue.shift());
+  });
+
+  liveMse = { ms, sb, audio, queue: () => queue, push(buf) {
+    if (ready && sb && !sb.updating) sb.appendBuffer(buf);
+    else queue.push(buf);
+  }};
+
+  if (liveWs?.readyState === WebSocket.OPEN) liveWs.send(JSON.stringify({ type: 'live-join', channelId }));
+}
+
+function liveLeave() {
+  if (!liveActiveChannel) return;
+  if (liveWs?.readyState === WebSocket.OPEN) liveWs.send(JSON.stringify({ type: 'live-leave' }));
+  if (liveMse?.audio) { liveMse.audio.pause(); liveMse.audio.src = ''; }
+  liveMse = null;
+  liveActiveChannel = null;
+  liveRenderSidebar();
+}
+
+// ── WS handler (called from index.html) ──────────────────────────────────────
+window.liveOnMessage = function(msg) {
+  if (msg.type === 'live-list') {
+    liveChannelList = msg.channels || [];
+    if (libTab === 'live') liveRenderSidebar();
+  } else if (msg.type === 'live-channel-ended') {
+    if (liveActiveChannel === msg.channelId) liveLeave();
+    liveChannelList = liveChannelList.filter(c => c.id !== msg.channelId);
+    if (libTab === 'live') liveRenderSidebar();
+  } else if (msg._binary) {
+    if (liveMse) liveMse.push(msg._binary);
+  }
+};
 
