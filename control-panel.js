@@ -436,7 +436,7 @@ function switchTab(name){
   if(name==='chat') renderRooms();
   if(name==='devices'){renderDeviceList();if(curDevice)selectDevice(curDevice);}
   if(name==='accounts') loadAccounts();
-  if(name==='terminal') setTimeout(function(){if(fit)fit.fit();},40);
+  if(name==='terminal'){initTerm();setTimeout(function(){if(fit)fit.fit();},40);}
 }
 
 function renderRooms(){
@@ -769,14 +769,7 @@ function spyMsg(m){
   }
 }
 
-var term=null,fit=null,ws=null;
-try{
-  term=new Terminal({cursorBlink:true,scrollback:10000,theme:{background:'#0d1117',foreground:'#e6edf3',cursor:'#58a6ff',selectionBackground:'#264f78'},fontFamily:'ui-monospace,Menlo,monospace',fontSize:13,lineHeight:1.2});
-  fit=new FitAddon.FitAddon();
-  term.loadAddon(fit);
-  term.open(document.getElementById('terminal'));
-  fit.fit();
-}catch(e){console.error('xterm init:',e);}
+var term=null,fit=null,ws=null,termInited=false;
 function connect(){
   if(!term){document.getElementById('term-status').textContent='xterm not loaded';return;}
   if(ws&&ws.readyState<2) ws.close();
@@ -794,9 +787,19 @@ function connect(){
   term.onData(function(d){if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:'data',data:d}));});
   term.onResize(function(s){if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:'resize',cols:s.cols,rows:s.rows}));});
 }
-var twrap=document.getElementById('terminal-wrap');
-if(twrap) new ResizeObserver(function(){if(fit)fit.fit();}).observe(twrap);
-connect();
+function initTerm(){
+  if(termInited) return; termInited=true;
+  try{
+    term=new Terminal({cursorBlink:true,scrollback:10000,theme:{background:'#0d1117',foreground:'#e6edf3',cursor:'#58a6ff',selectionBackground:'#264f78'},fontFamily:'ui-monospace,Menlo,monospace',fontSize:13,lineHeight:1.2});
+    fit=new FitAddon.FitAddon();
+    term.loadAddon(fit);
+    term.open(document.getElementById('terminal'));
+    fit.fit();
+    var twrap=document.getElementById('terminal-wrap');
+    if(twrap) new ResizeObserver(function(){if(fit)fit.fit();}).observe(twrap);
+    connect();
+  }catch(e){console.error('xterm init:',e);document.getElementById('term-status').textContent='xterm load failed';}
+}
 
 renderRooms();
 refreshAdmin();
@@ -944,7 +947,7 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'DELETE' && url.pathname.startsWith('/api/admin/chat-group/')) {
-    const groupId = url.pathname.slice('/api/admin/chat-group/'.length);
+    const groupId = decodeURIComponent(url.pathname.slice('/api/admin/chat-group/'.length));
     const data = await callServerJson(`/api/admin/chat-group/${encodeURIComponent(groupId)}`, 'DELETE');
     sendJson(res, data ? 200 : 502, data || { error: 'unavailable' });
     return;
