@@ -221,7 +221,15 @@ function renderRepeat() {
     : '<path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/>';
 }
 
-function action(name) { api('/api/player/' + name, { method: 'POST' }); }
+function action(name) {
+  if (browserPlayer && browserPlayerReady) {
+    if (name === 'play')     { browserPlayer.activateElement(); browserPlayer.resume(); return; }
+    if (name === 'pause')    { browserPlayer.pause(); return; }
+    if (name === 'next')     { browserPlayer.nextTrack(); return; }
+    if (name === 'previous') { browserPlayer.previousTrack(); return; }
+  }
+  api('/api/player/' + name, { method: 'POST' });
+}
 function togglePlay() {
   if (browserPlayer) browserPlayer.activateElement();
   playing = !playing; setPlayIcons(playing); action(playing ? 'play' : 'pause');
@@ -240,7 +248,8 @@ function seekTo(e) {
   const rect = document.getElementById('fp-bar').getBoundingClientRect();
   progMs = Math.floor(Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)) * durMs);
   renderProg();
-  fetch('/api/player/seek?device=' + deviceId + '&ms=' + progMs, { method: 'POST' });
+  if (browserPlayer && browserPlayerReady) browserPlayer.seek(progMs);
+  else fetch('/api/player/seek?device=' + deviceId + '&ms=' + progMs, { method: 'POST' });
 }
 function setVolume(val) {
   if (_serverVolume) return;
