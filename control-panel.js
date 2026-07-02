@@ -399,6 +399,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
 <script>
 const P = '${base}';
+const MAIN_PORT = ${SERVER_PORT};
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function fmtDur(ms){const s=Math.floor(ms/1000),m=Math.floor(s/60);return m+':'+String(s%60).padStart(2,'0');}
 function fmtUp(s){if(s<60)return s+'s';if(s<3600)return Math.floor(s/60)+'m';return Math.floor(s/3600)+'h '+Math.floor((s%3600)/60)+'m';}
@@ -703,7 +704,9 @@ async function spyConnect(){
     if(!token) return;
     const proto=location.protocol==='https:'?'wss:':'ws:';
     const ghostId='ghost-'+Math.random().toString(36).slice(2);
-    spyWs=new WebSocket(proto+'//'+location.host);
+    // When accessed directly (no panel proxy), connect to main server port
+    const wsHost=P?location.host:location.hostname+':'+MAIN_PORT;
+    spyWs=new WebSocket(proto+'//'+wsHost);
     spyWs.onopen=()=>{
       spyWs.send(JSON.stringify({type:'join',deviceId:ghostId}));
       spyWs.send(JSON.stringify({type:'chat:ghost-join',token}));
@@ -776,6 +779,7 @@ function connect(){
 new ResizeObserver(()=>fit.fit()).observe(document.getElementById('terminal-wrap'));
 connect();
 
+renderSidebar();
 refreshAdmin();
 setInterval(refreshAdmin,4000);
 spyConnect();
