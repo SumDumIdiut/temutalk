@@ -1294,10 +1294,16 @@ wss.on('connection', (ws, req) => {
       const dev = devices.get(wsDeviceId);
       ws.send(JSON.stringify({ type: 'status', authenticated: !!(dev?.tokens?.access_token) }));
       ws.send(JSON.stringify({ type: 'mse-broadcaster-status', online: !!(mseBroadcaster?.readyState === WebSocket.OPEN), mimeType: mseMimeType }));
-      // Send friends list
+      // Send friends list + existing DM histories so client sidebar restores after refresh
       const myFriends = chatFriends.get(wsDeviceId);
       if (myFriends?.size) {
         ws.send(JSON.stringify({ type: 'chat:friends-list', friends: [...myFriends].map(id => ({ id, name: chatGetName(id), avatarUrl: chatGetAvatarUrl(id) })) }));
+        for (const friendId of myFriends) {
+          const dmKey = 'dm:' + [wsDeviceId, friendId].sort().join(':');
+          if (chatDMs.has(dmKey)) {
+            ws.send(JSON.stringify({ type: 'chat:history', room: dmKey, messages: chatDMs.get(dmKey).messages.slice(-100) }));
+          }
+        }
       }
       // Replay pending incoming friend requests
       const pendingReqs = chatFriendReqs.get(wsDeviceId);
@@ -1772,6 +1778,25 @@ app.post('/api/admin/test-accept-req', express.json(), (req, res) => {
   chatSave();
   broadcastToDevice(fromId, { type: 'chat:friend-accepted', byId: TEST_USER_ID, byName: 'Test User', byAvatarUrl: null });
   res.json({ ok: true });
+});
+
+app.post('/api/admin/test-friend-all', express.json(), (req, res) => {
+  const ip = req.socket.remoteAddress || '';
+  if (!['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(ip)) return res.status(403).json({ error: 'forbidden' });
+  let count = 0;
+  for (const [devId] of chatAccounts) {
+    if (devId === TEST_USER_ID || devId === PANEL_BOT_ID) continue;
+    if (!chatFriends.has(TEST_USER_ID)) chatFriends.set(TEST_USER_ID, new Set());
+    if (!chatFriends.has(devId)) chatFriends.set(devId, new Set());
+    if (!chatFriends.get(devId).has(TEST_USER_ID)) {
+      chatFriends.get(TEST_USER_ID).add(devId);
+      chatFriends.get(devId).add(TEST_USER_ID);
+      broadcastToDevice(devId, { type: 'chat:friend-accepted', byId: TEST_USER_ID, byName: 'Test User', byAvatarUrl: null });
+      count++;
+    }
+  }
+  chatSave();
+  res.json({ ok: true, count });
 });
 
 app.post('/api/admin/panel-broadcast', express.json(), (req, res) => {

@@ -416,6 +416,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <button class="abtn" onclick="testUserSend()">Send</button>
       </div>
       <div id="tu-reqs" style="margin-top:10px"></div>
+      <div style="margin-top:8px">
+        <button class="abtn" onclick="testFriendAll()" title="Makes Test User friends with all registered chat users — use to recover after a server restart">&#128101; Friend with all users</button>
+      </div>
     </div>
     <div class="accs-sec">
       <div class="accs-sec-hdr">Connected Spotify Users</div>
@@ -609,6 +612,15 @@ async function loadTestReqs(){
     });
     el.innerHTML=h;
   }catch(e){}
+}
+
+async function testFriendAll(){
+  try{
+    var r=await fetch(P+'/api/test-friend-all',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+    var d=await r.json();
+    if(d.ok) alert('Friended '+d.count+' user(s) with Test User. Connected clients will update automatically.');
+    else alert(d.error||'Failed');
+  }catch(e){alert('Error: '+e.message);}
 }
 
 async function testAcceptReq(fromId){
@@ -1121,6 +1133,12 @@ async function handleRequest(req, res) {
         sendJson(res, data ? 200 : 502, data || { error: 'unavailable' });
       } catch (e) { sendJson(res, 400, { error: e.message }); }
     });
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/test-friend-all') {
+    const data = await callServerJson('/api/admin/test-friend-all', 'POST', {});
+    sendJson(res, data ? 200 : 502, data || { error: 'unavailable' });
     return;
   }
 
