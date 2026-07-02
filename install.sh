@@ -423,33 +423,32 @@ do_check_updates() {
     fi
   fi
 
-  # Even if no git pull was needed, the running process may be older than
-  # the latest commit (common when developing in-place).
+  # If server isn't running, starting it fresh always uses latest code.
+  if ! server_running; then
+    ok "Up to date. Server is not running — start it with option 1."
+    return
+  fi
+
+  # Server is running — check if the process is older than the latest commit.
   local commit_ts proc_start lpid
   commit_ts=$(git log -1 --format=%ct 2>/dev/null || echo 0)
   lpid="$(server_pid)"
-  if [ -n "$lpid" ] && kill -0 "$lpid" 2>/dev/null; then
-    proc_start=$(stat -c %Y /proc/"$lpid" 2>/dev/null || echo 0)
-  else
-    proc_start=0
-  fi
+  proc_start=$(stat -c %Y /proc/"$lpid" 2>/dev/null || echo "$commit_ts")
 
   if [ "$pulled" -eq 1 ] || [ "$commit_ts" -gt "$proc_start" ]; then
     if [ "$pulled" -eq 0 ]; then
-      ok "Code is up to date — server is running older version ($(git log -1 --format=%h\ %s | cut -c1-60))."
+      ok "Code is up to date — but server is running an older version."
     fi
-    if server_running; then
-      read -rp "  Restart server + panel to apply? [Y/n] " r
-      if [[ ! "$r" =~ ^[Nn]$ ]]; then
-        stop_node
-        start_node
-        if panel_running; then stop_panel; fi
-        start_panel
-        ok "Restarted."
-      fi
+    read -rp "  Restart server + panel to apply? [Y/n] " r
+    if [[ ! "$r" =~ ^[Nn]$ ]]; then
+      stop_node
+      start_node
+      if panel_running; then stop_panel; fi
+      start_panel
+      ok "Restarted."
     fi
   else
-    ok "Already up to date and running latest code."
+    ok "Up to date and running latest code."
   fi
 }
 
