@@ -894,16 +894,28 @@ app.get('/api/weather', async (req, res) => {
 });
 
 // ─── Spotify SDK proxy (bypasses browser tracking protection on sdk.scdn.co) ──
-app.get('/spotify-player.js', async (req, res) => {
+// The SDK loads an iframe from sdk.scdn.co/embedded/index.html for audio.
+// We proxy the entire sdk.scdn.co origin and rewrite internal URLs.
+async function spotifySdkProxy(path, res) {
   try {
-    const r = await axios.get('https://sdk.scdn.co/spotify-player.js', { responseType: 'text' });
-    res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+    const r = await axios.get('https://sdk.scdn.co/' + path, { responseType: 'arraybuffer', timeout: 10000 });
+    const ct = (r.headers['content-type'] || 'application/octet-stream').split(';')[0].trim();
+    const isText = ['text/html','text/javascript','application/javascript','text/css'].includes(ct);
+    res.setHeader('Content-Type', r.headers['content-type'] || ct);
     res.setHeader('Cache-Control', 'public, max-age=3600');
-    res.send(r.data);
+    if (isText) {
+      let text = Buffer.from(r.data).toString('utf-8');
+      text = text.replace(/https:\/\/sdk\.scdn\.co\//g, '/sp/');
+      res.send(text);
+    } else {
+      res.send(Buffer.from(r.data));
+    }
   } catch (e) {
-    res.status(502).send('// Spotify SDK proxy error: ' + e.message);
+    res.status(502).send('// SDK proxy error for ' + path + ': ' + e.message);
   }
-});
+}
+app.get('/spotify-player.js', (req, res) => spotifySdkProxy('spotify-player.js', res));
+app.get('/sp/*', (req, res) => spotifySdkProxy(req.params[0], res));
 
 // ─── Icecast stream proxy ─────────────────────────────────────────────────────
 app.get('/stream', (req, res) => {
