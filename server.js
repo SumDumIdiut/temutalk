@@ -902,7 +902,8 @@ async function spotifySdkProxy(path, res) {
     const ct = (r.headers['content-type'] || 'application/octet-stream').split(';')[0].trim();
     const isText = ['text/html','text/javascript','application/javascript','text/css'].includes(ct);
     res.setHeader('Content-Type', r.headers['content-type'] || ct);
-    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('CDN-Cache-Control', 'no-store');
     if (isText) {
       let text = Buffer.from(r.data).toString('utf-8');
       text = text.replace(/https:\/\/sdk\.scdn\.co\//g, '/sp/');
