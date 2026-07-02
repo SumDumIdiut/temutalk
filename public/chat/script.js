@@ -111,14 +111,23 @@ function chatUpdateAccountRow() {
 
 // ── Announcement bar ──────────────────────────────────────────────────────────
 function chatUpdateAnnouncementBar() {
-  const bar  = chatEl('chat-ann-bar');
+  const bar = chatEl('chat-ann-bar');
+  if (!bar) return;
+  // Find the most recent panel message across ALL rooms
+  let latest = null;
+  for (const msgs of Object.values(chatRoomMsgs)) {
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      const m = msgs[i];
+      if (m.from === 'panel-bot' || m.isPanelMsg) {
+        if (!latest || m.ts > latest.ts) latest = m;
+        break;
+      }
+    }
+  }
+  if (!latest) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
   const text = chatEl('chat-ann-text');
   const time = chatEl('chat-ann-time');
-  if (!bar) return;
-  const msgs = chatRoomMsgs[chatRoom] || [];
-  const latest = [...msgs].reverse().find(m => m.from === 'panel-bot' || m.isPanelMsg);
-  if (!latest) { bar.style.display = 'none'; return; }
-  bar.style.display = '';
   if (text) text.textContent = latest.text;
   if (time) time.textContent = new Date(latest.ts).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 }
@@ -301,7 +310,6 @@ function chatAppendMessage(room, m) {
     const atBottom = el ? (el.scrollHeight - el.scrollTop - el.clientHeight < 100) : true;
     chatRenderMessages();
     if (atBottom && el) el.scrollTop = el.scrollHeight;
-    if (m.from === 'panel-bot' || m.isPanelMsg) chatUpdateAnnouncementBar();
   } else {
     chatRoomUnread[room] = (chatRoomUnread[room] || 0) + 1;
     chatRenderSidebar();
@@ -422,7 +430,7 @@ window.chatOpenDM = chatOpenDM;
 // ── Friend requests ───────────────────────────────────────────────────────────
 function chatDoSendFriendReq(uid) {
   chatPendingOut.add(uid);
-  ws.send(JSON.stringify({ type: 'chat:friend-req', targetId: uid }));
+  if (wsReady) try { ws.send(JSON.stringify({ type: 'chat:friend-req', targetId: uid })); } catch {}
   chatRenderSidebar();
 }
 window.chatDoSendFriendReq = chatDoSendFriendReq;
@@ -430,14 +438,14 @@ window.chatDoSendFriendReq = chatDoSendFriendReq;
 function chatAcceptFriendReq(uid) {
   const info = chatPendingIn[uid];
   if (info) { chatFriendMap[uid] = info; delete chatPendingIn[uid]; }
-  ws.send(JSON.stringify({ type: 'chat:friend-accept', fromId: uid }));
+  if (wsReady) try { ws.send(JSON.stringify({ type: 'chat:friend-accept', fromId: uid })); } catch {}
   chatRenderSidebar();
 }
 window.chatAcceptFriendReq = chatAcceptFriendReq;
 
 function chatRejectFriendReq(uid) {
   delete chatPendingIn[uid];
-  ws.send(JSON.stringify({ type: 'chat:friend-reject', fromId: uid }));
+  if (wsReady) try { ws.send(JSON.stringify({ type: 'chat:friend-reject', fromId: uid })); } catch {}
   chatRenderSidebar();
 }
 window.chatRejectFriendReq = chatRejectFriendReq;
@@ -451,6 +459,7 @@ window.chatOnMessage = function (m) {
   }
   if (m.type === 'chat:msg') {
     chatAppendMessage(m.room, m);
+    if (m.from === 'panel-bot' || m.isPanelMsg) chatUpdateAnnouncementBar();
     return;
   }
   if (m.type === 'chat:clear') {
