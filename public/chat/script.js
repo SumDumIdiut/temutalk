@@ -266,6 +266,7 @@ function chatRenderMessages() {
       lastDate = dateStr;
       lastFrom = '';
     }
+    const timeStr = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
     // Panel bot messages render as full-width announcements
     if (m.from === 'panel-bot' || m.isPanelMsg) {
       html += `<div class="chat-panel-msg">
