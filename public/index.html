@@ -903,8 +903,8 @@ function wsConnect() {
 }
 wsConnect();
 window.addEventListener('message', e => {
-  if (e.data && (e.data.type === 'SP_MESSAGE' || e.data.topic))
-    console.log('[iframe-msg]', JSON.stringify(e.data).slice(0, 120));
+  if (e.data && (e.data.type === 'SP_MESSAGE' || e.data.type === 'SP_DEBUG' || e.data.topic))
+    console.log('[iframe-msg]', JSON.stringify(e.data).slice(0, 200));
 });
 
 // ── Icecast stream player ─────────────────────────────────────────────────
