@@ -385,6 +385,19 @@ do_open_browser() {
   fi
 }
 
+do_restart_server() {
+  local lpid; lpid="$(server_pid)"
+  if [ -z "$lpid" ]; then
+    warn "Server isn't running — use Start server instead."
+    return
+  fi
+  if kill -USR1 "$lpid" 2>/dev/null; then
+    ok "Server restarting (panel stays up)..."
+  else
+    err "Failed to signal launcher — try Stop then Start."
+  fi
+}
+
 do_check_updates() {
   info "Fetching..."
   git fetch origin main --quiet 2>/dev/null
@@ -494,24 +507,26 @@ menu() {
     echo ""
     echo "   1) Start server"
     echo "   2) Stop server"
-    echo "   3) Open web UI (Spotify + everything else)"
-    echo "   4) Configure audio source"
-    echo "   5) Check for updates"
-    echo "   6) View logs"
-    echo "   7) Toggle web control panel (start each piece individually)"
-    echo "   8) Exit"
+    echo "   3) Restart server  ${C_DIM}(reload .env, panel stays up)${C_RESET}"
+    echo "   4) Open web UI (Spotify + everything else)"
+    echo "   5) Configure audio source"
+    echo "   6) Check for updates"
+    echo "   7) View logs"
+    echo "   8) Toggle web control panel (start each piece individually)"
+    echo "   9) Exit"
     echo ""
     read -rp "  Select an option: " choice
     echo ""
     case "$choice" in
       1) do_start ;;
       2) do_stop ;;
-      3) do_open_browser ;;
-      4) configure_audio_source ;;
-      5) do_check_updates ;;
-      6) do_view_logs ;;
-      7) if panel_running; then stop_panel; else start_panel; fi ;;
-      8)
+      3) do_restart_server ;;
+      4) do_open_browser ;;
+      5) configure_audio_source ;;
+      6) do_check_updates ;;
+      7) do_view_logs ;;
+      8) if panel_running; then stop_panel; else start_panel; fi ;;
+      9)
         if server_running; then
           read -rp "  Server is still running — leave it running? [Y/n] " yn
           [[ "$yn" =~ ^[Nn]$ ]] && do_stop

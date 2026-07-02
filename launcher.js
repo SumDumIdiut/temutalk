@@ -295,13 +295,10 @@ function shutdown() {
 process.on('SIGINT',  shutdown);
 process.on('SIGTERM', shutdown);
 
-// ── SIGUSR1: hot-restart server + panel (used by control panel "Restart" button)
+// ── SIGUSR1: hot-restart server only — panel stays alive
 process.on('SIGUSR1', () => {
-  log('SIGUSR1 — restarting server and panel...');
+  log('SIGUSR1 — restarting server (panel unchanged)...');
   if (server) { try { server.kill(); } catch {} }
   server = startServer();
   log(`server restarted  PID ${server.pid}`);
-  if (panel) { try { panel.kill(); } catch {} }
-  panel = startPanel();
-  if (panel) log(`panel restarted  PID ${panel.pid}`);
 });

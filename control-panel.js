@@ -223,6 +223,9 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0a0c10;color:#e6
 .spy-btn{background:rgba(232,144,80,.1);border:1px solid rgba(232,144,80,.25);color:#e89050;border-radius:7px;padding:4px 10px;font-size:.75rem;cursor:pointer;transition:background .15s}
 .spy-btn:hover{background:rgba(232,144,80,.2)}
 .spy-btn.active{background:rgba(232,144,80,.22);color:#ffb070}
+.restart-btn{background:rgba(80,160,232,.1);border:1px solid rgba(80,160,232,.25);color:#50a0e8;border-radius:7px;padding:4px 10px;font-size:.75rem;cursor:pointer;transition:background .15s}
+.restart-btn:hover{background:rgba(80,160,232,.2)}
+.restart-btn:disabled{opacity:.4;cursor:default}
 /* Spy overlay */
 .spy-overlay{display:none;position:fixed;inset:0;background:#09090f;z-index:100;flex-direction:column}
 .spy-overlay.vis{display:flex}
@@ -268,6 +271,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0a0c10;color:#e6
   <h1>&#9654; TemuTalk</h1>
   <div class="topbar-right">
     <button class="spy-btn" id="spy-btn" onclick="spyOpen()">&#128373; Spy Chat</button>
+    <button class="restart-btn" id="restart-btn" onclick="restartServer()">&#8635; Restart Server</button>
     <a class="server-url" id="app-url" href="https://codecade.co.za" target="_blank">codecade.co.za</a>
     <button class="logout" onclick="logout()">Log out</button>
   </div>
@@ -387,6 +391,17 @@ connect();
 async function logout() {
   await fetch(P + '/api/logout', { method: 'POST' });
   location.reload();
+}
+
+async function restartServer() {
+  const btn = document.getElementById('restart-btn');
+  btn.disabled = true; btn.textContent = '⟳ Restarting…';
+  try {
+    const r = await fetch(P + '/api/restart-server', { method: 'POST' });
+    const d = await r.json();
+    if (d.ok) { btn.textContent = '✓ Restarted'; setTimeout(() => { btn.disabled = false; btn.textContent = '↻ Restart Server'; }, 3000); }
+    else { btn.textContent = '✗ ' + (d.error || 'Failed'); setTimeout(() => { btn.disabled = false; btn.textContent = '↻ Restart Server'; }, 3000); }
+  } catch { btn.textContent = '✗ Error'; setTimeout(() => { btn.disabled = false; btn.textContent = '↻ Restart Server'; }, 3000); }
 }
 
 // ── Chat spy ──────────────────────────────────────────────────────────────────
@@ -625,6 +640,19 @@ async function handleRequest(req, res) {
   if (req.method === 'GET' && url.pathname === '/api/ghost-token') {
     const data = await fetchServerJson('/api/admin/ghost-token');
     sendJson(res, data ? 200 : 502, data || { error: 'Main server unavailable' });
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/restart-server') {
+    try {
+      const pidFile = path.join(RUN_DIR, 'launcher.pid');
+      const pid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
+      if (!pid) { sendJson(res, 503, { error: 'Launcher PID not found' }); return; }
+      process.kill(pid, 'SIGUSR1');
+      sendJson(res, 200, { ok: true });
+    } catch (e) {
+      sendJson(res, 503, { error: e.message });
+    }
     return;
   }
 
