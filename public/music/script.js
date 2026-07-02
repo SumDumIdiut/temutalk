@@ -31,24 +31,33 @@ function loadBrowserPlayer() {
   console.log('[player] loadBrowserPlayer called, window.Spotify=', !!window.Spotify);
   if (window.Spotify) { _initBrowserPlayer(); return; }
 
-  // Always (re)set the callback in case it was missed
   window.onSpotifyWebPlaybackSDKReady = _initBrowserPlayer;
+  _setBrowserPlayerStatus('loading SDK…');
 
-  if (!document.querySelector('script[src*="spotify-player"]')) {
-    _setBrowserPlayerStatus('loading SDK…');
-    const tag = document.createElement('script');
-    tag.src = '/sp/spotify-player.js';
-    tag.addEventListener('load',  () => console.log('[player] SDK script element loaded'));
-    tag.addEventListener('error', () => console.error('[player] SDK script FAILED to load'));
-    document.head.appendChild(tag);
-  }
+  // Use fetch + blob URL to bypass any script-tag blocking
+  fetch('/sp/spotify-player.js')
+    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
+    .then(blob => {
+      const url = URL.createObjectURL(blob);
+      const tag = document.createElement('script');
+      tag.src = url;
+      tag.addEventListener('load',  () => { URL.revokeObjectURL(url); console.log('[player] SDK blob loaded'); });
+      tag.addEventListener('error', e => _setBrowserPlayerStatus('blob exec failed'));
+      document.head.appendChild(tag);
+    })
+    .catch(e => {
+      _setBrowserPlayerStatus('fetch failed: ' + e.message);
+      const tag = document.createElement('script');
+      tag.src = '/sp/spotify-player.js';
+      document.head.appendChild(tag);
+    });
 
-  // Polling fallback — in case the callback fired before we set it
+  // Poll for window.Spotify in case callback fires before we're ready
   let polls = 0;
   const poll = setInterval(() => {
     polls++;
     if (window.Spotify && !browserPlayer) { clearInterval(poll); _initBrowserPlayer(); return; }
-    if (polls > 60) { clearInterval(poll); _setBrowserPlayerStatus('SDK load timed out'); }
+    if (polls > 120) { clearInterval(poll); _setBrowserPlayerStatus('SDK load timed out after 60s'); }
   }, 500);
 }
 
