@@ -430,7 +430,7 @@ function selectView(id){
   document.getElementById('view-'+id).classList.add('active');
   curView=id;
   renderSidebar(document.getElementById('search-inp').value);
-  if(id==='terminal') setTimeout(()=>fit.fit(),40);
+  if(id==='terminal') setTimeout(()=>fit&&fit.fit(),40);
   if(id==='config'){loadConfig();loadAccounts();}
 }
 function selectRoom(roomId){
@@ -751,24 +751,34 @@ function spyMsg(m){
   }
 }
 
-const term=new Terminal({
-  cursorBlink:true,scrollback:10000,
-  theme:{background:'#080a0e',foreground:'#e9edef',cursor:'#00a884',selectionBackground:'#2a3942'},
-  fontFamily:'ui-monospace, Menlo, monospace',fontSize:13,lineHeight:1.2,
-});
-const fit=new FitAddon.FitAddon();
-term.loadAddon(fit);
-term.open(document.getElementById('terminal'));
-fit.fit();
-let ws=null;
+// Boot — run these first, before terminal which may throw
+renderSidebar();
+refreshAdmin();
+setInterval(refreshAdmin,4000);
+spyConnect();
+
+// Terminal — in try/catch so CDN failures don't break the rest of the UI
+let term=null,fit=null,ws=null;
+try{
+  term=new Terminal({
+    cursorBlink:true,scrollback:10000,
+    theme:{background:'#080a0e',foreground:'#e9edef',cursor:'#00a884',selectionBackground:'#2a3942'},
+    fontFamily:'ui-monospace, Menlo, monospace',fontSize:13,lineHeight:1.2,
+  });
+  fit=new FitAddon.FitAddon();
+  term.loadAddon(fit);
+  term.open(document.getElementById('terminal'));
+  fit.fit();
+}catch(e){console.error('xterm init failed:',e);}
 function connect(){
+  if(!term){document.getElementById('term-status').textContent='xterm not loaded';return;}
   if(ws&&ws.readyState<2) ws.close();
   const proto=location.protocol==='https:'?'wss:':'ws:';
   ws=new WebSocket(proto+'//'+location.host+P+'/terminal');
   ws.onopen=()=>{
     document.getElementById('term-dot').classList.add('on');
     document.getElementById('term-status').textContent='Connected';
-    fit.fit();ws.send(JSON.stringify({type:'resize',cols:term.cols,rows:term.rows}));
+    if(fit)fit.fit();ws.send(JSON.stringify({type:'resize',cols:term.cols,rows:term.rows}));
   };
   ws.onmessage=e=>{try{const m=JSON.parse(e.data);if(m.type==='data')term.write(m.data);}catch{term.write(e.data);}};
   ws.onclose=()=>{document.getElementById('term-dot').classList.remove('on');document.getElementById('term-status').textContent='Disconnected (reconnecting…)';setTimeout(connect,3000);};
@@ -776,13 +786,8 @@ function connect(){
   term.onData(d=>ws&&ws.readyState===1&&ws.send(JSON.stringify({type:'data',data:d})));
   term.onResize(({cols,rows})=>ws&&ws.readyState===1&&ws.send(JSON.stringify({type:'resize',cols,rows})));
 }
-new ResizeObserver(()=>fit.fit()).observe(document.getElementById('terminal-wrap'));
+if(term) new ResizeObserver(()=>fit&&fit.fit()).observe(document.getElementById('terminal-wrap'));
 connect();
-
-renderSidebar();
-refreshAdmin();
-setInterval(refreshAdmin,4000);
-spyConnect();
 </script>
 </body>
 </html>`;
