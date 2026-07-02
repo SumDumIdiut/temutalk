@@ -893,6 +893,18 @@ app.get('/api/weather', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── Spotify SDK proxy (bypasses browser tracking protection on sdk.scdn.co) ──
+app.get('/spotify-player.js', async (req, res) => {
+  try {
+    const r = await axios.get('https://sdk.scdn.co/spotify-player.js', { responseType: 'text' });
+    res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.send(r.data);
+  } catch (e) {
+    res.status(502).send('// Spotify SDK proxy error: ' + e.message);
+  }
+});
+
 // ─── Icecast stream proxy ─────────────────────────────────────────────────────
 app.get('/stream', (req, res) => {
   const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
