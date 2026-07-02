@@ -47,11 +47,9 @@ function chatInit() {
   if (_chatReady) return;
   _chatReady = true;
 
-  // Move overlays to body so parent transforms don't clip fixed positioning
+  // Move login overlay to body so parent stacking context doesn't clip it
   const _ov = chatEl('chat-login-overlay');
   if (_ov && _ov.parentElement !== document.body) document.body.appendChild(_ov);
-  const _ab = chatEl('chat-ann-bar');
-  if (_ab && _ab.parentElement !== document.body) document.body.appendChild(_ab);
 
   // Check Spotify link; show overlay if not linked
   fetch('/api/chat/me?device=' + deviceId).then(r => r.json()).then(profile => {
@@ -113,16 +111,12 @@ function chatUpdateAccountRow() {
 function chatUpdateAnnouncementBar() {
   const bar = chatEl('chat-ann-bar');
   if (!bar) return;
-  // Find the most recent panel message across ALL rooms
+  // Find the most recent panel message in the CURRENT room only
+  const msgs = chatRoomMsgs[chatRoom] || [];
   let latest = null;
-  for (const msgs of Object.values(chatRoomMsgs)) {
-    for (let i = msgs.length - 1; i >= 0; i--) {
-      const m = msgs[i];
-      if (m.from === 'panel-bot' || m.isPanelMsg) {
-        if (!latest || m.ts > latest.ts) latest = m;
-        break;
-      }
-    }
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    const m = msgs[i];
+    if (m.from === 'panel-bot' || m.isPanelMsg) { latest = m; break; }
   }
   if (!latest) { bar.style.display = 'none'; return; }
   bar.style.display = 'flex';
