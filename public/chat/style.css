@@ -365,6 +365,8 @@
 }
 .chat-name-save-btn:hover { background: rgba(255,255,255,.16); }
 .chat-login-note { font-size: .72rem; color: var(--text-muted, #556); margin-top: -4px; }
+.chat-name-inp::-webkit-contacts-auto-fill-button,
+.chat-name-inp::-webkit-credentials-auto-fill-button { visibility: hidden; }
 .chat-login-err  { font-size: .77rem; color: #ff8080; min-height: 1em; }
 
 /* ── Modals ───────────────────────────────────────────────────────────────────── */
