@@ -517,26 +517,45 @@ function chatSetAvUploadState(busy) {
   btn.textContent = busy ? 'Uploading…' : 'Save';
 }
 
+function chatResizeToDataUrl(dataUrl, maxPx, quality, cb) {
+  const img = new Image();
+  img.onload = () => {
+    let w = img.width, h = img.height;
+    if (w > maxPx || h > maxPx) {
+      if (w >= h) { h = Math.round(h * maxPx / w); w = maxPx; }
+      else        { w = Math.round(w * maxPx / h); h = maxPx; }
+    }
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    c.getContext('2d').drawImage(img, 0, 0, w, h);
+    cb(c.toDataURL('image/jpeg', quality));
+  };
+  img.src = dataUrl;
+}
+
 function chatHandleAvatarFile(input) {
   const file = input.files && input.files[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = e => {
-    const dataUrl = e.target.result;
+    const raw = e.target.result;
+    // Show local preview immediately, then resize before uploading
     const preview = chatEl('chat-settings-av-preview');
-    if (preview) preview.innerHTML = `<img src="${esc(dataUrl)}" alt="">`;
+    if (preview) preview.innerHTML = `<img src="${esc(raw)}" alt="">`;
     chatSetAvUploadState(true);
-    fetch('/api/chat/upload-avatar?device=' + deviceId, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dataUrl }),
-    }).then(r => r.json()).then(d => {
-      if (d.url) {
-        const avInp = chatEl('chat-settings-avatar');
-        if (avInp) avInp.value = d.url;
-      }
-      chatSetAvUploadState(false);
-    }).catch(() => { chatSetAvUploadState(false); });
+    chatResizeToDataUrl(raw, 400, 0.88, resized => {
+      fetch('/api/chat/upload-avatar?device=' + deviceId, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dataUrl: resized }),
+      }).then(r => r.json()).then(d => {
+        if (d.url) {
+          const avInp = chatEl('chat-settings-avatar');
+          if (avInp) avInp.value = d.url;
+        }
+        chatSetAvUploadState(false);
+      }).catch(() => { chatSetAvUploadState(false); });
+    });
   };
   reader.readAsDataURL(file);
   input.value = '';
