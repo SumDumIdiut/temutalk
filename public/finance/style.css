@@ -51,7 +51,6 @@
 /* ── Converter ───────────────────────────────────────────────────────────────── */
 .fin-conv-box { background:var(--surface); border:1px solid var(--glass-border); border-radius:var(--radius-sm); padding:14px 16px; display:flex; flex-direction:column; gap:8px; }
 .fin-conv-row { display:flex; align-items:center; gap:10px; }
-.fin-conv-pfx { font-size:16px; color:var(--text-muted); min-width:14px; }
 .fin-conv-inp { flex:1; background:var(--surface-hi); border:1px solid var(--glass-border); border-radius:6px; padding:9px 12px; color:var(--text); font:inherit; font-size:16px; font-weight:600; outline:none; min-width:0; transition:border-color .15s; }
 .fin-conv-inp:focus { border-color:var(--green); }
 .fin-conv-lbl { font-size:13px; font-weight:700; color:var(--text-muted); min-width:42px; flex-shrink:0; }
