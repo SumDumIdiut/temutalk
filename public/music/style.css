@@ -213,63 +213,110 @@
     .live-card-badge { font-size: 10px; background: var(--primary); color: #fff; border-radius: 4px; padding: 2px 6px; flex-shrink: 0; }
     .live-empty { font-size: 13px; color: var(--text-muted); padding: 12px; text-align: center; }
 
-/* ── Mobile music layout ─────────────────────────────────────────────────── */
-html.mobile #app-body {
-  flex-direction: column;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 6px 6px 0;
+/* ── Mobile tab switcher ─────────────────────────────────────────────────── */
+#mob-music-tabs { display: none; }
+
+html.mobile #mob-music-tabs {
+  display: flex;
+  flex-shrink: 0;
+  padding: 8px 8px 0;
   gap: 6px;
 }
 
-html.mobile #left-sidebar {
+.mob-music-tab {
+  flex: 1;
+  padding: 8px 4px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.mob-music-tab.active {
+  background: var(--primary-dark);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* ── Mobile music layout ─────────────────────────────────────────────────── */
+html.mobile #app-body {
+  flex-direction: row;
+  overflow: hidden;
+  padding: 8px 6px;
+  gap: 0;
+}
+
+/* Each panel fills full content area; JS toggles display */
+html.mobile #left-sidebar,
+html.mobile #center-panel,
+html.mobile #right-sidebar {
   width: 100%;
-  flex-shrink: 0;
-  max-height: 220px;
+  flex: 1;
+  max-height: none;
+  min-height: 0;
   border-radius: var(--radius-sm);
 }
 
 html.mobile #lib-tabs { overflow-x: auto; scrollbar-width: none; }
 html.mobile #lib-tabs::-webkit-scrollbar { display: none; }
 
-html.mobile #center-panel {
-  flex-shrink: 0;
-  min-height: 340px;
-  border-radius: var(--radius-sm);
-}
-
-html.mobile #right-sidebar {
-  width: 100%;
-  flex-shrink: 0;
-  border-radius: var(--radius-sm);
-  max-height: 360px;
-}
-
+/* ── Compact player bar (Library / Browse tabs) ──────────────────────────── */
 html.mobile #player-bar {
-  flex-wrap: wrap;
-  height: auto;
-  min-height: 80px;
-  padding: 8px 10px 10px;
+  height: 64px;
+  min-height: 0;
+  flex-wrap: nowrap;
+  padding: 0 12px;
+  gap: 8px;
   margin: 0 6px 6px;
-  gap: 6px;
   border-radius: var(--radius-sm);
 }
+
+html.mobile #bar-art { width: 44px; height: 44px; }
 
 html.mobile #bar-info {
-  flex: 0 0 auto;
-  width: calc(100% - 80px);
+  flex: 1;
+  min-width: 0;
+  width: auto;
 }
-
-html.mobile #bar-vol {
-  flex: 0 0 70px;
-  gap: 4px;
-}
-html.mobile #bar-vol input { display: none; }
 
 html.mobile #bar-center {
-  flex: 0 0 100%;
+  flex: 0 0 auto;
   padding: 0;
 }
+
+html.mobile #bar-btns { gap: 0; }
+
+/* Hide seek, volume, shuffle, repeat in compact mode */
+html.mobile #bar-prog  { display: none; }
+html.mobile #bar-vol   { display: none; }
+html.mobile #fp-shuffle { display: none; }
+html.mobile #fp-repeat  { display: none; }
+
+/* ── Now Playing tab: full controls ─────────────────────────────────────── */
+html.mobile.mob-nowplaying #player-bar {
+  height: auto;
+  flex-wrap: wrap;
+  padding: 8px 14px 12px;
+  gap: 4px;
+}
+
+html.mobile.mob-nowplaying #bar-art  { width: 48px; height: 48px; }
+html.mobile.mob-nowplaying #bar-info { flex: 0 0 calc(100% - 56px); width: auto; }
+
+html.mobile.mob-nowplaying #bar-center {
+  flex: 0 0 100%;
+  padding: 4px 0 0;
+}
+
+html.mobile.mob-nowplaying #bar-btns  { justify-content: center; gap: 4px; }
+html.mobile.mob-nowplaying #bar-prog  { display: flex; }
+html.mobile.mob-nowplaying #fp-shuffle { display: flex; }
+html.mobile.mob-nowplaying #fp-repeat  { display: flex; }
 
 html.mobile #view-overlay { bottom: 80px; }
 
