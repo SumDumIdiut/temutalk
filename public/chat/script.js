@@ -455,11 +455,15 @@ function chatOpenSettings() {
       <div class="chat-settings-box">
         <div class="chat-settings-title">Account Settings</div>
         <div class="chat-settings-av-row">
-          <div class="chat-settings-av-preview" id="chat-settings-av-preview"></div>
+          <div class="chat-settings-av-preview" id="chat-settings-av-preview" onclick="document.getElementById('chat-settings-file').click()" title="Click to upload" style="cursor:pointer"></div>
           <div style="flex:1;min-width:0">
-            <label class="chat-settings-label">Avatar URL</label>
-            <input class="chat-settings-input" id="chat-settings-avatar" type="url" maxlength="500" placeholder="https://…" oninput="chatPreviewAvatar()">
-            <div class="chat-settings-hint">Paste any image URL · leave blank to use Spotify photo</div>
+            <label class="chat-settings-label">Avatar</label>
+            <div style="display:flex;gap:6px;margin-bottom:6px">
+              <button class="chat-card-btn chat-card-btn-primary" style="font-size:.75rem;padding:5px 10px" onclick="document.getElementById('chat-settings-file').click()">Upload from PC</button>
+              <input type="file" id="chat-settings-file" accept="image/*" style="display:none" onchange="chatHandleAvatarFile(this)">
+            </div>
+            <input class="chat-settings-input" id="chat-settings-avatar" type="url" maxlength="500" placeholder="Or paste image URL…" oninput="chatPreviewAvatar()">
+            <div class="chat-settings-hint">Leave blank to use Spotify photo</div>
           </div>
         </div>
         <label class="chat-settings-label" style="margin-top:14px">Display name</label>
@@ -500,6 +504,32 @@ function chatPreviewAvatar() {
   }
 }
 window.chatPreviewAvatar = chatPreviewAvatar;
+
+function chatHandleAvatarFile(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const dataUrl = e.target.result;
+    // Show preview immediately from the local data URL
+    const preview = chatEl('chat-settings-av-preview');
+    if (preview) preview.innerHTML = `<img src="${esc(dataUrl)}" alt="">`;
+    // Upload to server, then set the permanent URL in the input
+    fetch('/api/chat/upload-avatar?device=' + deviceId, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dataUrl }),
+    }).then(r => r.json()).then(d => {
+      if (d.url) {
+        const avInp = chatEl('chat-settings-avatar');
+        if (avInp) avInp.value = d.url;
+      }
+    }).catch(() => {});
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
+}
+window.chatHandleAvatarFile = chatHandleAvatarFile;
 
 function chatSaveSettings() {
   const nameInp = chatEl('chat-settings-name');
