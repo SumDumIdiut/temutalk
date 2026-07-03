@@ -1,19 +1,26 @@
 <main class="page sports-page">
   <div class="sports-header">
-    <div class="sports-title">Sports</div>
+    <div class="sports-title" id="sports-title">Sports</div>
     <div style="display:flex;align-items:center;gap:8px">
       <span id="sports-last-update" class="sports-updated"></span>
       <button class="sports-refresh-btn" onclick="sportsRefresh()">↻</button>
     </div>
   </div>
 
-  <!-- Sport category tabs -->
+  <!-- Sport category tabs (always visible) -->
   <div class="sports-cats" id="sports-cats"></div>
-
-  <!-- League sub-chips (rendered by JS per sport) -->
+  <!-- League chips (shown when cat has multiple leagues) -->
   <div class="sports-leagues" id="sports-leagues"></div>
 
+  <!-- ── Scoreboard ─────────────────────────────────────── -->
   <div id="sports-scoreboard">
     <div class="sports-loading">Loading scores…</div>
+  </div>
+
+  <!-- ── Event detail panel (hidden until game tapped) ──── -->
+  <div id="sports-event-panel" style="display:none">
+    <button class="sep-back" onclick="sportsCloseEvent()">← Scores</button>
+    <div id="sep-header"></div>
+    <div id="sep-timeline"></div>
   </div>
 </main>
