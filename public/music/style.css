@@ -292,10 +292,10 @@ html.mobile #bar-center {
 html.mobile #bar-btns { gap: 0; }
 
 /* Hide seek, volume, shuffle, repeat in compact mode */
-html.mobile #bar-prog  { display: none; }
-html.mobile #bar-vol   { display: none; }
-html.mobile #fp-shuffle { display: none; }
-html.mobile #fp-repeat  { display: none; }
+html.mobile #bar-prog   { display: none !important; }
+html.mobile #bar-vol    { display: none !important; }
+html.mobile #fp-shuffle { display: none !important; }
+html.mobile #fp-repeat  { display: none !important; }
 
 /* ── Now Playing tab: full controls ─────────────────────────────────────── */
 html.mobile.mob-nowplaying #player-bar {
@@ -314,9 +314,9 @@ html.mobile.mob-nowplaying #bar-center {
 }
 
 html.mobile.mob-nowplaying #bar-btns  { justify-content: center; gap: 4px; }
-html.mobile.mob-nowplaying #bar-prog  { display: flex; }
-html.mobile.mob-nowplaying #fp-shuffle { display: flex; }
-html.mobile.mob-nowplaying #fp-repeat  { display: flex; }
+html.mobile.mob-nowplaying #bar-prog   { display: flex !important; }
+html.mobile.mob-nowplaying #fp-shuffle { display: flex !important; }
+html.mobile.mob-nowplaying #fp-repeat  { display: flex !important; }
 
 html.mobile #view-overlay { bottom: 80px; }
 

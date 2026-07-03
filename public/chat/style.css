@@ -189,19 +189,25 @@
   flex-shrink: 0;
 }
 .chat-ann-close {
-  background: none;
-  border: none;
-  color: rgba(255,210,80,.5);
-  font-size: 14px;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none;
+  color: rgba(255,210,80,.6);
+  font-size: 15px;
   line-height: 1;
-  padding: 2px 4px;
+  padding: 0 2px;
+  margin-left: 4px;
   cursor: pointer;
   flex-shrink: 0;
-  border-radius: 4px;
-  transition: color .15s, background .15s;
+  opacity: .7;
+  transition: opacity .15s;
   -webkit-tap-highlight-color: transparent;
+  width: auto;
+  height: auto;
+  border-radius: 0;
 }
-.chat-ann-close:hover { color: #fff8e0; background: rgba(255,255,255,.1); }
+.chat-ann-close:hover { opacity: 1; }
 
 /* ── Panel bot message (in message flow) ─────────────────────────────────────── */
 .chat-panel-msg {
