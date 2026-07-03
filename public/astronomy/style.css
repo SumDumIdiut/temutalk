@@ -1,0 +1,61 @@
+/* ── Astronomy tab ─────────────────────────────────────────────────────────── */
+:root { --astro-accent: #a78bfa; --astro-gold: #fbbf24; }
+
+.astro-page { padding-bottom: 48px; }
+
+.astro-header { display:flex; align-items:center; justify-content:space-between; padding:4px 0 16px; }
+.astro-loc-chip { font-size:11px; color:var(--text-muted); background:var(--surface); border:1px solid var(--glass-border); border-radius:999px; padding:3px 10px; max-width:160px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.astro-refresh-btn { background:var(--surface-hi); border:1px solid var(--glass-border); border-radius:999px; color:var(--text-muted); font-family:inherit; font-size:13px; padding:5px 13px; cursor:pointer; transition:all .15s; }
+.astro-refresh-btn:hover { color:var(--text); }
+
+.astro-card { background:var(--surface); border:1px solid var(--glass-border); border-radius:var(--radius-sm); padding:16px; margin-bottom:10px; }
+.astro-card-title { font-size:15px; font-weight:700; color:var(--astro-accent); margin-bottom:12px; letter-spacing:.01em; }
+
+/* Sun */
+.astro-sun-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+.astro-sun-item { background:var(--surface-hi); border-radius:8px; padding:10px 12px; }
+.astro-sun-label { font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.06em; }
+.astro-sun-val { font-size:18px; font-weight:700; color:var(--astro-gold); margin-top:3px; }
+
+.astro-arc-wrap { position:relative; margin-top:12px; height:90px; }
+.astro-arc-canvas { width:100%; height:90px; display:block; }
+.astro-arc-now { position:absolute; top:4px; left:50%; transform:translateX(-50%); font-size:10px; color:var(--text-muted); pointer-events:none; transition:left .5s; }
+
+/* Moon */
+.astro-moon-row { display:flex; align-items:center; gap:20px; }
+.moon-emoji-wrap { position:relative; flex-shrink:0; width:100px; height:100px; }
+.moon-emoji { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:60px; }
+.moon-canvas { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+.astro-moon-info { flex:1; min-width:0; }
+.moon-phase-name { font-size:20px; font-weight:700; color:var(--text); }
+.moon-illum { font-size:14px; color:var(--astro-accent); margin-top:4px; }
+.moon-age { font-size:13px; color:var(--text-muted); margin-top:3px; }
+.moon-rise-set { font-size:13px; color:var(--text-muted); margin-top:3px; }
+
+/* ISS */
+.astro-iss-row { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:12px; }
+.astro-iss-stat { background:var(--surface-hi); border-radius:7px; padding:9px 10px; }
+.astro-iss-label { font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em; }
+.astro-iss-val { font-size:14px; font-weight:600; color:var(--text); margin-top:3px; }
+.astro-iss-mini-map { position:relative; height:120px; background:var(--surface-hi); border-radius:8px; overflow:hidden; margin-bottom:8px; }
+.iss-map-canvas { position:absolute; inset:0; width:100%; height:100%; }
+.iss-dot { position:absolute; font-size:16px; transform:translate(-50%,-50%); pointer-events:none; transition:left .5s, top .5s; }
+.astro-iss-note { font-size:12px; color:var(--text-muted); text-align:center; }
+
+/* Planets */
+.astro-planets-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:8px; }
+.planet-card { background:var(--surface-hi); border-radius:8px; padding:11px 12px; }
+.planet-name { font-size:14px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:6px; }
+.planet-mag { font-size:11px; color:var(--text-muted); margin-top:3px; }
+.planet-alt { font-size:13px; color:var(--astro-accent); font-weight:600; margin-top:2px; }
+.planet-visible { font-size:10px; border-radius:3px; padding:1px 5px; margin-left:auto; }
+.planet-visible.up { background:rgba(52,211,153,.15); color:#34d399; }
+.planet-visible.down { background:rgba(255,255,255,.05); color:var(--text-muted); }
+
+/* Events */
+.astro-events-list { display:flex; flex-direction:column; gap:8px; }
+.astro-event-item { display:flex; align-items:flex-start; gap:10px; padding:10px 12px; background:var(--surface-hi); border-radius:8px; }
+.astro-event-icon { font-size:22px; flex-shrink:0; }
+.astro-event-title { font-size:14px; font-weight:600; color:var(--text); }
+.astro-event-desc { font-size:12px; color:var(--text-muted); margin-top:2px; }
+.astro-event-time { font-size:11px; color:var(--astro-accent); margin-top:3px; }

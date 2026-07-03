@@ -1,10 +1,79 @@
-  <main class="page">
-    <div class="fin-page-header">
-      <div class="page-header-text" style="font-size:22px;font-weight:600;color:#34d399;">Markets</div>
-      <div style="display:flex;align-items:center;gap:10px;">
-        <span id="finance-last-update"></span>
-        <button class="fin-refresh-btn" onclick="loadCrypto(true)">↻ Refresh</button>
-      </div>
+<main class="page">
+  <div class="fin-page-header">
+    <div style="font-size:22px;font-weight:600;color:var(--green)">Markets</div>
+    <div class="fin-section-tabs">
+      <button class="fin-stab on" onclick="finSwitch('crypto')" id="fst-crypto">Crypto</button>
+      <button class="fin-stab" onclick="finSwitch('stocks')" id="fst-stocks">Stocks</button>
+      <button class="fin-stab" onclick="finSwitch('rates')" id="fst-rates">Rates</button>
     </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span id="finance-last-update" style="font-size:12px;color:var(--text-muted)"></span>
+      <button class="fin-refresh-btn" onclick="finRefresh()">↻</button>
+    </div>
+  </div>
+
+  <!-- Crypto -->
+  <div class="fin-panel" id="fin-crypto">
     <div id="crypto-list"></div>
-  </main>
+  </div>
+
+  <!-- Stocks -->
+  <div class="fin-panel" id="fin-stocks" style="display:none">
+    <div class="stock-search-row">
+      <input class="stock-search-inp" id="stock-search-inp" placeholder="Search symbol or company…" autocomplete="off"
+        oninput="stockSearchDebounced()" onblur="setTimeout(()=>document.getElementById('stock-search-drop').style.display='none',200)">
+      <div class="stock-search-drop" id="stock-search-drop" style="display:none"></div>
+    </div>
+    <div id="stock-watchlist"></div>
+    <div id="stock-detail" class="stock-detail" style="display:none">
+      <div class="stock-detail-hdr">
+        <div>
+          <div class="stock-detail-sym" id="sd-sym"></div>
+          <div class="stock-detail-name" id="sd-name"></div>
+        </div>
+        <div style="text-align:right">
+          <div class="stock-detail-price" id="sd-price"></div>
+          <div class="stock-detail-chg" id="sd-chg"></div>
+        </div>
+      </div>
+      <div class="chart-ranges">
+        <button class="cr-btn on" onclick="stockChartRange('1d')">1D</button>
+        <button class="cr-btn" onclick="stockChartRange('5d')">5D</button>
+        <button class="cr-btn" onclick="stockChartRange('1mo')">1M</button>
+        <button class="cr-btn" onclick="stockChartRange('3mo')">3M</button>
+        <button class="cr-btn" onclick="stockChartRange('6mo')">6M</button>
+        <button class="cr-btn" onclick="stockChartRange('1y')">1Y</button>
+        <button class="cr-btn" onclick="stockChartRange('5y')">5Y</button>
+      </div>
+      <div class="chart-wrap"><canvas id="stock-chart"></canvas></div>
+      <div class="stock-detail-stats" id="sd-stats"></div>
+    </div>
+  </div>
+
+  <!-- Exchange Rates -->
+  <div class="fin-panel" id="fin-rates" style="display:none">
+    <div class="rates-header">
+      <div class="rates-base-row">
+        <span style="font-size:13px;color:var(--text-muted)">Base</span>
+        <select class="rates-base-sel" id="rates-base" onchange="loadRates()">
+          <option>USD</option><option>EUR</option><option>GBP</option>
+          <option>JPY</option><option>ZAR</option><option>AUD</option>
+          <option>CAD</option><option>CHF</option><option>CNY</option>
+          <option>INR</option><option>BRL</option><option>MXN</option>
+        </select>
+      </div>
+      <button class="fin-refresh-btn" onclick="loadRates(true)">↻</button>
+    </div>
+    <div id="rates-list"></div>
+    <div id="rates-detail" class="rates-detail" style="display:none">
+      <div class="rates-detail-hdr" id="rates-detail-hdr"></div>
+      <div class="chart-ranges">
+        <button class="cr-btn on" onclick="ratesChartRange('30')">1M</button>
+        <button class="cr-btn" onclick="ratesChartRange('90')">3M</button>
+        <button class="cr-btn" onclick="ratesChartRange('180')">6M</button>
+        <button class="cr-btn" onclick="ratesChartRange('365')">1Y</button>
+      </div>
+      <div class="chart-wrap"><canvas id="rates-chart"></canvas></div>
+    </div>
+  </div>
+</main>
