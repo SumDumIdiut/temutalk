@@ -294,10 +294,12 @@ function chatRenderMessages() {
     } else {
       const clickData = { uid: m.from, name: m.fromName, av: m.avatarUrl || '' };
       html += `<div class="chat-msg">
-        ${avatarHtml(m.fromName, m.avatarUrl, 32, clickData)}
         <div class="chat-msg-body">
           ${showName ? `<div class="chat-msg-name clickable" data-uid="${esc(m.from)}" data-name="${esc(m.fromName)}" data-av="${esc(m.avatarUrl||'')}" onclick="chatAvatarClick(event,this)">${esc(m.fromName)}</div>` : ''}
-          <div class="chat-msg-bubble">${esc(m.text)}</div>
+          <div class="chat-msg-own-row">
+            ${avatarHtml(m.fromName, m.avatarUrl, 32, clickData)}
+            <div class="chat-msg-bubble">${esc(m.text)}</div>
+          </div>
           <div class="chat-msg-time">${esc(timeStr)}</div>
         </div>
       </div>`;
