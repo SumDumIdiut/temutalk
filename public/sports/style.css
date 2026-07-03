@@ -9,9 +9,8 @@
 .sports-refresh-btn:hover { color:var(--text); }
 
 /* ── Category tabs ── */
-.sports-cats { display:flex; overflow-x:auto; scrollbar-width:none; border-bottom:1px solid var(--glass-border); }
-.sports-cats::-webkit-scrollbar { display:none; }
-.sports-cat { flex-shrink:0; background:none; border:none; border-bottom:2px solid transparent; color:var(--text-muted); font:inherit; font-size:13px; font-weight:500; padding:10px 14px; cursor:pointer; white-space:nowrap; transition:color .12s, border-color .12s; margin-bottom:-1px; }
+.sports-cats { display:flex; flex-wrap:wrap; border-bottom:1px solid var(--glass-border); gap:0; }
+.sports-cat { background:none; border:none; border-bottom:2px solid transparent; color:var(--text-muted); font:inherit; font-size:12px; font-weight:500; padding:8px 11px; cursor:pointer; white-space:nowrap; transition:color .12s, border-color .12s; margin-bottom:-1px; }
 .sports-cat:hover { color:var(--text); }
 .sports-cat.on { color:var(--sports-accent); border-bottom-color:var(--sports-accent); font-weight:700; }
 

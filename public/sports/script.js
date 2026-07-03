@@ -141,6 +141,22 @@ async function sportsLoad() {
   }
 }
 
+function _cName(t) {
+  return t.team?.displayName || t.team?.name ||
+         t.athlete?.displayName || t.athlete?.fullName || '?';
+}
+function _cShort(t) {
+  return t.team?.shortDisplayName || t.team?.abbreviation ||
+         t.athlete?.shortName || t.athlete?.displayName?.split(' ').slice(-1)[0] || '?';
+}
+function _cLogo(t) {
+  return t.team?.logo || t.athlete?.headshot?.href || t.athlete?.flag?.href || null;
+}
+function _cAbbr(t) {
+  return (t.team?.abbreviation || t.athlete?.abbreviation ||
+          _cName(t).split(' ').slice(-1)[0] || '?').slice(0,4);
+}
+
 function _renderCard(ev) {
   const comp   = ev.competitions?.[0] || {};
   const teams  = comp.competitors || [];
@@ -154,9 +170,9 @@ function _renderCard(ev) {
   const awayW  = isPost && +away.score > +home.score;
 
   const row = (t, win) => {
-    const logo = t.team?.logo;
-    const abbr = (t.team?.abbreviation||t.team?.displayName||'?').slice(0,3);
-    const name = t.team?.displayName || abbr;
+    const logo  = _cLogo(t);
+    const abbr  = _cAbbr(t);
+    const name  = _cName(t);
     const score = state!=='pre' && t.score!=null ? String(t.score) : '';
     return `<div class="game-team">` +
       (logo ? `<img class="team-logo" src="${_esc(logo)}" alt="" loading="lazy" onerror="this.style.opacity='.2'">`
@@ -230,9 +246,9 @@ function _renderSepHeader(comp, status) {
   const awayW  = isPost && +away.score > +home.score;
   const homeW  = isPost && +home.score > +away.score;
 
-  const logoEl = t => t.team?.logo
-    ? `<img class="sep-logo" src="${_esc(t.team.logo)}" alt="" onerror="this.style.opacity='.2'">`
-    : `<div class="sep-logo-ph">${_esc((t.team?.abbreviation||'?').slice(0,3))}</div>`;
+  const logoEl = t => { const l=_cLogo(t);
+    return l ? `<img class="sep-logo" src="${_esc(l)}" alt="" onerror="this.style.opacity='.2'">`
+             : `<div class="sep-logo-ph">${_esc(_cAbbr(t))}</div>`; };
 
   const scoreEl = (t, win) => t.score!=null
     ? `<div class="sep-score-val${win?' sep-win':''}">${_esc(String(t.score))}</div>`
@@ -242,7 +258,7 @@ function _renderSepHeader(comp, status) {
     <div class="sep-teams-row">
       <div class="sep-team-col${awayW?' sep-winner':''}">
         ${logoEl(away)}
-        <div class="sep-tname">${_esc(away.team?.shortDisplayName||away.team?.displayName||'')}</div>
+        <div class="sep-tname">${_esc(_cShort(away))}</div>
       </div>
       <div class="sep-center-col">
         <div class="sep-scores-ctr">
@@ -257,7 +273,7 @@ function _renderSepHeader(comp, status) {
       </div>
       <div class="sep-team-col${homeW?' sep-winner':''}">
         ${logoEl(home)}
-        <div class="sep-tname">${_esc(home.team?.shortDisplayName||home.team?.displayName||'')}</div>
+        <div class="sep-tname">${_esc(_cShort(home))}</div>
       </div>
     </div>
   </div>`;
