@@ -617,8 +617,10 @@ let statsLoaded = false, statsRange = 'medium_term';
 function setStatsRange(range) {
   statsRange = range;
   document.querySelectorAll('.range-btn').forEach(b => b.classList.toggle('active', b.dataset.range === range));
-  document.getElementById('stats-artists').innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:8px 0;">Loading…</div>';
-  document.getElementById('stats-tracks').innerHTML  = '<div style="color:var(--text-muted);font-size:13px;padding:8px 0;">Loading…</div>';
+  const artists = document.getElementById('stats-artists');
+  if (artists) artists.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:8px 0;">Loading…</div>';
+  const tracks = document.getElementById('stats-tracks');
+  if (tracks) tracks.innerHTML  = '<div style="color:var(--text-muted);font-size:13px;padding:8px 0;">Loading…</div>';
   loadStats(range);
 }
 function loadStats(range) {
