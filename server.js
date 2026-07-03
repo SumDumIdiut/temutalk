@@ -1228,6 +1228,29 @@ function chatSave() {
   }, 2000);
 }
 
+function chatSaveSync() {
+  clearTimeout(chatSaveTimer);
+  const data = {
+    accounts: Object.fromEntries(chatAccounts),
+    profiles: Object.fromEntries(chatProfiles),
+    names:    Object.fromEntries(chatNames),
+    groups:   [...chatGroups.values()].map(g => ({
+      id: g.id, name: g.name, passwordHash: g.passwordHash,
+      messages: g.messages.slice(-CHAT_MSG_LIMIT),
+      members:  [...g.members],
+      created:  g.created,
+    })),
+    dms:     [...chatDMs.entries()].map(([k, v]) => ({ key: k, messages: v.messages.slice(-CHAT_MSG_LIMIT) })),
+    friends:    [...chatFriends.entries()].map(([k, v]) => [k, [...v]]),
+    friendReqs: [...chatFriendReqs.entries()].map(([k, v]) => [k, [...v]]),
+    global:     chatGlobal.messages.slice(-CHAT_MSG_LIMIT),
+  };
+  try { fs.writeFileSync(CHAT_STATE_FILE, JSON.stringify(data)); } catch (e) { console.error('[chat] sync save error:', e.message); }
+}
+process.on('exit',    chatSaveSync);
+process.on('SIGINT',  () => { chatSaveSync(); process.exit(0); });
+process.on('SIGTERM', () => { chatSaveSync(); process.exit(0); });
+
 (function chatLoad() {
   try {
     const data = JSON.parse(fs.readFileSync(CHAT_STATE_FILE, 'utf8'));

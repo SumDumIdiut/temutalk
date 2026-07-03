@@ -185,9 +185,7 @@ function chatRenderSidebar() {
   const pendingIn = Object.values(chatPendingIn);
   const friends   = Object.values(chatFriendMap);
   const openDMs   = Object.values(chatDMInfo).filter(d => !chatFriendMap[d.uid]);
-  const dmsLabel  = chatEl('chat-dms-label');
   const dmsEl     = chatEl('chat-dms-list');
-  if (dmsLabel) dmsLabel.style.display = (pendingIn.length || friends.length || openDMs.length) ? '' : 'none';
   if (dmsEl) {
     let html = '';
     // Incoming requests
@@ -445,6 +443,120 @@ function chatRejectFriendReq(uid) {
 }
 window.chatRejectFriendReq = chatRejectFriendReq;
 
+// ── Account settings ──────────────────────────────────────────────────────────
+function chatOpenSettings() {
+  let overlay = chatEl('chat-settings-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.className = 'chat-settings-overlay';
+    overlay.id = 'chat-settings-overlay';
+    overlay.innerHTML = `
+      <div class="chat-settings-backdrop" onclick="chatCloseSettings()"></div>
+      <div class="chat-settings-box">
+        <div class="chat-settings-title">Account Settings</div>
+        <label class="chat-settings-label">Display name</label>
+        <input class="chat-settings-input" id="chat-settings-name" type="text" maxlength="32" placeholder="Your display name…">
+        <div class="chat-settings-hint">Overrides your Spotify name in chat</div>
+        <div class="chat-settings-actions">
+          <button class="chat-card-btn" onclick="chatCloseSettings()">Cancel</button>
+          <button class="chat-card-btn chat-card-btn-primary" onclick="chatSaveSettings()">Save</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+  }
+  const inp = chatEl('chat-settings-name');
+  if (inp) inp.value = chatMyName || '';
+  overlay.style.display = 'flex';
+  setTimeout(() => inp && inp.focus(), 50);
+}
+window.chatOpenSettings = chatOpenSettings;
+
+function chatCloseSettings() {
+  const overlay = chatEl('chat-settings-overlay');
+  if (overlay) overlay.style.display = 'none';
+}
+window.chatCloseSettings = chatCloseSettings;
+
+function chatSaveSettings() {
+  const inp = chatEl('chat-settings-name');
+  const name = (inp ? inp.value : '').trim();
+  if (!name) return;
+  if (wsReady) try { ws.send(JSON.stringify({ type: 'chat:set-name', name })); } catch {}
+  chatCloseSettings();
+}
+window.chatSaveSettings = chatSaveSettings;
+
+// ── New DM ────────────────────────────────────────────────────────────────────
+function chatKnownUsers() {
+  const seen = {};
+  for (const msgs of Object.values(chatRoomMsgs)) {
+    for (const m of (msgs || [])) {
+      if (m.from && m.from !== deviceId && m.from !== 'panel-bot' && m.name) {
+        seen[m.from] = { uid: m.from, name: m.name, avatarUrl: m.avatarUrl || '' };
+      }
+    }
+  }
+  for (const f of Object.values(chatFriendMap)) {
+    seen[f.id] = { uid: f.id, name: f.name, avatarUrl: f.avatarUrl || '' };
+  }
+  return Object.values(seen);
+}
+
+function chatShowNewDM() {
+  let overlay = chatEl('chat-new-dm-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.className = 'chat-settings-overlay';
+    overlay.id = 'chat-new-dm-overlay';
+    overlay.innerHTML = `
+      <div class="chat-settings-backdrop" onclick="chatCloseNewDM()"></div>
+      <div class="chat-settings-box">
+        <div class="chat-settings-title">New Message</div>
+        <input class="chat-settings-input" id="chat-new-dm-search" type="text" placeholder="Search users…" oninput="chatFilterNewDM()">
+        <div id="chat-new-dm-list" style="overflow-y:auto;max-height:220px;margin-top:8px;min-height:40px"></div>
+      </div>`;
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = 'flex';
+  const inp = chatEl('chat-new-dm-search');
+  if (inp) { inp.value = ''; inp.focus(); }
+  chatFilterNewDM();
+}
+window.chatShowNewDM = chatShowNewDM;
+
+function chatCloseNewDM() {
+  const overlay = chatEl('chat-new-dm-overlay');
+  if (overlay) overlay.style.display = 'none';
+}
+window.chatCloseNewDM = chatCloseNewDM;
+
+function chatFilterNewDM() {
+  const list  = chatEl('chat-new-dm-list');
+  const query = (chatEl('chat-new-dm-search')?.value || '').toLowerCase();
+  if (!list) return;
+  const users = chatKnownUsers().filter(u => !query || u.name.toLowerCase().includes(query));
+  if (!users.length) {
+    list.innerHTML = `<div style="font-size:.78rem;color:var(--text-muted);padding:8px 6px">No users found. They need to have messaged in a room you've visited.</div>`;
+    return;
+  }
+  list.innerHTML = users.map(u => {
+    const av = u.avatarUrl
+      ? `<img src="${esc(u.avatarUrl)}" style="width:28px;height:28px;border-radius:50%;object-fit:cover">`
+      : `<div class="chat-avatar" style="width:28px;height:28px;font-size:11px">${esc(u.name.slice(0,2).toUpperCase())}</div>`;
+    return `<div class="chat-new-dm-user" onclick="chatStartNewDM('${esc(u.uid)}','${esc(u.name)}','${esc(u.avatarUrl)}')">
+      ${av}
+      <div class="chat-new-dm-user-name">${esc(u.name)}</div>
+    </div>`;
+  }).join('');
+}
+window.chatFilterNewDM = chatFilterNewDM;
+
+function chatStartNewDM(uid, name, av) {
+  chatCloseNewDM();
+  chatOpenDM(uid, name, av);
+}
+window.chatStartNewDM = chatStartNewDM;
+
 // ── WS message dispatcher ─────────────────────────────────────────────────────
 window.chatOnMessage = function (m) {
   if (m.type === 'chat:history') {
@@ -469,6 +581,11 @@ window.chatOnMessage = function (m) {
     chatHideLogin();
     chatUpdateAccountRow();
     if (!chatRoomMsgs['global']) chatJoinRoom('global');
+    return;
+  }
+  if (m.type === 'chat:name-set') {
+    chatMyName = m.name;
+    chatUpdateAccountRow();
     return;
   }
   if (m.type === 'chat:group-created') {
