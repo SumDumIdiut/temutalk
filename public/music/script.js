@@ -353,10 +353,16 @@ function setMobileTab(tab) {
   ['library','browse','nowplaying'].forEach(t =>
     document.getElementById('mmt-' + t)?.classList.toggle('active', t === tab)
   );
-  if (!document.documentElement.classList.contains('mobile')) return;
   const ls = document.getElementById('left-sidebar');
   const cp = document.getElementById('center-panel');
   const rs = document.getElementById('right-sidebar');
+  if (!document.documentElement.classList.contains('mobile')) {
+    // Desktop: ensure all panels are visible (clear any stale inline styles)
+    if (ls) ls.style.display = '';
+    if (cp) cp.style.display = '';
+    if (rs) rs.style.display = '';
+    return;
+  }
   if (ls) ls.style.display = tab === 'library'    ? 'flex' : 'none';
   if (cp) cp.style.display = tab === 'browse'     ? 'flex' : 'none';
   if (rs) rs.style.display = tab === 'nowplaying' ? 'flex' : 'none';
