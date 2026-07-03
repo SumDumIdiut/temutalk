@@ -2,40 +2,45 @@
 :root { --sports-accent: #fb923c; }
 
 .sports-page { padding-bottom: 48px; }
-
-.sports-header { display:flex; align-items:center; justify-content:space-between; padding:4px 0 10px; }
-.sports-refresh-btn { background:var(--surface-hi); border:1px solid var(--glass-border); border-radius:999px; color:var(--text-muted); font-family:inherit; font-size:13px; padding:5px 13px; cursor:pointer; transition:all .15s; }
+.sports-header { display:flex; align-items:center; justify-content:space-between; padding:4px 0 12px; }
+.sports-title { font-size:20px; font-weight:700; color:var(--sports-accent); }
+.sports-updated { font-size:11px; color:var(--text-muted); }
+.sports-refresh-btn { background:none; border:1px solid var(--glass-border); border-radius:999px; color:var(--text-muted); font:inherit; font-size:12px; padding:4px 12px; cursor:pointer; transition:color .12s; }
 .sports-refresh-btn:hover { color:var(--text); }
 
-.sports-league-tabs { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:14px; }
-.sports-ltab { background:none; border:1px solid var(--glass-border); border-radius:999px; color:var(--text-muted); font-family:inherit; font-size:11px; padding:5px 12px; cursor:pointer; transition:all .15s; white-space:nowrap; }
-.sports-ltab:hover { color:var(--text); }
-.sports-ltab.on { background:var(--surface-hi); border-color:var(--sports-accent); color:var(--text); font-weight:600; }
+/* ── Sport category row ── */
+.sports-cats { display:flex; gap:0; overflow-x:auto; scrollbar-width:none; border-bottom:1px solid var(--glass-border); margin-bottom:0; }
+.sports-cats::-webkit-scrollbar { display:none; }
+.sports-cat { flex-shrink:0; background:none; border:none; border-bottom:2px solid transparent; color:var(--text-muted); font:inherit; font-size:12px; font-weight:500; padding:8px 13px; cursor:pointer; white-space:nowrap; transition:color .12s, border-color .12s; margin-bottom:-1px; }
+.sports-cat:hover { color:var(--text); }
+.sports-cat.on { color:var(--sports-accent); border-bottom-color:var(--sports-accent); font-weight:700; }
 
-.sports-loading { color:var(--text-muted); font-size:14px; text-align:center; padding:32px; }
-.sports-empty   { color:var(--text-muted); font-size:14px; text-align:center; padding:32px; }
+/* ── League chips ── */
+.sports-leagues { display:flex; gap:5px; flex-wrap:wrap; padding:10px 0 8px; min-height:36px; }
+.sports-league { background:var(--surface); border:1px solid var(--glass-border); border-radius:5px; color:var(--text-muted); font:inherit; font-size:11px; padding:4px 11px; cursor:pointer; white-space:nowrap; transition:all .12s; }
+.sports-league:hover { color:var(--text); border-color:var(--text-muted); }
+.sports-league.on { background:rgba(251,146,60,.1); color:var(--sports-accent); border-color:rgba(251,146,60,.4); font-weight:600; }
 
-/* Section header (date / round) */
-.sports-section-hdr { font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.07em; padding:10px 2px 4px; }
+/* ── States ── */
+.sports-loading, .sports-empty { color:var(--text-muted); font-size:14px; text-align:center; padding:44px 16px; }
+.sports-section-hdr { font-size:10px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.08em; padding:14px 2px 5px; }
 
-/* Game card */
-.game-card { background:var(--surface); border:1px solid var(--glass-border); border-radius:var(--radius-sm); padding:12px 16px; margin-bottom:6px; }
-.game-card:hover { border-color:var(--sports-accent); }
-.game-status { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; margin-bottom:8px; }
-.game-status.live   { color:#f87171; }
-.game-status.final  { color:var(--text-muted); }
-.game-status.pre    { color:#60a5fa; }
-.game-status.sched  { color:var(--text-muted); }
-
-.game-teams { display:flex; flex-direction:column; gap:6px; }
-.game-team  { display:flex; align-items:center; gap:10px; }
-.team-logo  { width:28px; height:28px; border-radius:4px; object-fit:contain; background:var(--surface-hi); flex-shrink:0; }
-.team-logo-placeholder { width:28px; height:28px; border-radius:4px; background:var(--surface-hi); flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:13px; }
-.team-name  { flex:1; font-size:14px; font-weight:500; color:var(--text); }
-.team-name.winner { font-weight:700; color:var(--text); }
-.team-score { font-size:20px; font-weight:700; color:var(--text); min-width:30px; text-align:right; }
-.team-score.winner { color:var(--sports-accent); }
-
-.game-meta  { font-size:11px; color:var(--text-muted); margin-top:8px; display:flex; gap:10px; flex-wrap:wrap; }
-.game-odds  { font-size:11px; color:var(--text-muted); display:flex; gap:8px; margin-top:4px; }
-.game-odds-item { background:var(--surface-hi); border-radius:3px; padding:1px 6px; }
+/* ── Game card ── */
+.game-card { display:grid; grid-template-columns:1fr; background:var(--surface); border:1px solid var(--glass-border); border-radius:var(--radius-sm); padding:11px 14px; margin-bottom:5px; transition:border-color .12s; }
+.game-card:hover { border-color:rgba(251,146,60,.3); }
+.game-card.live { border-left:3px solid #f87171; padding-left:11px; }
+.game-teams { display:flex; flex-direction:column; gap:4px; }
+.game-team { display:flex; align-items:center; gap:9px; }
+.team-logo { width:22px; height:22px; border-radius:3px; object-fit:contain; background:var(--surface-hi); flex-shrink:0; }
+.team-logo-ph { width:22px; height:22px; border-radius:3px; background:var(--surface-hi); flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:9px; color:var(--text-muted); font-weight:600; }
+.team-name { flex:1; font-size:13px; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
+.team-name.w { font-weight:700; }
+.team-score { font-size:18px; font-weight:700; color:var(--text); min-width:26px; text-align:right; flex-shrink:0; }
+.team-score.w { color:var(--sports-accent); }
+.game-foot { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:7px; padding-top:6px; border-top:1px solid var(--glass-border); }
+.game-badge-live { display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:700; color:#f87171; }
+.live-dot { width:6px; height:6px; border-radius:50%; background:#f87171; flex-shrink:0; animation:spulse 1.3s ease-in-out infinite; }
+@keyframes spulse { 0%,100%{opacity:1} 50%{opacity:.25} }
+.game-badge-pre { font-size:10px; font-weight:600; color:#60a5fa; }
+.game-badge-final { font-size:10px; color:var(--text-muted); }
+.game-venue { font-size:10px; color:var(--text-muted); }
