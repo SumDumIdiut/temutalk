@@ -25,6 +25,7 @@
   <link rel="stylesheet" href="/timer/style.css">
   <link rel="stylesheet" href="/system/style.css">
   <link rel="stylesheet" href="/chat/style.css">
+  <link rel="stylesheet" href="/games/style.css">
   <style>
     /* ── SPA view system ─────────────────────────────────────────────────── */
     html, body { height: 100%; overflow: hidden; }
@@ -217,6 +218,7 @@
 <div class="view" id="view-timer"></div>
 <div class="view" id="view-news"></div>
 <div class="view" id="view-chat" style="overflow:hidden;"></div>
+<div class="view" id="view-games"></div>
 
 <!-- ══════════════════ NAV ══════════════════ -->
 <nav class="nav">
@@ -255,6 +257,10 @@
   <button class="nav-item" data-tab="chat" onclick="navigate('chat')">
     <div class="nav-pill"><svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg></div>
     <span class="nav-label">Chat</span>
+  </button>
+  <button class="nav-item" data-tab="games" onclick="navigate('games')">
+    <div class="nav-pill"><svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-10 7H8v3H6v-3H3v-2h3V8h2v3h3v2zm4.5 2c-.83 0-1.5-.67-1.5-1.5S14.67 12 15.5 12s1.5.67 1.5 1.5S16.33 15 15.5 15zm3-3c-.83 0-1.5-.67-1.5-1.5S17.67 9 18.5 9s1.5.67 1.5 1.5S19.33 12 18.5 12z"/></svg></div>
+    <span class="nav-label">Games</span>
   </button>
 </nav>
 
@@ -315,7 +321,7 @@ async function ensureTab(tab) {
 }
 
 // ── Navigation ────────────────────────────────────────────────────────────
-const TAB_IDX = { home: 0, music: 1, radio: 2, news: 3, weather: 4, finance: 5, timer: 6, system: 7, chat: 8 };
+const TAB_IDX = { home: 0, music: 1, radio: 2, news: 3, weather: 4, finance: 5, timer: 6, system: 7, chat: 8, games: 9 };
 let curTab = 'home';
 
 async function navigate(tab) {
@@ -368,7 +374,8 @@ async function navigate(tab) {
   if (tab === 'system')  { renderThemePanel(); }
   if (tab === 'radio') initRadioMap();
   if (tab === 'news' && !newsLoaded) loadNews();
-  if (tab === 'chat') ensureTab('chat').then(() => { if (typeof chatInit === 'function') chatInit(); });
+  if (tab === 'chat')  ensureTab('chat').then(() => { if (typeof chatInit === 'function') chatInit(); });
+  if (tab === 'games') ensureTab('games').then(() => { if (typeof gamesInit === 'function') gamesInit(); });
   // Keep URL clean so hard refresh always lands on home
   if (location.search.includes('tab=')) {
     const u = new URL(location.href);
@@ -891,6 +898,7 @@ function wsConnect() {
       }
       if (m.type === 'mse-broadcaster-status') mseSetBroadcasterOnline(m.online, m.mimeType);
       if (m.type && m.type.startsWith('chat:') && typeof chatOnMessage === 'function') chatOnMessage(m);
+      if (m.type && m.type.startsWith('game:') && typeof gamesOnMessage === 'function') gamesOnMessage(m);
       if ((m.type === 'live-list' || m.type === 'live-channel-ended') && typeof liveOnMessage === 'function') liveOnMessage(m);
     } catch {}
   };
@@ -972,6 +980,7 @@ document.addEventListener('fullscreenchange', () => {
 <script src="/radio/script.js"></script>
 <script src="/news/script.js"></script>
 <script src="/chat/script.js"></script>
+<script src="/games/script.js"></script>
 
 <!-- Deep-link (after all tab scripts are loaded) -->
 <script>
