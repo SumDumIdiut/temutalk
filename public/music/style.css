@@ -79,12 +79,12 @@
     }
     #right-sidebar::-webkit-scrollbar       { width: 4px; }
     #right-sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 2px; }
-    #np-header   { padding: 16px 16px 10px; font-size: 13px; font-weight: 700; color: var(--text); }
-    #fp-ctx      { font-size: 12px; color: var(--text-muted); font-weight: 400; }
-    #fp-art      { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; background: rgba(255,255,255,.04); }
-    #np-details  { padding: 16px 16px 12px; }
-    #np-track    { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
-    #np-artist   { font-size: 13px; color: var(--text-dim); }
+    #np-header   { padding: 10px 14px 6px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
+    #fp-ctx      { font-size: 11px; color: var(--text-muted); font-weight: 400; }
+    #fp-art      { width: 70%; aspect-ratio: 1; object-fit: cover; display: block; background: rgba(255,255,255,.04); margin: 0 auto; border-radius: var(--radius-sm); box-shadow: 0 8px 32px rgba(0,0,0,.5); }
+    #np-details  { padding: 12px 14px 8px; }
+    #np-track    { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
+    #np-artist   { font-size: 12px; color: var(--text-dim); }
     #np-artist-section { padding: 0 8px 12px; display: flex; flex-direction: column; }
     .np-a-row    { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 10px; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background .15s; }
     .np-a-row:hover { background: rgba(255,255,255,.06); }
