@@ -4,86 +4,92 @@
 .astro-page { padding-bottom:48px; }
 .astro-header { display:flex; align-items:center; justify-content:space-between; padding:4px 0 16px; }
 .astro-loc-chip { font-size:11px; color:var(--text-muted); background:var(--surface); border:1px solid var(--glass-border); border-radius:999px; padding:3px 10px; max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.astro-refresh-btn { background:var(--surface-hi); border:1px solid var(--glass-border); border-radius:999px; color:var(--text-muted); font-family:inherit; font-size:13px; padding:5px 13px; cursor:pointer; transition:all .15s; }
+.astro-refresh-btn { background:var(--surface-hi); border:1px solid var(--glass-border); border-radius:999px; color:var(--text-muted); font-family:inherit; font-size:13px; padding:5px 13px; cursor:pointer; }
 .astro-refresh-btn:hover { color:var(--text); }
-
 .astro-card { background:var(--surface); border:1px solid var(--glass-border); border-radius:var(--radius-sm); padding:16px; margin-bottom:10px; }
-.astro-card-hdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; gap:8px; flex-wrap:wrap; }
-.astro-card-title { font-size:15px; font-weight:700; color:var(--astro-accent); letter-spacing:.01em; margin-bottom:12px; }
-.astro-card-hdr .astro-card-title { margin-bottom:0; }
+.astro-card-title { font-size:15px; font-weight:700; color:var(--astro-accent); margin-bottom:12px; }
 
-/* ── Solar System ── */
-.astro-ss-card { position:relative; }
-.ss-zoom-row { display:flex; gap:4px; }
-.ss-zoom-btn { background:none; border:1px solid var(--glass-border); border-radius:4px; color:var(--text-muted); font:inherit; font-size:11px; padding:3px 10px; cursor:pointer; transition:all .12s; }
-.ss-zoom-btn.on { background:var(--surface-hi); border-color:var(--astro-accent); color:var(--text); font-weight:600; }
-.ss-canvas { display:block; width:100%; aspect-ratio:1/1; border-radius:8px; cursor:crosshair; }
-.ss-footer { display:flex; align-items:center; justify-content:space-between; margin-top:8px; flex-wrap:wrap; gap:4px; }
-.ss-legend { display:flex; flex-wrap:wrap; gap:8px; }
-.ss-leg-item { display:flex; align-items:center; gap:4px; font-size:10px; color:var(--text-muted); }
-.ss-leg-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
-.ss-date { font-size:11px; color:var(--text-muted); }
-.ss-tooltip { position:absolute; background:var(--surface-hi); border:1px solid var(--glass-border); border-radius:6px; padding:5px 10px; font-size:12px; color:var(--text); pointer-events:none; z-index:10; white-space:nowrap; }
+/* ── 3D Solar System ── */
+.astro-ss-card { overflow:hidden; }
+.ss3d-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; gap:8px; flex-wrap:wrap; }
+.ss3d-btn { background:none; border:1px solid var(--glass-border); border-radius:5px; color:var(--text-muted); font:inherit; font-size:11px; padding:4px 10px; cursor:pointer; transition:all .12s; }
+.ss3d-btn:hover { color:var(--text); border-color:var(--text-muted); }
+.ss3d-sel { background:var(--surface-hi); border:1px solid var(--glass-border); border-radius:5px; color:var(--text-muted); font:inherit; font-size:11px; padding:4px 8px; cursor:pointer; outline:none; }
+.ss3d-wrap { position:relative; width:100%; background:#020812; border-radius:8px; overflow:hidden; }
+.ss3d-canvas { display:block; width:100%; height:420px; cursor:grab; }
+.ss3d-canvas:active { cursor:grabbing; }
+.ss3d-labels { position:absolute; inset:0; pointer-events:none; }
+.ss3d-label { position:absolute; font-size:10px; font-weight:600; pointer-events:none; text-shadow:0 0 6px #000; white-space:nowrap; transform:translate(-50%,0); transition:opacity .2s; }
+.ss3d-label-voy { font-size:9px; opacity:.8; }
+.ss3d-loading { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,.4); font-size:13px; pointer-events:none; }
+.ss3d-hover { position:absolute; top:10px; left:10px; background:rgba(6,8,16,.85); border:1px solid rgba(167,139,250,.3); border-radius:8px; padding:8px 12px; pointer-events:none; }
+.ss3d-hover-name { font-size:14px; font-weight:700; color:var(--text); }
+.ss3d-hover-detail { font-size:12px; color:var(--text-muted); margin-top:3px; }
+.ss3d-legend { display:flex; flex-wrap:wrap; gap:10px; padding:8px 0 2px; }
+.ss3d-litem { font-size:11px; color:var(--text-muted); }
+.ss3d-hint { font-size:10px; color:rgba(255,255,255,.2); padding-top:4px; }
 
 /* ── Space Stations ── */
-.stations-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px; }
-.station-card { background:var(--surface-hi); border-radius:8px; padding:12px; border:1px solid var(--glass-border); }
-.station-name { font-size:14px; font-weight:700; color:var(--text); margin-bottom:6px; }
-.station-badge { display:inline-block; font-size:10px; padding:2px 8px; border-radius:999px; margin-bottom:8px; font-weight:600; text-transform:capitalize; }
-.station-badge.daylight { background:rgba(251,191,36,.15); color:#fbbf24; border:1px solid rgba(251,191,36,.3); }
-.station-badge.eclipsed { background:rgba(167,139,250,.15); color:#a78bfa; border:1px solid rgba(167,139,250,.3); }
-.station-badge.twilight  { background:rgba(96,165,250,.15); color:#60a5fa; border:1px solid rgba(96,165,250,.3); }
-.station-badge.unknown   { background:var(--surface); color:var(--text-muted); border:1px solid var(--glass-border); }
-.station-stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
-.ssg { background:var(--surface); border-radius:5px; padding:7px 8px; }
-.ssg-k { font-size:9px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.06em; }
-.ssg-v { font-size:13px; font-weight:600; color:var(--text); margin-top:2px; }
-.station-map-wrap { position:relative; border-radius:8px; overflow:hidden; margin-bottom:8px; background:#040a1a; }
-.station-map-canvas { display:block; width:100%; height:180px; }
-.station-map-legend { display:flex; gap:12px; padding:4px 0; }
-.sml-dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:3px; vertical-align:middle; }
-.station-overhead { font-size:12px; color:var(--text-muted); text-align:center; padding:2px 0; min-height:18px; }
+.st-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px; }
+@media (max-width:420px) { .st-grid { grid-template-columns:1fr; } }
+.st-card { background:var(--surface-hi); border:1px solid var(--glass-border); border-radius:8px; padding:12px; }
+.st-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+.st-name { font-size:13px; font-weight:700; color:var(--text); }
+.st-badge { font-size:10px; padding:2px 7px; border-radius:999px; font-weight:600; }
+.st-badge.daylight { background:rgba(251,191,36,.15); color:#fbbf24; border:1px solid rgba(251,191,36,.3); }
+.st-badge.eclipsed { background:rgba(167,139,250,.15); color:#a78bfa; border:1px solid rgba(167,139,250,.3); }
+.st-badge.twilight  { background:rgba(96,165,250,.15);  color:#60a5fa; border:1px solid rgba(96,165,250,.3); }
+.st-badge.na        { background:var(--surface); color:var(--text-muted); border:1px solid var(--glass-border); }
+.st-stats { display:grid; grid-template-columns:1fr 1fr; gap:5px; }
+.st-stat { background:var(--surface); border-radius:5px; padding:6px 8px; }
+.st-k { font-size:9px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.06em; }
+.st-v { font-size:12px; font-weight:600; color:var(--text); margin-top:2px; }
+.st-map-wrap { position:relative; background:#040a1a; border-radius:8px; overflow:hidden; margin-bottom:6px; }
+.st-map-canvas { display:block; width:100%; height:160px; }
+.st-map-leg { display:flex; gap:12px; padding:5px 2px 2px; }
+.st-map-leg span { font-size:11px; color:var(--text-muted); }
+.sml { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:3px; vertical-align:middle; }
+.st-overhead { font-size:12px; color:var(--text-muted); text-align:center; min-height:16px; }
 
 /* ── Sun ── */
-.astro-sun-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
-.astro-sun-item { background:var(--surface-hi); border-radius:8px; padding:10px 12px; }
-.astro-sun-label { font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.06em; }
-.astro-sun-val { font-size:18px; font-weight:700; color:var(--astro-gold); margin-top:3px; }
-.astro-arc-wrap { margin-top:12px; height:100px; position:relative; }
-.astro-arc-canvas { display:block; width:100%; height:100px; }
+.sun-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+.sun-item { background:var(--surface-hi); border-radius:7px; padding:9px 11px; }
+.sun-k { font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.06em; }
+.sun-v { font-size:17px; font-weight:700; margin-top:3px; }
+.sun-v.gold { color:var(--astro-gold); }
+.arc-wrap { margin-top:12px; height:100px; }
+.arc-canvas { display:block; width:100%; height:100px; }
 
 /* ── Moon ── */
-.moon-top-row { display:flex; gap:16px; align-items:center; margin-bottom:14px; }
+.moon-row { display:flex; gap:16px; align-items:center; margin-bottom:14px; }
 .moon-canvas { flex-shrink:0; border-radius:50%; }
-.astro-moon-info { flex:1; min-width:0; }
-.moon-phase-name { font-size:20px; font-weight:700; color:var(--text); }
-.moon-illum { font-size:14px; color:var(--astro-accent); margin-top:4px; }
-.moon-age  { font-size:13px; color:var(--text-muted); margin-top:3px; }
-.moon-next { font-size:13px; color:var(--text-muted); margin-top:3px; }
-.moon-cal-label { font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; }
-.moon-cal { display:grid; grid-template-columns:repeat(7,1fr); gap:3px; }
-.moon-cal-day { text-align:center; padding:4px 2px; border-radius:6px; font-size:10px; color:var(--text-muted); }
-.moon-cal-day .mc-emoji { font-size:16px; display:block; }
-.moon-cal-day .mc-num { font-size:9px; margin-top:1px; }
-.moon-cal-day.today { background:rgba(167,139,250,.15); border:1px solid rgba(167,139,250,.4); color:var(--text); }
-.moon-cal-day.other-month { opacity:.3; }
-.moon-cal-dow { text-align:center; font-size:9px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em; padding-bottom:3px; }
+.moon-info { flex:1; min-width:0; }
+.moon-pname  { font-size:20px; font-weight:700; color:var(--text); }
+.moon-illum  { font-size:14px; color:var(--astro-accent); margin-top:4px; }
+.moon-detail { font-size:12px; color:var(--text-muted); margin-top:3px; }
+.moon-cal-hdr { font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; }
+.moon-cal { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; }
+.mc-dow { text-align:center; font-size:9px; color:var(--text-muted); padding-bottom:2px; text-transform:uppercase; }
+.mc-day { text-align:center; padding:3px 1px; border-radius:5px; }
+.mc-day .mc-e { font-size:14px; display:block; }
+.mc-day .mc-n { font-size:9px; color:var(--text-muted); }
+.mc-day.today { background:rgba(167,139,250,.2); border:1px solid rgba(167,139,250,.4); }
+.mc-day.empty { opacity:.2; }
 
 /* ── Planets ── */
-.astro-planets-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:8px; }
+.planet-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:8px; }
 .planet-card { background:var(--surface-hi); border-radius:8px; padding:11px 12px; }
-.planet-name { font-size:14px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:6px; }
-.planet-badge { font-size:9px; border-radius:3px; padding:1px 5px; margin-left:auto; flex-shrink:0; }
-.planet-badge.vis { background:rgba(52,211,153,.15); color:#34d399; }
-.planet-badge.low { background:rgba(251,191,36,.15); color:#fbbf24; }
-.planet-badge.hid { background:rgba(255,255,255,.05); color:var(--text-muted); }
-.planet-alt { font-size:14px; color:var(--astro-accent); font-weight:600; margin-top:4px; }
+.planet-name { font-size:13px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
+.planet-badge { font-size:9px; border-radius:3px; padding:1px 5px; margin-left:auto; }
+.pb-vis { background:rgba(52,211,153,.15); color:#34d399; }
+.pb-low { background:rgba(251,191,36,.15); color:#fbbf24; }
+.pb-hid { background:rgba(255,255,255,.05); color:var(--text-muted); }
+.planet-alt  { font-size:13px; color:var(--astro-accent); font-weight:600; margin-top:4px; }
 .planet-dist { font-size:11px; color:var(--text-muted); margin-top:2px; }
-.planet-mag  { font-size:11px; color:var(--text-muted); margin-top:1px; }
 
-/* ── Sky Events ── */
-.astro-events-list { display:flex; flex-direction:column; gap:8px; }
-.astro-event-item { display:flex; align-items:flex-start; gap:10px; padding:10px 12px; background:var(--surface-hi); border-radius:8px; }
-.astro-event-icon { font-size:22px; flex-shrink:0; }
-.astro-event-body .title { font-size:14px; font-weight:600; color:var(--text); }
-.astro-event-body .desc  { font-size:12px; color:var(--text-muted); margin-top:2px; }
+/* ── Events ── */
+.events-list { display:flex; flex-direction:column; gap:8px; }
+.ev-item { display:flex; gap:10px; background:var(--surface-hi); border-radius:8px; padding:10px 12px; }
+.ev-icon { font-size:22px; flex-shrink:0; }
+.ev-title { font-size:13px; font-weight:600; color:var(--text); }
+.ev-desc  { font-size:12px; color:var(--text-muted); margin-top:2px; }

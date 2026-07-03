@@ -7,101 +7,121 @@
     </div>
   </div>
 
-  <!-- ── Solar System Map ── -->
+  <!-- 3D Solar System -->
   <div class="astro-card astro-ss-card">
-    <div class="astro-card-hdr">
-      <div class="astro-card-title">🌌 Solar System — Live Positions</div>
-      <div class="ss-zoom-row">
-        <button class="ss-zoom-btn on" id="ss-btn-outer" onclick="ssSetZoom('outer')">All Planets</button>
-        <button class="ss-zoom-btn" id="ss-btn-inner" onclick="ssSetZoom('inner')">Inner System</button>
+    <div class="ss3d-top">
+      <div class="astro-card-title" style="margin-bottom:0">🌌 Solar System — Live 3D</div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap">
+        <button class="ss3d-btn" onclick="ss3dToggleOrbits()">Orbits</button>
+        <button class="ss3d-btn" onclick="ss3dToggleLabels()">Labels</button>
+        <button class="ss3d-btn" onclick="ss3dReset()">⌂</button>
+        <select class="ss3d-sel" id="ss3d-speed" onchange="ss3dSetSpeed(this.value)" title="Simulation speed">
+          <option value="0">⏸ Pause</option>
+          <option value="1">×1 Day/s</option>
+          <option value="10" selected>×10 Day/s</option>
+          <option value="30">×30 Day/s</option>
+          <option value="100">×100 Day/s</option>
+        </select>
       </div>
     </div>
-    <canvas id="ss-canvas" class="ss-canvas"></canvas>
-    <div class="ss-footer">
-      <div class="ss-legend" id="ss-legend"></div>
-      <div class="ss-date" id="ss-date"></div>
+    <div class="ss3d-wrap" id="ss3d-wrap">
+      <canvas id="ss3d-canvas" class="ss3d-canvas"></canvas>
+      <div class="ss3d-labels" id="ss3d-labels"></div>
+      <div class="ss3d-loading" id="ss3d-loading"><span>Loading 3D engine…</span></div>
+      <div class="ss3d-hover" id="ss3d-hover" style="display:none">
+        <div class="ss3d-hover-name" id="ss3d-hover-name"></div>
+        <div class="ss3d-hover-detail" id="ss3d-hover-detail"></div>
+      </div>
     </div>
-    <div id="ss-tooltip" class="ss-tooltip" style="display:none"></div>
+    <div class="ss3d-legend">
+      <span class="ss3d-litem" style="color:#4fa3e0">● Earth</span>
+      <span class="ss3d-litem" style="color:#a78bfa">● ISS orbit</span>
+      <span class="ss3d-litem" style="color:#f59e0b">● CSS orbit</span>
+      <span class="ss3d-litem" style="color:#ff88cc">◆ Voyager 1</span>
+      <span class="ss3d-litem" style="color:#88ffcc">◆ Voyager 2</span>
+    </div>
+    <div class="ss3d-hint">Drag to rotate · Scroll to zoom · Hover to inspect</div>
   </div>
 
-  <!-- ── Space Stations ── -->
+  <!-- Space Stations -->
   <div class="astro-card">
-    <div class="astro-card-title">🛰️ Space Stations — Live Tracking</div>
-    <div class="stations-grid">
-      <div class="station-card" id="sc-iss">
-        <div class="station-name">🛰 ISS</div>
-        <div class="station-badge" id="iss-vis">—</div>
-        <div class="station-stats-grid">
-          <div class="ssg"><div class="ssg-k">Latitude</div><div class="ssg-v" id="iss-lat">—</div></div>
-          <div class="ssg"><div class="ssg-k">Longitude</div><div class="ssg-v" id="iss-lng">—</div></div>
-          <div class="ssg"><div class="ssg-k">Altitude</div><div class="ssg-v" id="iss-alt">—</div></div>
-          <div class="ssg"><div class="ssg-k">Speed</div><div class="ssg-v" id="iss-vel">—</div></div>
+    <div class="astro-card-title">🛰️ Space Stations</div>
+    <div class="st-grid">
+      <div class="st-card" id="st-iss">
+        <div class="st-header">
+          <span class="st-name">🛰 ISS</span>
+          <span class="st-badge" id="iss-vis">—</span>
+        </div>
+        <div class="st-stats">
+          <div class="st-stat"><div class="st-k">Latitude</div><div class="st-v" id="iss-lat">—</div></div>
+          <div class="st-stat"><div class="st-k">Longitude</div><div class="st-v" id="iss-lng">—</div></div>
+          <div class="st-stat"><div class="st-k">Altitude</div><div class="st-v" id="iss-alt">—</div></div>
+          <div class="st-stat"><div class="st-k">Speed</div><div class="st-v" id="iss-vel">—</div></div>
         </div>
       </div>
-      <div class="station-card" id="sc-css">
-        <div class="station-name">🏗 Tiangong (CSS)</div>
-        <div class="station-badge" id="css-vis">—</div>
-        <div class="station-stats-grid">
-          <div class="ssg"><div class="ssg-k">Latitude</div><div class="ssg-v" id="css-lat">—</div></div>
-          <div class="ssg"><div class="ssg-k">Longitude</div><div class="ssg-v" id="css-lng">—</div></div>
-          <div class="ssg"><div class="ssg-k">Altitude</div><div class="ssg-v" id="css-alt">—</div></div>
-          <div class="ssg"><div class="ssg-k">Speed</div><div class="ssg-v" id="css-vel">—</div></div>
+      <div class="st-card" id="st-css">
+        <div class="st-header">
+          <span class="st-name">🏗 Tiangong</span>
+          <span class="st-badge" id="css-vis">—</span>
+        </div>
+        <div class="st-stats">
+          <div class="st-stat"><div class="st-k">Latitude</div><div class="st-v" id="css-lat">—</div></div>
+          <div class="st-stat"><div class="st-k">Longitude</div><div class="st-v" id="css-lng">—</div></div>
+          <div class="st-stat"><div class="st-k">Altitude</div><div class="st-v" id="css-alt">—</div></div>
+          <div class="st-stat"><div class="st-k">Speed</div><div class="st-v" id="css-vel">—</div></div>
         </div>
       </div>
     </div>
-    <div class="station-map-wrap">
-      <canvas id="station-map" class="station-map-canvas"></canvas>
-      <div class="station-map-legend">
-        <span><span class="sml-dot" style="background:#a78bfa"></span>ISS</span>
-        <span><span class="sml-dot" style="background:#f59e0b"></span>Tiangong</span>
-        <span><span class="sml-dot" style="background:#34d399"></span>You</span>
+    <div class="st-map-wrap">
+      <canvas id="station-map" class="st-map-canvas"></canvas>
+      <div class="st-map-leg">
+        <span><span class="sml" style="background:#a78bfa"></span>ISS</span>
+        <span><span class="sml" style="background:#f59e0b"></span>Tiangong</span>
+        <span><span class="sml" style="background:#34d399"></span>You</span>
       </div>
     </div>
-    <div id="station-overhead" class="station-overhead"></div>
+    <div id="station-overhead" class="st-overhead"></div>
   </div>
 
-  <!-- ── Sun ── -->
+  <!-- Sun -->
   <div class="astro-card">
     <div class="astro-card-title">☀️ Sun</div>
-    <div class="astro-sun-grid">
-      <div class="astro-sun-item"><div class="astro-sun-label">Sunrise</div><div class="astro-sun-val" id="sun-rise">—</div></div>
-      <div class="astro-sun-item"><div class="astro-sun-label">Solar Noon</div><div class="astro-sun-val" id="sun-noon">—</div></div>
-      <div class="astro-sun-item"><div class="astro-sun-label">Sunset</div><div class="astro-sun-val" id="sun-set">—</div></div>
-      <div class="astro-sun-item"><div class="astro-sun-label">Day Length</div><div class="astro-sun-val" id="sun-len">—</div></div>
-      <div class="astro-sun-item"><div class="astro-sun-label">Civil Dawn</div><div class="astro-sun-val" id="sun-dawn">—</div></div>
-      <div class="astro-sun-item"><div class="astro-sun-label">Civil Dusk</div><div class="astro-sun-val" id="sun-dusk">—</div></div>
+    <div class="sun-grid">
+      <div class="sun-item"><div class="sun-k">Sunrise</div><div class="sun-v gold" id="sun-rise">—</div></div>
+      <div class="sun-item"><div class="sun-k">Solar Noon</div><div class="sun-v gold" id="sun-noon">—</div></div>
+      <div class="sun-item"><div class="sun-k">Sunset</div><div class="sun-v gold" id="sun-set">—</div></div>
+      <div class="sun-item"><div class="sun-k">Day Length</div><div class="sun-v gold" id="sun-len">—</div></div>
+      <div class="sun-item"><div class="sun-k">Civil Dawn</div><div class="sun-v gold" id="sun-dawn">—</div></div>
+      <div class="sun-item"><div class="sun-k">Civil Dusk</div><div class="sun-v gold" id="sun-dusk">—</div></div>
     </div>
-    <div class="astro-arc-wrap">
-      <canvas id="sun-arc" class="astro-arc-canvas"></canvas>
-    </div>
+    <div class="arc-wrap"><canvas id="sun-arc" class="arc-canvas"></canvas></div>
   </div>
 
-  <!-- ── Moon ── -->
+  <!-- Moon -->
   <div class="astro-card">
     <div class="astro-card-title">🌙 Moon</div>
-    <div class="moon-top-row">
+    <div class="moon-row">
       <canvas id="moon-canvas" class="moon-canvas" width="110" height="110"></canvas>
-      <div class="astro-moon-info">
-        <div class="moon-phase-name" id="moon-phase">—</div>
-        <div class="moon-illum" id="moon-illum">—% illuminated</div>
-        <div class="moon-age" id="moon-age">—</div>
-        <div class="moon-next" id="moon-next">—</div>
+      <div class="moon-info">
+        <div class="moon-pname" id="moon-phase">—</div>
+        <div class="moon-illum" id="moon-illum">—</div>
+        <div class="moon-detail" id="moon-age">—</div>
+        <div class="moon-detail" id="moon-next">—</div>
       </div>
     </div>
-    <!-- Monthly lunar calendar -->
-    <div class="moon-cal-label">This month</div>
+    <div class="moon-cal-hdr">Moon phases this month</div>
     <div class="moon-cal" id="moon-cal"></div>
   </div>
 
-  <!-- ── Planets Tonight ── -->
+  <!-- Planets -->
   <div class="astro-card">
     <div class="astro-card-title">🪐 Planets Tonight</div>
-    <div class="astro-planets-grid" id="planets-grid"></div>
+    <div class="planet-grid" id="planets-grid"></div>
   </div>
 
-  <!-- ── Sky Events ── -->
+  <!-- Events -->
   <div class="astro-card">
     <div class="astro-card-title">✨ Sky Events</div>
-    <div id="astro-events-list" class="astro-events-list"></div>
+    <div id="astro-events-list" class="events-list"></div>
   </div>
 </main>
