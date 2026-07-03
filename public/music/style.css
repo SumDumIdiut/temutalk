@@ -251,7 +251,7 @@ html.mobile #app-body {
   gap: 0;
 }
 
-/* Each panel fills full content area; JS toggles display */
+/* Each panel fills full content area; center+right hidden by default, JS shows active one */
 html.mobile #left-sidebar,
 html.mobile #center-panel,
 html.mobile #right-sidebar {
@@ -261,41 +261,41 @@ html.mobile #right-sidebar {
   min-height: 0;
   border-radius: var(--radius-sm);
 }
+html.mobile #center-panel  { display: none; }
+html.mobile #right-sidebar { display: none; }
 
-html.mobile #lib-tabs { overflow-x: auto; scrollbar-width: none; }
+html.mobile #sidebar-header { display: none; }
+html.mobile #lib-tabs { overflow-x: auto; scrollbar-width: none; padding-top: 4px; }
 html.mobile #lib-tabs::-webkit-scrollbar { display: none; }
 
 /* ── Compact player bar (Library / Browse tabs) ──────────────────────────── */
 html.mobile #player-bar {
-  height: 64px;
+  height: 54px;
   min-height: 0;
   flex-wrap: nowrap;
-  padding: 0 12px;
-  gap: 8px;
+  padding: 0 10px;
+  gap: 6px;
   margin: 0 6px 6px;
   border-radius: var(--radius-sm);
 }
 
-html.mobile #bar-art { width: 44px; height: 44px; }
+html.mobile #bar-art { width: 38px; height: 38px; border-radius: 8px; box-shadow: none; }
 
-html.mobile #bar-info {
-  flex: 1;
-  min-width: 0;
-  width: auto;
-}
+html.mobile #bar-info { flex: 1; min-width: 0; width: auto; }
 
-html.mobile #bar-center {
-  flex: 0 0 auto;
-  padding: 0;
-}
+html.mobile #bar-center { flex: 0 0 auto; padding: 0; }
 
 html.mobile #bar-btns { gap: 0; }
+html.mobile .fp-btn { width: 34px; height: 34px; }
+html.mobile .fp-btn-play { width: 32px; height: 32px; }
 
 /* Hide seek, volume, shuffle, repeat in compact mode */
 html.mobile #bar-prog   { display: none !important; }
 html.mobile #bar-vol    { display: none !important; }
 html.mobile #fp-shuffle { display: none !important; }
 html.mobile #fp-repeat  { display: none !important; }
+html.mobile #like-btn   { display: none !important; }
+html.mobile #browser-player-status { display: none; }
 
 /* ── Now Playing tab: full controls ─────────────────────────────────────── */
 html.mobile.mob-nowplaying #player-bar {
@@ -305,13 +305,20 @@ html.mobile.mob-nowplaying #player-bar {
   gap: 4px;
 }
 
-html.mobile.mob-nowplaying #bar-art  { width: 48px; height: 48px; }
-html.mobile.mob-nowplaying #bar-info { flex: 0 0 calc(100% - 56px); width: auto; }
+html.mobile.mob-nowplaying #bar-art  { width: 48px; height: 48px; border-radius: 10px; }
+html.mobile.mob-nowplaying #bar-info { flex: 0 0 calc(100% - 58px); width: auto; }
+html.mobile.mob-nowplaying #like-btn { display: flex !important; }
 
 html.mobile.mob-nowplaying #bar-center {
   flex: 0 0 100%;
   padding: 4px 0 0;
 }
+
+html.mobile.mob-nowplaying #bar-prog   { display: flex !important; }
+html.mobile.mob-nowplaying #fp-shuffle { display: flex !important; }
+html.mobile.mob-nowplaying #fp-repeat  { display: flex !important; }
+html.mobile.mob-nowplaying .fp-btn     { width: 40px; height: 40px; }
+html.mobile.mob-nowplaying .fp-btn-play { width: 38px; height: 38px; }
 
 html.mobile.mob-nowplaying #bar-btns  { justify-content: center; gap: 4px; }
 html.mobile.mob-nowplaying #bar-prog   { display: flex !important; }
