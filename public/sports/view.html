@@ -1,33 +1,17 @@
 <main class="page sports-page">
   <div class="sports-header">
-    <div style="font-size:22px;font-weight:600;color:var(--sports-accent)">Sports</div>
-    <div style="display:flex;align-items:center;gap:6px">
-      <span id="sports-last-update" style="font-size:12px;color:var(--text-muted)"></span>
-      <button class="sports-refresh-btn" onclick="sportsRefresh()" title="Refresh">↻</button>
+    <div class="sports-title">Sports</div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span id="sports-last-update" class="sports-updated"></span>
+      <button class="sports-refresh-btn" onclick="sportsRefresh()">↻</button>
     </div>
   </div>
 
-  <!-- League selector -->
-  <div class="sports-league-tabs" id="sports-league-tabs">
-    <button class="sports-ltab on" data-sport="soccer" data-league="eng.1" onclick="sportsSelect(this,'soccer','eng.1')">🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier League</button>
-    <button class="sports-ltab" data-sport="soccer" data-league="esp.1" onclick="sportsSelect(this,'soccer','esp.1')">🇪🇸 La Liga</button>
-    <button class="sports-ltab" data-sport="soccer" data-league="ger.1" onclick="sportsSelect(this,'soccer','ger.1')">🇩🇪 Bundesliga</button>
-    <button class="sports-ltab" data-sport="soccer" data-league="ita.1" onclick="sportsSelect(this,'soccer','ita.1')">🇮🇹 Serie A</button>
-    <button class="sports-ltab" data-sport="soccer" data-league="fra.1" onclick="sportsSelect(this,'soccer','fra.1')">🇫🇷 Ligue 1</button>
-    <button class="sports-ltab" data-sport="soccer" data-league="rsa.1" onclick="sportsSelect(this,'soccer','rsa.1')">🇿🇦 PSL</button>
-    <button class="sports-ltab" data-sport="soccer" data-league="uefa.champions" onclick="sportsSelect(this,'soccer','uefa.champions')">🏆 UCL</button>
-    <button class="sports-ltab" data-sport="basketball" data-league="nba" onclick="sportsSelect(this,'basketball','nba')">🏀 NBA</button>
-    <button class="sports-ltab" data-sport="american-football" data-league="nfl" onclick="sportsSelect(this,'american-football','nfl')">🏈 NFL</button>
-    <button class="sports-ltab" data-sport="baseball" data-league="mlb" onclick="sportsSelect(this,'baseball','mlb')">⚾ MLB</button>
-    <button class="sports-ltab" data-sport="hockey" data-league="nhl" onclick="sportsSelect(this,'hockey','nhl')">🏒 NHL</button>
-    <button class="sports-ltab" data-sport="tennis" data-league="atp" onclick="sportsSelect(this,'tennis','atp')">🎾 ATP</button>
-    <button class="sports-ltab" data-sport="rugby-union" data-league="urc" onclick="sportsSelect(this,'rugby-union','urc')">🏉 URC</button>
-    <button class="sports-ltab" data-sport="rugby-union" data-league="international" onclick="sportsSelect(this,'rugby-union','international')">🏉 Intl Rugby</button>
-    <button class="sports-ltab" data-sport="mma" data-league="ufc" onclick="sportsSelect(this,'mma','ufc')">🥊 UFC</button>
-    <button class="sports-ltab" data-sport="golf" data-league="pga" onclick="sportsSelect(this,'golf','pga')">⛳ PGA</button>
-    <button class="sports-ltab" data-sport="cricket" data-league="icc.t20worldcup" onclick="sportsSelect(this,'cricket','icc.t20worldcup')">🏏 Cricket</button>
-    <button class="sports-ltab" data-sport="soccer" data-league="global" onclick="sportsSelect(this,'soccer','global')">🌍 All Soccer</button>
-  </div>
+  <!-- Sport category tabs -->
+  <div class="sports-cats" id="sports-cats"></div>
+
+  <!-- League sub-chips (rendered by JS per sport) -->
+  <div class="sports-leagues" id="sports-leagues"></div>
 
   <div id="sports-scoreboard">
     <div class="sports-loading">Loading scores…</div>
