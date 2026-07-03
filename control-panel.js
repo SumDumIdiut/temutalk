@@ -349,6 +349,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <div class="split">
     <div class="split-l">
       <div class="split-hdr">Rooms</div>
+      <input class="pm-inp" id="room-search" placeholder="Search rooms…" oninput="renderRooms()" style="margin:0 8px 6px;width:calc(100% - 16px);box-sizing:border-box;">
       <div class="r-scroll" id="rooms-col"></div>
     </div>
     <div class="split-r">
@@ -406,14 +407,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           <div class="acc-name">Test User</div>
           <div class="acc-key">ID: test-user &mdash; send messages &amp; accept friend requests for testing</div>
         </div>
-      </div>
-      <div style="margin-top:10px;display:flex;gap:8px">
-        <select class="pm-inp" id="tu-room" style="flex:0 0 auto;width:auto;min-width:120px">
-          <option value="global">Global Chat</option>
-        </select>
-        <input class="pm-inp" id="tu-msg" placeholder="Message as Test User…" style="flex:1"
-          onkeydown="if(event.key==='Enter')testUserSend()">
-        <button class="abtn" onclick="testUserSend()">Send</button>
       </div>
       <div id="tu-reqs" style="margin-top:10px"></div>
       <div style="margin-top:8px">
@@ -481,8 +474,11 @@ function switchTab(name){
 function renderRooms(){
   var col=document.getElementById('rooms-col');
   if(!col) return;
+  var query=(document.getElementById('room-search')||{}).value||'';
+  query=query.toLowerCase().trim();
   var h='';
   spyRooms.forEach(function(r,id){
+    if(query&&!(r.name||id).toLowerCase().includes(query)) return;
     var msgs=spyMsgs.get(id)||[];
     var last=msgs[msgs.length-1];
     var badge=unread.get(id)||0;
