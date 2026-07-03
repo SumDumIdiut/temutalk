@@ -9,12 +9,29 @@ let _cryptoDetRange = '30';
 let _cryptoDetPrice = 0;
 
 // ── Stock state ───────────────────────────────────────────────────────────────
+const _DEFAULT_WL = [
+  {sym:'AAPL',   name:'Apple'},
+  {sym:'MSFT',   name:'Microsoft'},
+  {sym:'NVDA',   name:'Nvidia'},
+  {sym:'GOOGL',  name:'Alphabet'},
+  {sym:'AMZN',   name:'Amazon'},
+  {sym:'META',   name:'Meta'},
+  {sym:'TSLA',   name:'Tesla'},
+  {sym:'JPM',    name:'JPMorgan Chase'},
+  {sym:'V',      name:'Visa'},
+  {sym:'^GSPC',  name:'S&P 500'},
+  {sym:'^DJI',   name:'Dow Jones'},
+  {sym:'^IXIC',  name:'Nasdaq'},
+];
 let stockWatchlist = (() => {
   try {
     const raw = JSON.parse(localStorage.getItem('stockWatchlist') || '[]');
-    if (!raw.length) return [{sym:'AAPL',name:'Apple'},{sym:'MSFT',name:'Microsoft'},{sym:'^GSPC',name:'S&P 500'}];
-    return raw.map(s => typeof s === 'string' ? {sym:s,name:''} : s).filter(s => s?.sym);
-  } catch { return []; }
+    const norm = raw.map(s => typeof s === 'string' ? {sym:s,name:''} : s).filter(s => s?.sym);
+    // Upgrade the old 3-item default to the new expanded default
+    const syms = norm.map(s=>s.sym).sort().join(',');
+    if (!norm.length || syms === 'AAPL,MSFT,^GSPC' || syms === 'AAPL,MSFT,TSLA,^GSPC') return _DEFAULT_WL;
+    return norm;
+  } catch { return _DEFAULT_WL; }
 })();
 let _stockDetSym      = null;
 let _stockDetRange    = '1mo';
