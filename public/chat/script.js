@@ -315,7 +315,7 @@ function chatSend() {
   const text = (inp?.value || '').trim();
   if (!text || !wsReady) return;
   ws.send(JSON.stringify({ type: 'chat:msg', room: chatRoom, text }));
-  if (inp) { inp.value = ''; inp.style.height = 'auto'; }
+  if (inp) { inp.value = ''; inp.style.height = 'auto'; inp.focus(); }
 }
 window.chatSend = chatSend;
 
