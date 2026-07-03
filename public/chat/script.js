@@ -279,18 +279,29 @@ function chatRenderMessages() {
     const own = m.from === deviceId;
     const showName = m.from !== lastFrom;
     lastFrom = m.from;
-    const clickData = own ? null : { uid: m.from, name: m.fromName, av: m.avatarUrl || '' };
-    const nameClass = own ? 'chat-msg-name' : 'chat-msg-name clickable';
-    const nameExtra = own ? '' : ` data-uid="${esc(m.from)}" data-name="${esc(m.fromName)}" data-av="${esc(m.avatarUrl||'')}" onclick="chatAvatarClick(event,this)"`;
 
-    html += `<div class="chat-msg${own ? ' own' : ''}">
-      ${avatarHtml(m.fromName, m.avatarUrl, 32, clickData)}
-      <div class="chat-msg-body">
-        ${showName ? `<div class="${nameClass}"${nameExtra}>${esc(m.fromName)}</div>` : ''}
-        <div class="chat-msg-bubble">${esc(m.text)}</div>
-        <div class="chat-msg-time">${esc(timeStr)}</div>
-      </div>
-    </div>`;
+    if (own) {
+      html += `<div class="chat-msg own">
+        <div class="chat-msg-body">
+          ${showName ? `<div class="chat-msg-name">${esc(m.fromName)}</div>` : ''}
+          <div class="chat-msg-own-row">
+            <div class="chat-msg-bubble">${esc(m.text)}</div>
+            ${avatarHtml(m.fromName, m.avatarUrl, 32, null)}
+          </div>
+          <div class="chat-msg-time">${esc(timeStr)}</div>
+        </div>
+      </div>`;
+    } else {
+      const clickData = { uid: m.from, name: m.fromName, av: m.avatarUrl || '' };
+      html += `<div class="chat-msg">
+        ${avatarHtml(m.fromName, m.avatarUrl, 32, clickData)}
+        <div class="chat-msg-body">
+          ${showName ? `<div class="chat-msg-name clickable" data-uid="${esc(m.from)}" data-name="${esc(m.fromName)}" data-av="${esc(m.avatarUrl||'')}" onclick="chatAvatarClick(event,this)">${esc(m.fromName)}</div>` : ''}
+          <div class="chat-msg-bubble">${esc(m.text)}</div>
+          <div class="chat-msg-time">${esc(timeStr)}</div>
+        </div>
+      </div>`;
+    }
   }
   container.innerHTML = html;
 

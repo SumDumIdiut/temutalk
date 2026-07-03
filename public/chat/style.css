@@ -477,7 +477,7 @@
   align-items: flex-start;
   padding: 2px 0;
 }
-.chat-msg.own { flex-direction: row-reverse; }
+.chat-msg.own { justify-content: flex-end; }
 
 .chat-avatar {
   width: 32px;
@@ -503,7 +503,12 @@
   flex-direction: column;
   gap: 2px;
 }
-.chat-msg.own .chat-msg-body { align-items: flex-end; }
+.chat-msg.own .chat-msg-body { align-items: flex-end; max-width: calc(100% - 41px); }
+.chat-msg-own-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
 .chat-msg-name {
   font-size: .7rem;
   color: var(--text-muted, #8b93a3);
