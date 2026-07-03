@@ -1878,6 +1878,28 @@ app.patch('/api/admin/chat-account', (req, res) => {
   res.json({ ok: true, name: acc.name, avatarUrl: acc.avatarUrl });
 });
 
+app.post('/api/chat/upload-avatar', express.json({ limit: '3mb' }), (req, res) => {
+  const deviceId = req.query.device;
+  if (!deviceId) return res.status(400).json({ error: 'Missing device' });
+
+  const { dataUrl } = req.body || {};
+  const match = typeof dataUrl === 'string' && dataUrl.match(/^data:(image\/(jpeg|png|gif|webp));base64,(.+)$/);
+  if (!match) return res.status(400).json({ error: 'Invalid image data' });
+
+  const ext = match[2] === 'jpeg' ? 'jpg' : match[2];
+  const buf = Buffer.from(match[3], 'base64');
+  if (buf.length > 2 * 1024 * 1024) return res.status(413).json({ error: 'Image too large (max 2MB)' });
+
+  const avatarDir = path.join(__dirname, 'public', 'avatars');
+  if (!fs.existsSync(avatarDir)) fs.mkdirSync(avatarDir, { recursive: true });
+
+  const filename = deviceId.replace(/[^a-z0-9]/gi, '').slice(0, 64) + '.' + ext;
+  fs.writeFile(path.join(avatarDir, filename), buf, err => {
+    if (err) return res.status(500).json({ error: 'Save failed' });
+    res.json({ url: '/avatars/' + filename });
+  });
+});
+
 app.get('/api/chat/groups', (req, res) => {
   res.json({
     groups: [...chatGroups.values()].map(g => ({
