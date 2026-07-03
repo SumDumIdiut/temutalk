@@ -80,7 +80,14 @@ function _initBrowserPlayer() {
     browserPlayerReady = true;
     browserPlayer._deviceId = device_id;
     _setBrowserPlayerStatus('ready ✓ ' + device_id.slice(0,8));
-    api('/api/transfer', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ device_id, play: false }) }).catch(() => {});
+    const wasPaused = localStorage.getItem('tt_was_paused') === '1';
+    localStorage.removeItem('tt_was_paused');
+    api('/api/transfer', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ device_id, play: false }) })
+      .then(() => { if (wasPaused) setTimeout(() => browserPlayer.pause().catch(() => {}), 800); })
+      .catch(() => {});
+  });
+  window.addEventListener('beforeunload', () => {
+    localStorage.setItem('tt_was_paused', playing ? '0' : '1');
   });
   browserPlayer.addListener('not_ready', ({ device_id }) => { browserPlayerReady = false; _setBrowserPlayerStatus('not ready'); });
   browserPlayer.addListener('initialization_error', ({ message }) => _setBrowserPlayerStatus('init error: ' + message));
