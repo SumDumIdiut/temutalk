@@ -3,74 +3,105 @@
     <div style="font-size:22px;font-weight:600;color:var(--astro-accent)">Astronomy</div>
     <div style="display:flex;align-items:center;gap:8px">
       <span id="astro-location" class="astro-loc-chip">Locating…</span>
-      <button class="astro-refresh-btn" onclick="astroRefresh()" title="Refresh">↻</button>
+      <button class="astro-refresh-btn" onclick="astroRefresh()">↻</button>
     </div>
   </div>
 
-  <!-- Sun -->
-  <div class="astro-card" id="astro-sun">
+  <!-- ── Solar System Map ── -->
+  <div class="astro-card astro-ss-card">
+    <div class="astro-card-hdr">
+      <div class="astro-card-title">🌌 Solar System — Live Positions</div>
+      <div class="ss-zoom-row">
+        <button class="ss-zoom-btn on" id="ss-btn-outer" onclick="ssSetZoom('outer')">All Planets</button>
+        <button class="ss-zoom-btn" id="ss-btn-inner" onclick="ssSetZoom('inner')">Inner System</button>
+      </div>
+    </div>
+    <canvas id="ss-canvas" class="ss-canvas"></canvas>
+    <div class="ss-footer">
+      <div class="ss-legend" id="ss-legend"></div>
+      <div class="ss-date" id="ss-date"></div>
+    </div>
+    <div id="ss-tooltip" class="ss-tooltip" style="display:none"></div>
+  </div>
+
+  <!-- ── Space Stations ── -->
+  <div class="astro-card">
+    <div class="astro-card-title">🛰️ Space Stations — Live Tracking</div>
+    <div class="stations-grid">
+      <div class="station-card" id="sc-iss">
+        <div class="station-name">🛰 ISS</div>
+        <div class="station-badge" id="iss-vis">—</div>
+        <div class="station-stats-grid">
+          <div class="ssg"><div class="ssg-k">Latitude</div><div class="ssg-v" id="iss-lat">—</div></div>
+          <div class="ssg"><div class="ssg-k">Longitude</div><div class="ssg-v" id="iss-lng">—</div></div>
+          <div class="ssg"><div class="ssg-k">Altitude</div><div class="ssg-v" id="iss-alt">—</div></div>
+          <div class="ssg"><div class="ssg-k">Speed</div><div class="ssg-v" id="iss-vel">—</div></div>
+        </div>
+      </div>
+      <div class="station-card" id="sc-css">
+        <div class="station-name">🏗 Tiangong (CSS)</div>
+        <div class="station-badge" id="css-vis">—</div>
+        <div class="station-stats-grid">
+          <div class="ssg"><div class="ssg-k">Latitude</div><div class="ssg-v" id="css-lat">—</div></div>
+          <div class="ssg"><div class="ssg-k">Longitude</div><div class="ssg-v" id="css-lng">—</div></div>
+          <div class="ssg"><div class="ssg-k">Altitude</div><div class="ssg-v" id="css-alt">—</div></div>
+          <div class="ssg"><div class="ssg-k">Speed</div><div class="ssg-v" id="css-vel">—</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="station-map-wrap">
+      <canvas id="station-map" class="station-map-canvas"></canvas>
+      <div class="station-map-legend">
+        <span><span class="sml-dot" style="background:#a78bfa"></span>ISS</span>
+        <span><span class="sml-dot" style="background:#f59e0b"></span>Tiangong</span>
+        <span><span class="sml-dot" style="background:#34d399"></span>You</span>
+      </div>
+    </div>
+    <div id="station-overhead" class="station-overhead"></div>
+  </div>
+
+  <!-- ── Sun ── -->
+  <div class="astro-card">
     <div class="astro-card-title">☀️ Sun</div>
     <div class="astro-sun-grid">
       <div class="astro-sun-item"><div class="astro-sun-label">Sunrise</div><div class="astro-sun-val" id="sun-rise">—</div></div>
       <div class="astro-sun-item"><div class="astro-sun-label">Solar Noon</div><div class="astro-sun-val" id="sun-noon">—</div></div>
       <div class="astro-sun-item"><div class="astro-sun-label">Sunset</div><div class="astro-sun-val" id="sun-set">—</div></div>
       <div class="astro-sun-item"><div class="astro-sun-label">Day Length</div><div class="astro-sun-val" id="sun-len">—</div></div>
-      <div class="astro-sun-item"><div class="astro-sun-label">Dawn</div><div class="astro-sun-val" id="sun-dawn">—</div></div>
-      <div class="astro-sun-item"><div class="astro-sun-label">Dusk</div><div class="astro-sun-val" id="sun-dusk">—</div></div>
+      <div class="astro-sun-item"><div class="astro-sun-label">Civil Dawn</div><div class="astro-sun-val" id="sun-dawn">—</div></div>
+      <div class="astro-sun-item"><div class="astro-sun-label">Civil Dusk</div><div class="astro-sun-val" id="sun-dusk">—</div></div>
     </div>
-    <!-- Day arc -->
     <div class="astro-arc-wrap">
-      <canvas id="sun-arc" class="astro-arc-canvas" height="90"></canvas>
-      <div class="astro-arc-now" id="sun-arc-now">Now</div>
+      <canvas id="sun-arc" class="astro-arc-canvas"></canvas>
     </div>
   </div>
 
-  <!-- Moon -->
-  <div class="astro-card" id="astro-moon">
+  <!-- ── Moon ── -->
+  <div class="astro-card">
     <div class="astro-card-title">🌙 Moon</div>
-    <div class="astro-moon-row">
-      <div class="moon-emoji-wrap">
-        <div class="moon-emoji" id="moon-emoji">🌕</div>
-        <canvas id="moon-canvas" class="moon-canvas" width="100" height="100"></canvas>
-      </div>
+    <div class="moon-top-row">
+      <canvas id="moon-canvas" class="moon-canvas" width="110" height="110"></canvas>
       <div class="astro-moon-info">
         <div class="moon-phase-name" id="moon-phase">—</div>
         <div class="moon-illum" id="moon-illum">—% illuminated</div>
-        <div class="moon-age"   id="moon-age">—</div>
-        <div class="moon-rise-set" id="moon-rise-set">—</div>
+        <div class="moon-age" id="moon-age">—</div>
+        <div class="moon-next" id="moon-next">—</div>
       </div>
     </div>
+    <!-- Monthly lunar calendar -->
+    <div class="moon-cal-label">This month</div>
+    <div class="moon-cal" id="moon-cal"></div>
   </div>
 
-  <!-- ISS -->
-  <div class="astro-card" id="astro-iss">
-    <div class="astro-card-title">🛰️ ISS — Now</div>
-    <div class="astro-iss-row">
-      <div class="astro-iss-stat"><div class="astro-iss-label">Latitude</div><div class="astro-iss-val" id="iss-lat">—</div></div>
-      <div class="astro-iss-stat"><div class="astro-iss-label">Longitude</div><div class="astro-iss-val" id="iss-lng">—</div></div>
-      <div class="astro-iss-stat"><div class="astro-iss-label">Altitude</div><div class="astro-iss-val">~408 km</div></div>
-      <div class="astro-iss-stat"><div class="astro-iss-label">Speed</div><div class="astro-iss-val">~27,600 km/h</div></div>
-    </div>
-    <div class="astro-iss-mini-map" id="iss-map-wrap">
-      <canvas id="iss-map" class="iss-map-canvas" height="120"></canvas>
-      <div class="iss-dot" id="iss-dot" style="display:none">🛰</div>
-    </div>
-    <div class="astro-iss-note" id="iss-overhead">Checking visibility from your location…</div>
-  </div>
-
-  <!-- Planets -->
-  <div class="astro-card" id="astro-planets">
+  <!-- ── Planets Tonight ── -->
+  <div class="astro-card">
     <div class="astro-card-title">🪐 Planets Tonight</div>
-    <div class="astro-planets-grid" id="planets-grid">
-      <div style="color:var(--text-muted);font-size:13px;padding:12px 0">Calculating…</div>
-    </div>
+    <div class="astro-planets-grid" id="planets-grid"></div>
   </div>
 
-  <!-- Constellations / Events -->
-  <div class="astro-card" id="astro-events">
+  <!-- ── Sky Events ── -->
+  <div class="astro-card">
     <div class="astro-card-title">✨ Sky Events</div>
-    <div id="astro-events-list" class="astro-events-list">
-      <div style="color:var(--text-muted);font-size:13px;padding:12px 0">Loading events…</div>
-    </div>
+    <div id="astro-events-list" class="astro-events-list"></div>
   </div>
 </main>
