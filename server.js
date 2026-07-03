@@ -1532,7 +1532,7 @@ wss.on('connection', (ws, req) => {
       if (url) chatAvatars.set(wsDeviceId, url);
       else chatAvatars.delete(wsDeviceId);
       chatSave();
-      ws.send(JSON.stringify({ type: 'chat:avatar-set', avatarUrl: chatGetAvatarUrl(wsDeviceId) }));
+      ws.send(JSON.stringify({ type: 'chat:avatar-set', avatarUrl: chatGetAvatarUrl(wsDeviceId), customUrl: chatAvatars.get(wsDeviceId) || null }));
       return;
     }
 
@@ -1836,6 +1836,7 @@ app.get('/api/chat/me', (req, res) => {
   res.json({
     name: chatGetName(deviceId),
     avatarUrl: chatGetAvatarUrl(deviceId),
+    customAvatarUrl: chatAvatars.get(deviceId) || null,
     provider: authenticated ? 'spotify' : null,
     authenticated,
     deviceId,
@@ -1872,7 +1873,7 @@ app.patch('/api/admin/chat-account', (req, res) => {
     profile.name = acc.name;
     profile.avatarUrl = acc.avatarUrl;
     chatNames.set(deviceId, acc.name);
-    broadcastToDevice(deviceId, { type: 'chat:profile', name: acc.name, avatarUrl: acc.avatarUrl, provider: profile.provider });
+    broadcastToDevice(deviceId, { type: 'chat:profile', name: acc.name, avatarUrl: acc.avatarUrl, customAvatarUrl: chatAvatars.get(deviceId) || null, provider: profile.provider });
   }
   chatSave();
   res.json({ ok: true, name: acc.name, avatarUrl: acc.avatarUrl });

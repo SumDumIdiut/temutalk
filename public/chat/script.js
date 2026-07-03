@@ -5,9 +5,11 @@
 // ── State ─────────────────────────────────────────────────────────────────────
 let _chatReady     = false;
 let chatRoom       = 'global';
-let chatMyName     = '';
-let chatMyAvatar   = null;
-let chatMyProvider = null;
+let chatMyName         = '';
+let chatMyAvatar       = null;
+let chatMyCustomAvatar = null;
+let chatMyProvider     = null;
+let _avUploading       = false;
 const chatGroupMap   = {};   // id → { id, name }
 const chatRoomUnread = {};   // room → count
 const chatRoomMsgs   = {};   // room → [msg, ...]
@@ -54,9 +56,10 @@ function chatInit() {
   // Check Spotify link; show overlay if not linked
   fetch('/api/chat/me?device=' + deviceId).then(r => r.json()).then(profile => {
     if (profile.authenticated) {
-      chatMyName     = profile.name;
-      chatMyAvatar   = profile.avatarUrl;
-      chatMyProvider = 'spotify';
+      chatMyName         = profile.name;
+      chatMyAvatar       = profile.avatarUrl;
+      chatMyCustomAvatar = profile.customAvatarUrl || null;
+      chatMyProvider     = 'spotify';
       chatHideLogin();
       chatUpdateAccountRow();
       chatJoinRoom('global');
@@ -471,15 +474,16 @@ function chatOpenSettings() {
         <div class="chat-settings-hint">Overrides your Spotify name in chat</div>
         <div class="chat-settings-actions">
           <button class="chat-card-btn" onclick="chatCloseSettings()">Cancel</button>
-          <button class="chat-card-btn chat-card-btn-primary" onclick="chatSaveSettings()">Save</button>
+          <button class="chat-card-btn chat-card-btn-primary" id="chat-settings-save-btn" onclick="chatSaveSettings()">Save</button>
         </div>
       </div>`;
     document.body.appendChild(overlay);
   }
+  _avUploading = false;
   const nameInp = chatEl('chat-settings-name');
   const avInp   = chatEl('chat-settings-avatar');
   if (nameInp) nameInp.value = chatMyName || '';
-  if (avInp)   avInp.value  = '';
+  if (avInp)   avInp.value  = chatMyCustomAvatar || '';
   chatPreviewAvatar();
   overlay.style.display = 'flex';
   setTimeout(() => nameInp && nameInp.focus(), 50);
@@ -505,16 +509,23 @@ function chatPreviewAvatar() {
 }
 window.chatPreviewAvatar = chatPreviewAvatar;
 
+function chatSetAvUploadState(busy) {
+  _avUploading = busy;
+  const btn = chatEl('chat-settings-save-btn');
+  if (!btn) return;
+  btn.disabled = busy;
+  btn.textContent = busy ? 'Uploading…' : 'Save';
+}
+
 function chatHandleAvatarFile(input) {
   const file = input.files && input.files[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = e => {
     const dataUrl = e.target.result;
-    // Show preview immediately from the local data URL
     const preview = chatEl('chat-settings-av-preview');
     if (preview) preview.innerHTML = `<img src="${esc(dataUrl)}" alt="">`;
-    // Upload to server, then set the permanent URL in the input
+    chatSetAvUploadState(true);
     fetch('/api/chat/upload-avatar?device=' + deviceId, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -524,7 +535,8 @@ function chatHandleAvatarFile(input) {
         const avInp = chatEl('chat-settings-avatar');
         if (avInp) avInp.value = d.url;
       }
-    }).catch(() => {});
+      chatSetAvUploadState(false);
+    }).catch(() => { chatSetAvUploadState(false); });
   };
   reader.readAsDataURL(file);
   input.value = '';
@@ -532,12 +544,16 @@ function chatHandleAvatarFile(input) {
 window.chatHandleAvatarFile = chatHandleAvatarFile;
 
 function chatSaveSettings() {
+  if (_avUploading) return;
   const nameInp = chatEl('chat-settings-name');
   const avInp   = chatEl('chat-settings-avatar');
   const name    = (nameInp ? nameInp.value : '').trim();
   const avUrl   = (avInp   ? avInp.value   : '').trim();
   if (name && wsReady) try { ws.send(JSON.stringify({ type: 'chat:set-name', name })); } catch {}
-  if (wsReady) try { ws.send(JSON.stringify({ type: 'chat:set-avatar', url: avUrl })); } catch {}
+  // Only send if avatar actually changed from what's currently saved
+  if (avUrl !== (chatMyCustomAvatar || '') && wsReady) {
+    try { ws.send(JSON.stringify({ type: 'chat:set-avatar', url: avUrl })); } catch {}
+  }
   chatCloseSettings();
 }
 window.chatSaveSettings = chatSaveSettings;
@@ -631,9 +647,10 @@ window.chatOnMessage = function (m) {
     return;
   }
   if (m.type === 'chat:profile') {
-    chatMyName     = m.name;
-    chatMyAvatar   = m.avatarUrl;
-    chatMyProvider = m.provider;
+    chatMyName         = m.name;
+    chatMyAvatar       = m.avatarUrl;
+    chatMyCustomAvatar = m.customAvatarUrl || null;
+    chatMyProvider     = m.provider;
     chatHideLogin();
     chatUpdateAccountRow();
     if (!chatRoomMsgs['global']) chatJoinRoom('global');
@@ -645,7 +662,8 @@ window.chatOnMessage = function (m) {
     return;
   }
   if (m.type === 'chat:avatar-set') {
-    chatMyAvatar = m.avatarUrl;
+    chatMyAvatar       = m.avatarUrl;
+    chatMyCustomAvatar = m.customUrl || null;
     chatUpdateAccountRow();
     return;
   }
