@@ -169,8 +169,8 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '4mb' }));
+app.use(express.urlencoded({ extended: true, limit: '4mb' }));
 
 // ─── Control panel proxy (/panel → localhost:PORT+1) ─────────────────────────
 app.use('/panel', (req, res) => {
