@@ -31,65 +31,64 @@
     </div>
   </div>
 
-  <div id="view-overlay">
-    <div id="view-all-playlists" style="display:none;">
-      <div class="det-back-bar"><button class="det-back-btn" onclick="goBack()"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>Back</button></div>
-      <div class="det-section-lbl">Your Playlists</div>
-      <div id="val-playlists"></div>
-    </div>
-    <div id="view-playlist" style="display:none;">
-      <div class="det-back-bar"><button class="det-back-btn" onclick="goBack()"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>Back</button></div>
-      <div class="det-hero">
-        <img id="vpl-art" class="det-art" src="" alt="">
-        <div class="det-meta">
-          <div class="det-name" id="vpl-name">--</div>
-          <div class="det-sub" id="vpl-sub">--</div>
-          <div class="det-actions">
-            <button class="det-play-btn" onclick="playContext(vplUri)"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
-            <button class="det-shuf-btn" onclick="shuffleContext(vplUri)"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg></button>
-          </div>
-        </div>
-      </div>
-      <div class="det-divider"></div>
-      <div id="vpl-tracks"></div>
-    </div>
-    <div id="view-artist" style="display:none;">
-      <div class="det-back-bar"><button class="det-back-btn" onclick="goBack()"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>Back</button></div>
-      <div class="det-hero">
-        <img id="var-art" class="det-art round" src="" alt="">
-        <div class="det-meta">
-          <div class="det-name" id="var-name">--</div>
-          <div class="det-sub" id="var-sub">--</div>
-          <div class="det-actions">
-            <button class="det-play-btn" onclick="playContext(varUri)"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
-          </div>
-        </div>
-      </div>
-      <div class="det-divider"></div>
-      <div class="det-section-lbl">Top Tracks</div>
-      <div id="var-tracks"></div>
-      <div class="det-section-lbl">Albums</div>
-      <div class="det-alb-grid" id="var-albums"></div>
-    </div>
-    <div id="view-album" style="display:none;">
-      <div class="det-back-bar"><button class="det-back-btn" onclick="goBack()"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>Back</button></div>
-      <div class="det-hero">
-        <img id="valb-art" class="det-art" src="" alt="">
-        <div class="det-meta">
-          <div class="det-name" id="valb-name">--</div>
-          <div class="det-sub" id="valb-sub">--</div>
-          <div class="det-actions">
-            <button class="det-play-btn" onclick="playContext(valbUri)"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
-            <button class="det-shuf-btn" onclick="shuffleContext(valbUri)"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg></button>
-          </div>
-        </div>
-      </div>
-      <div class="det-divider"></div>
-      <div id="valb-tracks"></div>
-    </div>
-  </div>
-
   <div id="music-app">
+    <div id="view-overlay">
+      <div id="view-all-playlists" style="display:none;">
+        <div class="det-back-bar"><button class="det-back-btn" onclick="goBack()"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>Back</button></div>
+        <div class="det-section-lbl">Your Playlists</div>
+        <div id="val-playlists"></div>
+      </div>
+      <div id="view-playlist" style="display:none;">
+        <div class="det-back-bar"><button class="det-back-btn" onclick="goBack()"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>Back</button></div>
+        <div class="det-hero">
+          <img id="vpl-art" class="det-art" src="" alt="">
+          <div class="det-meta">
+            <div class="det-name" id="vpl-name">--</div>
+            <div class="det-sub" id="vpl-sub">--</div>
+            <div class="det-actions">
+              <button class="det-play-btn" onclick="playContext(vplUri)"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
+              <button class="det-shuf-btn" onclick="shuffleContext(vplUri)"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg></button>
+            </div>
+          </div>
+        </div>
+        <div class="det-divider"></div>
+        <div id="vpl-tracks"></div>
+      </div>
+      <div id="view-artist" style="display:none;">
+        <div class="det-back-bar"><button class="det-back-btn" onclick="goBack()"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>Back</button></div>
+        <div class="det-hero">
+          <img id="var-art" class="det-art round" src="" alt="">
+          <div class="det-meta">
+            <div class="det-name" id="var-name">--</div>
+            <div class="det-sub" id="var-sub">--</div>
+            <div class="det-actions">
+              <button class="det-play-btn" onclick="playContext(varUri)"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
+            </div>
+          </div>
+        </div>
+        <div class="det-divider"></div>
+        <div class="det-section-lbl">Top Tracks</div>
+        <div id="var-tracks"></div>
+        <div class="det-section-lbl">Albums</div>
+        <div class="det-alb-grid" id="var-albums"></div>
+      </div>
+      <div id="view-album" style="display:none;">
+        <div class="det-back-bar"><button class="det-back-btn" onclick="goBack()"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>Back</button></div>
+        <div class="det-hero">
+          <img id="valb-art" class="det-art" src="" alt="">
+          <div class="det-meta">
+            <div class="det-name" id="valb-name">--</div>
+            <div class="det-sub" id="valb-sub">--</div>
+            <div class="det-actions">
+              <button class="det-play-btn" onclick="playContext(valbUri)"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
+              <button class="det-shuf-btn" onclick="shuffleContext(valbUri)"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg></button>
+            </div>
+          </div>
+        </div>
+        <div class="det-divider"></div>
+        <div id="valb-tracks"></div>
+      </div>
+    </div>
     <div id="mob-music-tabs">
       <button class="mob-music-tab active" id="mmt-library"    onclick="setMobileTab('library')">Library</button>
       <button class="mob-music-tab"        id="mmt-browse"     onclick="setMobileTab('browse')">Browse</button>
