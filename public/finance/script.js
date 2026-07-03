@@ -239,7 +239,7 @@ function drawSparkline(canvas, values, up) {
 
 function _rangeHtml(btnClass, ranges, onclickFn, active) {
   return ranges.map(([val,lbl]) =>
-    `<button class="cr-btn${val===active?' on':''}" onclick="${onclickFn}('${val}')">${lbl}</button>`
+    `<button class="cr-btn${String(val)===String(active)?' on':''}" onclick="${onclickFn}('${val}')">${lbl}</button>`
   ).join('');
 }
 
@@ -396,14 +396,25 @@ function cryptoChartRange(days) {
 }
 
 async function _loadCryptoChart(id, days) {
+  const canvas = document.getElementById('crypto-chart');
+  const daysNum = days === 'max' ? Infinity : (parseInt(days) || 30);
+  if (canvas) {
+    const dpr = window.devicePixelRatio || 1;
+    const W = canvas.offsetWidth || 320, H = canvas.offsetHeight || 190;
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    const ctx = canvas.getContext('2d'); ctx.scale(dpr, dpr);
+    ctx.fillStyle = 'rgba(255,255,255,.15)'; ctx.font = '13px system-ui'; ctx.textAlign = 'center';
+    ctx.fillText('Loading…', W / 2, H / 2);
+  }
   try {
     const r = await fetch(`/api/crypto/history?id=${encodeURIComponent(id)}&days=${days}&device=${deviceId}`);
     const d = await r.json();
-    const prices = (d.prices || []).map(([,p]) => p);
-    const times  = (d.prices || []).map(([t]) => {
+    if (!d.prices?.length) throw new Error('no data');
+    const prices = d.prices.map(([,p]) => p);
+    const times  = d.prices.map(([t]) => {
       const dt = new Date(t);
-      if (days === 1 || days === '1') return dt.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-      if (days <= 30) return dt.toLocaleDateString([],{month:'short',day:'numeric'});
+      if (daysNum <= 1)  return dt.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+      if (daysNum <= 90) return dt.toLocaleDateString([],{month:'short',day:'numeric'});
       return dt.toLocaleDateString([],{month:'short',year:'2-digit'});
     });
     const first = prices.find(v=>v!=null), last = [...prices].reverse().find(v=>v!=null);
@@ -413,7 +424,16 @@ async function _loadCryptoChart(id, days) {
       initChartHover(document.getElementById('crypto-ov'));
     });
     setLastUpdate();
-  } catch {}
+  } catch(e) {
+    if (canvas) {
+      const dpr = window.devicePixelRatio || 1;
+      const W = canvas.offsetWidth || 320, H = canvas.offsetHeight || 190;
+      canvas.width = W * dpr; canvas.height = H * dpr;
+      const ctx = canvas.getContext('2d'); ctx.scale(dpr, dpr);
+      ctx.fillStyle = 'rgba(255,255,255,.2)'; ctx.font = '13px system-ui'; ctx.textAlign = 'center';
+      ctx.fillText('Chart data unavailable', W / 2, H / 2);
+    }
+  }
 }
 
 function cryptoConvert(dir) {
@@ -777,9 +797,18 @@ function ratesChartRange(days) {
 }
 
 async function _loadRatesChart(pair, days) {
+  const canvas = document.getElementById('rates-chart');
+  if (canvas) {
+    const dpr = window.devicePixelRatio || 1;
+    const W = canvas.offsetWidth || 320, H = canvas.offsetHeight || 190;
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    const ctx = canvas.getContext('2d'); ctx.scale(dpr, dpr);
+    ctx.fillStyle = 'rgba(255,255,255,.15)'; ctx.font = '13px system-ui'; ctx.textAlign = 'center';
+    ctx.fillText('Loading…', W / 2, H / 2);
+  }
   try {
     const r = await fetch('/api/rates/history?base='+_ratesBase+'&to='+pair+'&days='+days+'&device='+deviceId);
-    const d = await r.json(); if (!d?.rates) return;
+    const d = await r.json(); if (!d?.rates) throw new Error('no data');
     const dates = Object.keys(d.rates).sort();
     const vals  = dates.map(dt => d.rates[dt]?.[pair]);
     const labels = dates.map(dt => {
@@ -792,7 +821,16 @@ async function _loadRatesChart(pair, days) {
       initChartHover(document.getElementById('rates-ov'));
     });
     setLastUpdate();
-  } catch {}
+  } catch {
+    if (canvas) {
+      const dpr = window.devicePixelRatio || 1;
+      const W = canvas.offsetWidth || 320, H = canvas.offsetHeight || 190;
+      canvas.width = W * dpr; canvas.height = H * dpr;
+      const ctx = canvas.getContext('2d'); ctx.scale(dpr, dpr);
+      ctx.fillStyle = 'rgba(255,255,255,.2)'; ctx.font = '13px system-ui'; ctx.textAlign = 'center';
+      ctx.fillText('Chart data unavailable', W / 2, H / 2);
+    }
+  }
 }
 
 function ratesConvert(dir) {
