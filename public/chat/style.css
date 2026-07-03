@@ -205,6 +205,41 @@
   margin-top: 4px;
   opacity: .7;
 }
+.chat-settings-av-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 4px;
+}
+.chat-settings-av-preview {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: rgba(255,255,255,.08);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  border: 2px solid rgba(255,255,255,.1);
+}
+.chat-settings-av-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.chat-settings-av-init {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+}
 /* New DM user list */
 .chat-new-dm-user {
   display: flex;
