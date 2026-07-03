@@ -369,10 +369,12 @@ async function navigate(tab) {
   if (tab === 'radio') initRadioMap();
   if (tab === 'news' && !newsLoaded) loadNews();
   if (tab === 'chat') ensureTab('chat').then(() => { if (typeof chatInit === 'function') chatInit(); });
-  // Update URL
-  const u = new URL(location.href);
-  tab === 'home' ? u.searchParams.delete('tab') : u.searchParams.set('tab', tab);
-  history.replaceState(null, '', u);
+  // Keep URL clean so hard refresh always lands on home
+  if (location.search.includes('tab=')) {
+    const u = new URL(location.href);
+    u.searchParams.delete('tab');
+    history.replaceState(null, '', u);
+  }
 }
 
 // Deep-link navigation deferred — see bottom of page (avoids TDZ for let vars used inside navigate)
@@ -977,7 +979,6 @@ const _qs      = new URLSearchParams(location.search);
 const _initTab = _qs.get('tab');
 const _oauthErr = _qs.get('error');
 
-if (['music','timer','finance','system','radio','weather','news','chat'].includes(_initTab)) navigate(_initTab);
 
 // Pre-warm music view in background so it's ready when user taps
 ensureTab('music').then(() => {
