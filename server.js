@@ -1189,6 +1189,7 @@ const spotifyUserCache = new Map();   // deviceId → { displayName, email, prod
 const chatGhostTokens  = new Map();   // token → expiresAt ms
 const chatGhostDevices = new Set();   // deviceIds in stealth mode
 const chatNames        = new Map();   // deviceId → display name override
+const chatAvatars      = new Map();   // deviceId → custom avatar URL override
 const chatProfiles     = new Map();   // deviceId → { name, avatarUrl, provider, providerId }
 const chatGlobal       = { messages: [] };
 const chatGroups       = new Map();   // id → { id, name, passwordHash, messages[], members: Set }
@@ -1211,6 +1212,7 @@ function chatSave() {
       accounts: Object.fromEntries(chatAccounts),
       profiles: Object.fromEntries(chatProfiles),
       names:    Object.fromEntries(chatNames),
+      avatars:  Object.fromEntries(chatAvatars),
       groups:   [...chatGroups.values()].map(g => ({
         id: g.id, name: g.name, passwordHash: g.passwordHash,
         messages: g.messages.slice(-CHAT_MSG_LIMIT),
@@ -1234,6 +1236,7 @@ function chatSaveSync() {
     accounts: Object.fromEntries(chatAccounts),
     profiles: Object.fromEntries(chatProfiles),
     names:    Object.fromEntries(chatNames),
+    avatars:  Object.fromEntries(chatAvatars),
     groups:   [...chatGroups.values()].map(g => ({
       id: g.id, name: g.name, passwordHash: g.passwordHash,
       messages: g.messages.slice(-CHAT_MSG_LIMIT),
@@ -1257,6 +1260,7 @@ process.on('SIGTERM', () => { chatSaveSync(); process.exit(0); });
     for (const [k, v] of Object.entries(data.accounts || {})) chatAccounts.set(k, v);
     for (const [k, v] of Object.entries(data.profiles || {})) chatProfiles.set(k, v);
     for (const [k, v] of Object.entries(data.names    || {})) chatNames.set(k, v);
+    for (const [k, v] of Object.entries(data.avatars  || {})) chatAvatars.set(k, v);
     for (const g of (data.groups || [])) {
       chatGroups.set(g.id, { ...g, members: new Set(g.members || []), messages: g.messages || [] });
     }
@@ -1299,7 +1303,7 @@ function chatGetName(id) {
 function chatGetAvatarUrl(id) {
   if (id === PANEL_BOT_ID) return null;
   if (id === TEST_USER_ID) return null;
-  return spotifyUserCache.get(id)?.avatarUrl || chatProfiles.get(id)?.avatarUrl || null;
+  return chatAvatars.get(id) || spotifyUserCache.get(id)?.avatarUrl || chatProfiles.get(id)?.avatarUrl || null;
 }
 
 function chatDMKey(a, b) { return 'dm:' + [a, b].sort().join(':'); }
@@ -1520,6 +1524,15 @@ wss.on('connection', (ws, req) => {
       const name = String(msg.name || '').trim().slice(0, 32);
       if (name) { chatNames.set(wsDeviceId, name); chatSave(); }
       ws.send(JSON.stringify({ type: 'chat:name-set', name: chatGetName(wsDeviceId) }));
+      return;
+    }
+
+    if (msg.type === 'chat:set-avatar' && wsDeviceId) {
+      const url = String(msg.url || '').trim().slice(0, 500);
+      if (url) chatAvatars.set(wsDeviceId, url);
+      else chatAvatars.delete(wsDeviceId);
+      chatSave();
+      ws.send(JSON.stringify({ type: 'chat:avatar-set', avatarUrl: chatGetAvatarUrl(wsDeviceId) }));
       return;
     }
 

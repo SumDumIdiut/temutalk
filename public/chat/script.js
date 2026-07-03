@@ -454,7 +454,15 @@ function chatOpenSettings() {
       <div class="chat-settings-backdrop" onclick="chatCloseSettings()"></div>
       <div class="chat-settings-box">
         <div class="chat-settings-title">Account Settings</div>
-        <label class="chat-settings-label">Display name</label>
+        <div class="chat-settings-av-row">
+          <div class="chat-settings-av-preview" id="chat-settings-av-preview"></div>
+          <div style="flex:1;min-width:0">
+            <label class="chat-settings-label">Avatar URL</label>
+            <input class="chat-settings-input" id="chat-settings-avatar" type="url" maxlength="500" placeholder="https://…" oninput="chatPreviewAvatar()">
+            <div class="chat-settings-hint">Paste any image URL · leave blank to use Spotify photo</div>
+          </div>
+        </div>
+        <label class="chat-settings-label" style="margin-top:14px">Display name</label>
         <input class="chat-settings-input" id="chat-settings-name" type="text" maxlength="32" placeholder="Your display name…">
         <div class="chat-settings-hint">Overrides your Spotify name in chat</div>
         <div class="chat-settings-actions">
@@ -464,10 +472,13 @@ function chatOpenSettings() {
       </div>`;
     document.body.appendChild(overlay);
   }
-  const inp = chatEl('chat-settings-name');
-  if (inp) inp.value = chatMyName || '';
+  const nameInp = chatEl('chat-settings-name');
+  const avInp   = chatEl('chat-settings-avatar');
+  if (nameInp) nameInp.value = chatMyName || '';
+  if (avInp)   avInp.value  = '';
+  chatPreviewAvatar();
   overlay.style.display = 'flex';
-  setTimeout(() => inp && inp.focus(), 50);
+  setTimeout(() => nameInp && nameInp.focus(), 50);
 }
 window.chatOpenSettings = chatOpenSettings;
 
@@ -477,11 +488,26 @@ function chatCloseSettings() {
 }
 window.chatCloseSettings = chatCloseSettings;
 
+function chatPreviewAvatar() {
+  const preview = chatEl('chat-settings-av-preview');
+  const inp     = chatEl('chat-settings-avatar');
+  if (!preview) return;
+  const url = (inp ? inp.value : '').trim() || chatMyAvatar;
+  if (url) {
+    preview.innerHTML = `<img src="${esc(url)}" alt="" onerror="this.style.display='none';this.nextSibling.style.display='flex'"><div class="chat-settings-av-init" style="display:none">${esc((chatMyName||'?').slice(0,2).toUpperCase())}</div>`;
+  } else {
+    preview.innerHTML = `<div class="chat-settings-av-init">${esc((chatMyName||'?').slice(0,2).toUpperCase())}</div>`;
+  }
+}
+window.chatPreviewAvatar = chatPreviewAvatar;
+
 function chatSaveSettings() {
-  const inp = chatEl('chat-settings-name');
-  const name = (inp ? inp.value : '').trim();
-  if (!name) return;
-  if (wsReady) try { ws.send(JSON.stringify({ type: 'chat:set-name', name })); } catch {}
+  const nameInp = chatEl('chat-settings-name');
+  const avInp   = chatEl('chat-settings-avatar');
+  const name    = (nameInp ? nameInp.value : '').trim();
+  const avUrl   = (avInp   ? avInp.value   : '').trim();
+  if (name && wsReady) try { ws.send(JSON.stringify({ type: 'chat:set-name', name })); } catch {}
+  if (wsReady) try { ws.send(JSON.stringify({ type: 'chat:set-avatar', url: avUrl })); } catch {}
   chatCloseSettings();
 }
 window.chatSaveSettings = chatSaveSettings;
@@ -585,6 +611,11 @@ window.chatOnMessage = function (m) {
   }
   if (m.type === 'chat:name-set') {
     chatMyName = m.name;
+    chatUpdateAccountRow();
+    return;
+  }
+  if (m.type === 'chat:avatar-set') {
+    chatMyAvatar = m.avatarUrl;
     chatUpdateAccountRow();
     return;
   }
