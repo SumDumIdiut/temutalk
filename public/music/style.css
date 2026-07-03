@@ -128,17 +128,17 @@
     .det-back-bar  { padding: 10px 10px 0; }
     .det-back-btn  { background: none; border: none; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 500; font-family: inherit; padding: 6px 8px; border-radius: 8px; -webkit-tap-highlight-color: transparent; transition: color .15s, background .15s; }
     .det-back-btn:hover { color: var(--text); background: rgba(255,255,255,.06); }
-    .det-hero      { padding: 22px 20px 18px; display: flex; align-items: center; gap: 22px; }
-    .det-art       { width: 180px; height: 180px; flex-shrink: 0; border-radius: var(--radius-sm); object-fit: cover; background: rgba(255,255,255,.06); box-shadow: 0 10px 40px rgba(0,0,0,.7); display: block; }
+    .det-hero      { padding: 28px 20px 20px; display: flex; flex-direction: column; align-items: center; gap: 0; text-align: center; }
+    .det-art       { width: min(60%, 260px); aspect-ratio: 1; flex-shrink: 0; border-radius: var(--radius); object-fit: cover; background: rgba(255,255,255,.06); box-shadow: 0 16px 60px rgba(0,0,0,.75); display: block; margin-bottom: 20px; }
     .det-art.round { border-radius: 50%; }
-    .det-meta      { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-    .det-name      { font-size: 26px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .det-meta      { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .det-name      { font-size: 28px; font-weight: 800; color: var(--text); }
     .det-sub       { font-size: 14px; color: var(--text-muted); }
-    .det-actions   { display: flex; align-items: center; gap: 12px; margin-top: 16px; }
-    .det-play-btn  { width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(135deg, #7c6cf8, var(--primary)); border: none; color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: transform .1s, filter .15s; flex-shrink: 0; box-shadow: 0 4px 20px var(--primary-glow); }
+    .det-actions   { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 20px; }
+    .det-play-btn  { width: 58px; height: 58px; border-radius: 50%; background: linear-gradient(135deg, #7c6cf8, var(--primary)); border: none; color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: transform .1s, filter .15s; flex-shrink: 0; box-shadow: 0 6px 24px var(--primary-glow); }
     .det-play-btn:hover  { filter: brightness(1.1); }
     .det-play-btn:active { transform: scale(.93); }
-    .det-shuf-btn  { background: none; border: none; color: var(--text-muted); cursor: pointer; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; border-radius: 50%; -webkit-tap-highlight-color: transparent; transition: color .15s, background .15s; }
+    .det-shuf-btn  { background: none; border: none; color: var(--text-muted); cursor: pointer; width: 46px; height: 46px; display: flex; align-items: center; justify-content: center; border-radius: 50%; -webkit-tap-highlight-color: transparent; transition: color .15s, background .15s; }
     .det-shuf-btn:hover { color: var(--text); background: rgba(255,255,255,.06); }
     .det-divider   { height: 1px; background: rgba(255,255,255,.06); margin: 4px 18px 6px; }
     .det-track     { display: flex; align-items: center; gap: 12px; padding: 9px 18px; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background .1s; border-radius: 8px; }
