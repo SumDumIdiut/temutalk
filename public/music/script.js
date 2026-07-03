@@ -115,6 +115,12 @@ function onPlayer(data) {
   document.getElementById('fp-ctx').textContent    = album;
   document.getElementById('np-track').textContent  = name;
   document.getElementById('np-artist').textContent = artists;
+  const npEmpty = document.getElementById('np-empty');
+  const npDetails = document.getElementById('np-details');
+  const npDivider = document.getElementById('np-divider');
+  if (npEmpty)   npEmpty.style.display = 'none';
+  if (npDetails) npDetails.classList.remove('np-empty');
+  if (npDivider) npDivider.style.display = '';
   // Home now-playing card
   document.getElementById('home-np-track').textContent  = name;
   document.getElementById('home-np-artist').textContent = artists;

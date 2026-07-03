@@ -135,11 +135,15 @@
           <div id="fp-ctx" style="margin-top:2px;"></div>
         </div>
         <img id="fp-art" src="" alt="" crossorigin="anonymous" onload="onArtLoad(this)">
-        <div id="np-details">
+        <div id="np-empty" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:24px;text-align:center;color:var(--text-muted);">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor" style="opacity:.25"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+          <div style="font-size:12px;opacity:.5;">Nothing playing</div>
+        </div>
+        <div id="np-details" class="np-empty">
           <div id="np-track">--</div>
           <div id="np-artist">--</div>
         </div>
-        <div class="det-divider"></div>
+        <div id="np-divider" class="det-divider" style="display:none;"></div>
         <div id="np-artist-section"></div>
       </div>
 
