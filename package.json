@@ -12,9 +12,9 @@
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "express-session": "^1.17.3",
-    "ws": "^8.14.2",
+    "node-pty": "^1.1.0",
     "selfsigned": "^2.4.1",
-    "node-pty": "^1.0.0"
+    "ws": "^8.14.2"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
