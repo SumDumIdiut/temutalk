@@ -210,8 +210,12 @@ function _renderSS() {
     });
   }
 
-  // ── Collect planets + voyagers, sort back-to-front ──────────────────────
+  // ── Collect sun + planets + voyagers, sort back-to-front ────────────────
   const objs = [];
+
+  // Sun goes in the sort too — so inner planets can appear in front of it
+  const sunPt0 = _proj(0, 0, 0);
+  if (sunPt0) objs.push({ type:'sun', pt:sunPt0 });
 
   SS_PLANETS.forEach(p => {
     const [px,py,pz] = _planetXYZ(p, T);
@@ -226,16 +230,33 @@ function _renderSS() {
   });
   objs.sort((a,b) => b.pt.z - a.pt.z);
 
-  // ── Draw planets ─────────────────────────────────────────────────────────
+  // ── Draw all objects ──────────────────────────────────────────────────────
   objs.forEach(obj => {
     const { pt } = obj;
     const { sx, sy, sc } = pt;
 
-    if (obj.type === 'planet') {
+    if (obj.type === 'sun') {
+      // Small, tight sun so inner planets are visible around it
+      const r = Math.max(4, Math.min(9, 3.5*sc));
+      const gg = ctx.createRadialGradient(sx, sy, 0, sx, sy, r*2.2);
+      gg.addColorStop(0,'rgba(255,220,0,.45)'); gg.addColorStop(.5,'rgba(255,130,0,.06)'); gg.addColorStop(1,'rgba(255,80,0,0)');
+      ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(sx, sy, r*2.2, 0, Math.PI*2); ctx.fill();
+      const ds = ctx.createRadialGradient(sx-r*.3, sy-r*.3, 0, sx, sy, r);
+      ds.addColorStop(0,'#fffbe0'); ds.addColorStop(.5,'#ffd700'); ds.addColorStop(1,'#ff8800');
+      ctx.shadowColor='#ffd700'; ctx.shadowBlur=14;
+      ctx.fillStyle=ds; ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2); ctx.fill();
+      ctx.shadowBlur=0;
+      if (_ssShowLabels) {
+        ctx.font='10px system-ui'; ctx.textAlign='center'; ctx.textBaseline='bottom';
+        ctx.fillStyle='rgba(255,255,255,.4)'; ctx.fillText('Sun',sx,sy-r-4);
+      }
+      _ssPickObjs.push({ name:'Sun', au:'0 AU', sx, sy, sr:r+8 });
+
+    } else if (obj.type === 'planet') {
       const { p } = obj;
       const r = Math.max(2.5, p.sz*7*sc);
 
-      // Saturn rings (behind planet)
+      // Saturn rings (behind planet sphere)
       if (p.ring) {
         const rr = p.sz*19*sc, rw = Math.max(.8, p.sz*5*sc);
         const yF = Math.abs(Math.sin(_cam.phi));
@@ -255,7 +276,7 @@ function _renderSS() {
       // Planet sphere
       const sg = ctx.createRadialGradient(sx-r*.3, sy-r*.35, 0, sx, sy, r);
       sg.addColorStop(0, _hexShift(p.col, 70)); sg.addColorStop(1, _hexShift(p.col, -50));
-      ctx.shadowColor = p.col; ctx.shadowBlur = r*1.8;
+      ctx.shadowColor = p.col; ctx.shadowBlur = r*1.6;
       ctx.fillStyle = sg; ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI*2); ctx.fill();
       ctx.shadowBlur = 0;
 
@@ -269,13 +290,11 @@ function _renderSS() {
     } else if (obj.type === 'voyager') {
       const { v } = obj;
       const r = Math.max(2, 2.5*sc);
-      // Glowing diamond
       ctx.shadowColor = v.col; ctx.shadowBlur = 12;
       ctx.fillStyle = v.col;
       ctx.beginPath();
       ctx.moveTo(sx, sy-r*2.2); ctx.lineTo(sx+r*1.3, sy); ctx.lineTo(sx, sy+r*2.2); ctx.lineTo(sx-r*1.3, sy);
       ctx.closePath(); ctx.fill(); ctx.shadowBlur = 0;
-
       if (_ssShowLabels) {
         ctx.font = '9px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
         ctx.fillStyle = v.col; ctx.fillText(v.n, sx, sy-r*2.5-3);
@@ -283,25 +302,6 @@ function _renderSS() {
       _ssPickObjs.push({ name:v.n, au:v.au+' AU — interstellar', sx, sy, sr:r*3+8 });
     }
   });
-
-  // ── Sun (always drawn last / on top) ─────────────────────────────────────
-  const sunPt = _proj(0, 0, 0);
-  if (sunPt) {
-    const { sx, sy, sc } = sunPt, r = Math.max(6, Math.min(20, 5*sc));
-    const gg = ctx.createRadialGradient(sx, sy, 0, sx, sy, r*3.5);
-    gg.addColorStop(0,'rgba(255,220,0,.5)'); gg.addColorStop(.3,'rgba(255,150,0,.12)'); gg.addColorStop(1,'rgba(255,80,0,0)');
-    ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(sx, sy, r*3.5, 0, Math.PI*2); ctx.fill();
-    const ds = ctx.createRadialGradient(sx-r*.35, sy-r*.35, 0, sx, sy, r);
-    ds.addColorStop(0,'#fffbe0'); ds.addColorStop(.55,'#ffd700'); ds.addColorStop(1,'#ff7700');
-    ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 28;
-    ctx.fillStyle = ds; ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI*2); ctx.fill();
-    ctx.shadowBlur = 0;
-    if (_ssShowLabels) {
-      ctx.font = '10px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-      ctx.fillStyle = 'rgba(255,255,255,.4)'; ctx.fillText('Sun', sx, sy-r-4);
-    }
-    _ssPickObjs.push({ name:'Sun', au:'0 AU', sx, sy, sr:r+10 });
-  }
 }
 
 function _initSSControls(canvas) {
