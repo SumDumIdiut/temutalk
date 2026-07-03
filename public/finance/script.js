@@ -356,7 +356,7 @@ function cryptoOpen(id) {
       </div>
     </div>
     <div class="fin-section-lbl">Price History</div>
-    <div class="cr-row">${_rangeHtml('',[[1,'1D'],[7,'7D'],[30,'1M'],[90,'3M'],[365,'1Y'],['max','ALL']],'cryptoChartRange',_cryptoDetRange)}</div>
+    <div class="cr-row">${_rangeHtml('',[[1,'1D'],[7,'7D'],[30,'1M'],[90,'3M'],[365,'1Y'],[1825,'5Y']],'cryptoChartRange',_cryptoDetRange)}</div>
     ${_chartWrap('crypto')}
     <div class="fin-section-lbl">Converter</div>
     <div class="fin-conv-box">
@@ -389,27 +389,33 @@ function cryptoClose() {
 
 function cryptoChartRange(days) {
   _cryptoDetRange = String(days);
-  document.querySelectorAll('#crypto-det .cr-btn').forEach(b => {
-    b.classList.toggle('on', b.textContent === ({'1':'1D','7':'7D','30':'1M','90':'3M','365':'1Y','max':'ALL'}[String(days)]));
-  });
+  const lbl = {'1':'1D','7':'7D','30':'1M','90':'3M','365':'1Y','1825':'5Y'}[String(days)];
+  document.querySelectorAll('#crypto-det .cr-btn').forEach(b => b.classList.toggle('on', b.textContent === lbl));
   if (_cryptoDetId) _loadCryptoChart(_cryptoDetId, days);
+}
+
+function _canvasMsg(canvas, msg) {
+  if (!canvas) return;
+  _cs = null;
+  const ov = document.getElementById('crypto-ov') || document.getElementById('stock-ov') || document.getElementById('rates-ov');
+  if (ov) { ov.onmousemove = null; ov.onmouseleave = null; const c = ov.getContext('2d'); if (c) c.clearRect(0,0,ov.width,ov.height); }
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.offsetWidth || 320, H = canvas.offsetHeight || 190;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  const ctx = canvas.getContext('2d'); ctx.scale(dpr, dpr);
+  ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.font = '13px system-ui'; ctx.textAlign = 'center';
+  ctx.fillText(msg, W / 2, H / 2);
 }
 
 async function _loadCryptoChart(id, days) {
   const canvas = document.getElementById('crypto-chart');
-  const daysNum = days === 'max' ? Infinity : (parseInt(days) || 30);
-  if (canvas) {
-    const dpr = window.devicePixelRatio || 1;
-    const W = canvas.offsetWidth || 320, H = canvas.offsetHeight || 190;
-    canvas.width = W * dpr; canvas.height = H * dpr;
-    const ctx = canvas.getContext('2d'); ctx.scale(dpr, dpr);
-    ctx.fillStyle = 'rgba(255,255,255,.15)'; ctx.font = '13px system-ui'; ctx.textAlign = 'center';
-    ctx.fillText('Loading…', W / 2, H / 2);
-  }
+  const daysNum = parseInt(days) || 30;
+  _canvasMsg(canvas, 'Loading…');
   try {
     const r = await fetch(`/api/crypto/history?id=${encodeURIComponent(id)}&days=${days}&device=${deviceId}`);
     const d = await r.json();
-    if (!d.prices?.length) throw new Error('no data');
+    if (d.error) throw new Error(d.error);
+    if (!d.prices?.length) throw new Error('No price data');
     const prices = d.prices.map(([,p]) => p);
     const times  = d.prices.map(([t]) => {
       const dt = new Date(t);
@@ -425,14 +431,7 @@ async function _loadCryptoChart(id, days) {
     });
     setLastUpdate();
   } catch(e) {
-    if (canvas) {
-      const dpr = window.devicePixelRatio || 1;
-      const W = canvas.offsetWidth || 320, H = canvas.offsetHeight || 190;
-      canvas.width = W * dpr; canvas.height = H * dpr;
-      const ctx = canvas.getContext('2d'); ctx.scale(dpr, dpr);
-      ctx.fillStyle = 'rgba(255,255,255,.2)'; ctx.font = '13px system-ui'; ctx.textAlign = 'center';
-      ctx.fillText('Chart data unavailable', W / 2, H / 2);
-    }
+    _canvasMsg(canvas, 'Unavailable — ' + (e.message||'try again'));
   }
 }
 
@@ -564,7 +563,6 @@ function stockOpen(sym, name) {
     <div class="fin-section-lbl">Converter</div>
     <div class="fin-conv-box">
       <div class="fin-conv-row">
-        <span class="fin-conv-pfx" id="sd-conv-sym">$</span>
         <input class="fin-conv-inp" id="sd-conv-amt" type="number" value="1000" min="0" step="any" oninput="stockConvert('usd')">
         <span class="fin-conv-lbl" id="sd-conv-curr">USD</span>
       </div>
@@ -618,8 +616,7 @@ async function _loadStockDetail(sym, range) {
       chEl.textContent = (up?'▲':'▼')+' '+_fmtCurr(abs,cur)+' ('+Math.abs(chg).toFixed(2)+'%)';
       chEl.className = 'fin-det-chg '+(up?'up':'down');
     }
-    const symEl = document.getElementById('sd-conv-sym'), curEl = document.getElementById('sd-conv-curr');
-    if (symEl) symEl.textContent = cur==='USD'?'$':(cur==='GBp'?'GBp ':cur+' ');
+    const curEl = document.getElementById('sd-conv-curr');
     if (curEl) curEl.textContent = cur;
     stockConvert('usd');
 
