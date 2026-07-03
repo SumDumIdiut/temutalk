@@ -81,7 +81,7 @@ function _planetXYZ(p, T) {
 // ══════════════════════════════════════════════════════════════════════════════
 // PURE CANVAS 2D 3D SOLAR SYSTEM (no CDN dependencies)
 // ══════════════════════════════════════════════════════════════════════════════
-let _cam = { theta:-0.5, phi:0.85, r:72 };
+let _cam = { theta:-0.5, phi:0.82, r:90 };
 let _ssSimDays = 0, _ssSimSpeed = 10, _ssLastMs = 0, _ssRaf = null;
 let _ssShowOrbits = true, _ssShowLabels = true;
 let _ssPickObjs = [];
@@ -96,7 +96,7 @@ function _proj(x, y, z) {
   const y2=y*cp-z1*sp, z2=y*sp+z1*cp;
   const depth=z2+_cam.r;
   if (depth<0.5) return null;
-  const sc=(_ssW*0.72)/depth;
+  const sc=(_ssW*0.40)/depth;
   return { sx:_ssW/2+x1*sc, sy:_ssH/2-y2*sc, z:z2, sc };
 }
 
@@ -173,7 +173,7 @@ function _renderSS() {
   // ── Orbit rings (always behind) ──────────────────────────────────────────
   if (_ssShowOrbits) {
     SS_PLANETS.forEach(p => {
-      ctx.beginPath(); ctx.strokeStyle = 'rgba(255,255,255,.065)'; ctx.lineWidth = .8;
+      ctx.beginPath(); ctx.strokeStyle = 'rgba(255,255,255,.09)'; ctx.lineWidth = .8;
       let first = true;
       for (let i=0; i<=80; i++) {
         const a=i/80*Math.PI*2, d=_auTo3D(p.a);
@@ -233,7 +233,7 @@ function _renderSS() {
 
     if (obj.type === 'planet') {
       const { p } = obj;
-      const r = Math.max(1.5, p.sz*9*sc);
+      const r = Math.max(2.5, p.sz*7*sc);
 
       // Saturn rings (behind planet)
       if (p.ring) {
@@ -287,10 +287,10 @@ function _renderSS() {
   // ── Sun (always drawn last / on top) ─────────────────────────────────────
   const sunPt = _proj(0, 0, 0);
   if (sunPt) {
-    const { sx, sy, sc } = sunPt, r = Math.max(9, 14*sc);
-    const gg = ctx.createRadialGradient(sx, sy, 0, sx, sy, r*5);
-    gg.addColorStop(0,'rgba(255,220,0,.55)'); gg.addColorStop(.25,'rgba(255,150,0,.15)'); gg.addColorStop(1,'rgba(255,80,0,0)');
-    ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(sx, sy, r*5, 0, Math.PI*2); ctx.fill();
+    const { sx, sy, sc } = sunPt, r = Math.max(6, Math.min(20, 5*sc));
+    const gg = ctx.createRadialGradient(sx, sy, 0, sx, sy, r*3.5);
+    gg.addColorStop(0,'rgba(255,220,0,.5)'); gg.addColorStop(.3,'rgba(255,150,0,.12)'); gg.addColorStop(1,'rgba(255,80,0,0)');
+    ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(sx, sy, r*3.5, 0, Math.PI*2); ctx.fill();
     const ds = ctx.createRadialGradient(sx-r*.35, sy-r*.35, 0, sx, sy, r);
     ds.addColorStop(0,'#fffbe0'); ds.addColorStop(.55,'#ffd700'); ds.addColorStop(1,'#ff7700');
     ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 28;
@@ -348,7 +348,7 @@ function _initSSControls(canvas) {
 
 function ss3dToggleOrbits() { _ssShowOrbits = !_ssShowOrbits; }
 function ss3dToggleLabels() { _ssShowLabels = !_ssShowLabels; }
-function ss3dReset() { _cam.theta=-0.5; _cam.phi=0.85; _cam.r=72; }
+function ss3dReset() { _cam.theta=-0.5; _cam.phi=0.82; _cam.r=90; }
 function ss3dSetSpeed(v) { _ssSimSpeed = parseFloat(v)||0; }
 
 // ══════════════════════════════════════════════════════════════════════════════
