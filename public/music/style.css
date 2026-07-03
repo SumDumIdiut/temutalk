@@ -4,7 +4,7 @@
 
     /* ── Music app shell ────────────────────────────────────────────────────── */
     #auth-screen  { position: absolute; inset: 0; z-index: 2; display: none; }
-    #view-overlay { position: absolute; top: 8px; left: 8px; right: 8px; bottom: 98px; z-index: 3; display: none; overflow-y: auto; background: var(--bg); border: 1px solid rgba(255,255,255,.10); border-radius: var(--radius); scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.1) transparent; }
+    #view-overlay { position: absolute; top: 8px; left: 8px; right: 8px; bottom: 98px; z-index: 10; display: none; overflow-y: auto; background: var(--bg); border: 1px solid rgba(255,255,255,.10); border-radius: var(--radius); scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.1) transparent; }
     #music-app    { position: absolute; inset: 0; z-index: 1; display: none; flex-direction: column; }
     #music-app.ma-show { display: flex; }
 
@@ -330,6 +330,6 @@ html.mobile.mob-nowplaying #bar-prog   { display: flex !important; }
 html.mobile.mob-nowplaying #fp-shuffle { display: flex !important; }
 html.mobile.mob-nowplaying #fp-repeat  { display: flex !important; }
 
-html.mobile #view-overlay { top: 0; left: 0; right: 0; bottom: 80px; border-radius: 0; border: none; }
+html.mobile #view-overlay { top: 0; left: 0; right: 0; bottom: 58px; border-radius: 0; border: none; }
 
 html.mobile #browser-player-status { font-size: 9px; }
