@@ -185,13 +185,6 @@
     .snip-markets.mkt-down .home-snip-name { color: var(--red); }
     .snip-markets.mkt-up   .home-snip-name { color: var(--green); }
 
-    /* ── Mobile home ─────────────────────────────────────────────────────────── */
-    html.mobile #view-home .page { padding: 0 12px; }
-    html.mobile .home-topbar { padding: 10px 4px 0; }
-    html.mobile .home-time { font-size: clamp(60px, 18vw, 100px); letter-spacing: -4px; }
-    html.mobile .home-grid { grid-template-columns: 1fr; overflow-y: auto; }
-    html.mobile .home-widgets { flex-direction: column; padding: 12px 0 16px; }
-    html.mobile .home-mini-wx { min-width: 0; }
 
     /* ── Weather dynamic gradients ──────────────────────────────────────────── */
     .home-wx.wx-sunny  { background: linear-gradient(140deg,#1c3a2a 0%,var(--surface) 65%); border-top-color: #fbbf24; }

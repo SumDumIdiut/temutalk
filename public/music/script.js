@@ -371,29 +371,7 @@ function loadMusicHome() {
   if (musicHomeLoaded) return; musicHomeLoaded = true;
   loadMe().then(() => setLibTab('playlists'));
   if (!discoverLoaded) { discoverLoaded = true; loadStats('medium_term'); loadNewReleases(); }
-  if (document.documentElement.classList.contains('mobile')) setMobileTab('library');
 }
-
-function setMobileTab(tab) {
-  ['library','browse','nowplaying'].forEach(t =>
-    document.getElementById('mmt-' + t)?.classList.toggle('active', t === tab)
-  );
-  const ls = document.getElementById('left-sidebar');
-  const cp = document.getElementById('center-panel');
-  const rs = document.getElementById('right-sidebar');
-  if (!document.documentElement.classList.contains('mobile')) {
-    // Desktop: ensure all panels are visible (clear any stale inline styles)
-    if (ls) ls.style.display = '';
-    if (cp) cp.style.display = '';
-    if (rs) rs.style.display = '';
-    return;
-  }
-  if (ls) ls.style.display = tab === 'library'    ? 'flex' : 'none';
-  if (cp) cp.style.display = tab === 'browse'     ? 'flex' : 'none';
-  if (rs) rs.style.display = tab === 'nowplaying' ? 'flex' : 'none';
-  document.documentElement.classList.toggle('mob-nowplaying', tab === 'nowplaying');
-}
-window.setMobileTab = setMobileTab;
 function onSearchInput() {
   const val = document.getElementById('search-input').value;
   document.getElementById('search-clear').style.display = val ? 'block' : 'none';
