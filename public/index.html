@@ -25,6 +25,8 @@
   <link rel="stylesheet" href="/timer/style.css">
   <link rel="stylesheet" href="/system/style.css">
   <link rel="stylesheet" href="/chat/style.css">
+  <link rel="stylesheet" href="/astronomy/style.css">
+  <link rel="stylesheet" href="/sports/style.css">
   <style>
     /* ── SPA view system ─────────────────────────────────────────────────── */
     html, body { height: 100%; overflow: hidden; }
@@ -39,7 +41,8 @@
     .view.v-on { display: block; }
     #view-weather.v-on, #view-timer.v-on,
     #view-finance.v-on, #view-system.v-on,
-    #view-news.v-on {
+    #view-news.v-on, #view-astronomy.v-on,
+    #view-sports.v-on {
       overflow-y: auto;
     }
     #view-home.v-on { overflow: hidden; display: flex; flex-direction: column; }
@@ -217,6 +220,8 @@
 <div class="view" id="view-timer"></div>
 <div class="view" id="view-news"></div>
 <div class="view" id="view-chat" style="overflow:hidden;"></div>
+<div class="view" id="view-astronomy"></div>
+<div class="view" id="view-sports"></div>
 
 <!-- ══════════════════ NAV ══════════════════ -->
 <nav class="nav">
@@ -255,6 +260,14 @@
   <button class="nav-item" data-tab="chat" onclick="navigate('chat')">
     <div class="nav-pill"><svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg></div>
     <span class="nav-label">Chat</span>
+  </button>
+  <button class="nav-item" data-tab="astronomy" onclick="navigate('astronomy')">
+    <div class="nav-pill"><svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a7 7 0 0 0-7 7c0 2.72 1.56 5.09 3.86 6.32C10.02 20.06 11 22 12 22s1.98-1.94 3.14-6.68A7 7 0 0 0 19 9a7 7 0 0 0-7-7zm0 9a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/></svg></div>
+    <span class="nav-label">Sky</span>
+  </button>
+  <button class="nav-item" data-tab="sports" onclick="navigate('sports')">
+    <div class="nav-pill"><svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.93V15h2v1.93A8.01 8.01 0 0 1 4.07 9H6v2H4.07A8.01 8.01 0 0 0 11 16.93zM13 7.07V9h-2V7.07A8.01 8.01 0 0 1 19.93 15H18v-2h1.93A8.01 8.01 0 0 0 13 7.07z"/></svg></div>
+    <span class="nav-label">Sports</span>
   </button>
 </nav>
 
@@ -315,7 +328,7 @@ async function ensureTab(tab) {
 }
 
 // ── Navigation ────────────────────────────────────────────────────────────
-const TAB_IDX = { home: 0, music: 1, radio: 2, news: 3, weather: 4, finance: 5, timer: 6, system: 7, chat: 8 };
+const TAB_IDX = { home: 0, music: 1, radio: 2, news: 3, weather: 4, finance: 5, timer: 6, system: 7, chat: 8, astronomy: 9, sports: 10 };
 let curTab = 'home';
 
 async function navigate(tab) {
@@ -364,7 +377,9 @@ async function navigate(tab) {
   }
   if (tab === 'music')   { if (typeof loadMusicHome === 'function') loadMusicHome(); }
   if (tab === 'timer')   initTimerView();
-  if (tab === 'finance' && !financeLoaded) { financeLoaded = true; loadCrypto(); }
+  if (tab === 'finance' && !financeLoaded) { financeLoaded = true; finSwitch('crypto'); }
+  if (tab === 'astronomy') ensureTab('astronomy').then(() => { if (typeof astroInit === 'function') astroInit(); });
+  if (tab === 'sports')    ensureTab('sports').then(()    => { if (typeof sportsInit === 'function') sportsInit(); });
   if (tab === 'system')  { renderThemePanel(); }
   if (tab === 'radio') initRadioMap();
   if (tab === 'news' && !newsLoaded) loadNews();
@@ -972,6 +987,8 @@ document.addEventListener('fullscreenchange', () => {
 <script src="/radio/script.js"></script>
 <script src="/news/script.js"></script>
 <script src="/chat/script.js"></script>
+<script src="/astronomy/script.js"></script>
+<script src="/sports/script.js"></script>
 
 <!-- Deep-link (after all tab scripts are loaded) -->
 <script>
