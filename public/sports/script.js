@@ -2,6 +2,7 @@
 
 const SPORTS_CATS = [
   { id:'soccer', icon:'⚽', label:'Soccer', leagues:[
+    { sport:'soccer', league:'fifa.world',     label:'World Cup',      flag:'🌍' },
     { sport:'soccer', league:'eng.1',          label:'Premier League', flag:'🏴󠁧󠁢󠁥󠁮󠁧󠁿' },
     { sport:'soccer', league:'esp.1',          label:'La Liga',        flag:'🇪🇸' },
     { sport:'soccer', league:'ger.1',          label:'Bundesliga',     flag:'🇩🇪' },
