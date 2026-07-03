@@ -76,14 +76,26 @@ function _initBrowserPlayer() {
     },
     volume: vol,
   });
+  let _suppressPlay = false;
+  browserPlayer.addListener('player_state_changed', state => {
+    if (_suppressPlay && state && !state.paused) {
+      browserPlayer.pause().catch(() => {});
+    }
+  });
   browserPlayer.addListener('ready', ({ device_id }) => {
     browserPlayerReady = true;
     browserPlayer._deviceId = device_id;
     _setBrowserPlayerStatus('ready ✓ ' + device_id.slice(0,8));
     const wasPaused = localStorage.getItem('tt_was_paused') === '1';
     localStorage.removeItem('tt_was_paused');
+    if (wasPaused) _suppressPlay = true;
     api('/api/transfer', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ device_id, play: false }) })
-      .then(() => { if (wasPaused) setTimeout(() => browserPlayer.pause().catch(() => {}), 800); })
+      .then(() => {
+        if (wasPaused) {
+          [200, 600, 1200].forEach(d => setTimeout(() => browserPlayer.pause().catch(() => {}), d));
+          setTimeout(() => { _suppressPlay = false; }, 2000);
+        }
+      })
       .catch(() => {});
   });
   window.addEventListener('beforeunload', () => {
