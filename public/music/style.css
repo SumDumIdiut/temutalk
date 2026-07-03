@@ -13,7 +13,7 @@
 
     /* ── Left sidebar ───────────────────────────────────────────────────────── */
     #left-sidebar {
-      width: 240px; flex-shrink: 0;
+      width: 200px; flex-shrink: 0;
       background: rgba(255,255,255,.04); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
       border: 1px solid rgba(255,255,255,.10);
       border-radius: var(--radius); display: flex; flex-direction: column; overflow: hidden;
@@ -71,7 +71,7 @@
 
     /* ── Right sidebar ──────────────────────────────────────────────────────── */
     #right-sidebar {
-      width: 280px; flex-shrink: 0;
+      width: 220px; flex-shrink: 0;
       background: rgba(255,255,255,.04); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
       border: 1px solid rgba(255,255,255,.10);
       border-radius: var(--radius); overflow-y: auto; display: flex; flex-direction: column;
@@ -82,9 +82,11 @@
     #np-header   { padding: 10px 14px 6px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
     #fp-ctx      { font-size: 11px; color: var(--text-muted); font-weight: 400; }
     #fp-art      { width: 70%; aspect-ratio: 1; object-fit: cover; display: block; background: rgba(255,255,255,.04); margin: 0 auto; border-radius: var(--radius-sm); box-shadow: 0 8px 32px rgba(0,0,0,.5); }
+    #fp-art[src=""], #fp-art:not([src]) { display: none; }
     #np-details  { padding: 12px 14px 8px; }
     #np-track    { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
     #np-artist   { font-size: 12px; color: var(--text-dim); }
+    #np-details.np-empty { display: none; }
     #np-artist-section { padding: 0 8px 12px; display: flex; flex-direction: column; }
     .np-a-row    { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 10px; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background .15s; }
     .np-a-row:hover { background: rgba(255,255,255,.06); }
