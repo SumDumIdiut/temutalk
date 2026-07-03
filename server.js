@@ -70,7 +70,6 @@ const { devices, resolveDevice, getDeviceToken } = require('./lib/devices');
 const setupSpotifyRoutes = require('./lib/spotify');
 const setupDataRoutes    = require('./lib/data');
 const setupStreamRoutes  = require('./lib/stream');
-const setupGamesRoutes   = require('./lib/games');
 const setupWebSocket     = require('./lib/ws');
 const chat               = require('./lib/chat');
 
@@ -167,7 +166,6 @@ app.get('/api/status', (req, res) => {
 setupSpotifyRoutes(app, REDIRECT_URI, MAIN_BASE);
 setupDataRoutes(app, WEATHER_CITY);
 const { broadcastLiveList, ffmpegRunning } = setupStreamRoutes(app, MAIN_BASE);
-setupGamesRoutes(app);
 chat.setupChatRoutes(app, resolveDevice);
 
 // ─── WebSocket ────────────────────────────────────────────────────────────────
