@@ -277,15 +277,16 @@ function chatRenderMessages() {
     }
 
     const own = m.from === deviceId;
-    const showName = !own && m.from !== lastFrom;
+    const showName = m.from !== lastFrom;
     lastFrom = m.from;
     const clickData = own ? null : { uid: m.from, name: m.fromName, av: m.avatarUrl || '' };
-    const nameAttrs = own ? '' : ` class="chat-msg-name clickable" data-uid="${esc(m.from)}" data-name="${esc(m.fromName)}" data-av="${esc(m.avatarUrl||'')}" onclick="chatAvatarClick(event,this)"`;
+    const nameClass = own ? 'chat-msg-name' : 'chat-msg-name clickable';
+    const nameExtra = own ? '' : ` data-uid="${esc(m.from)}" data-name="${esc(m.fromName)}" data-av="${esc(m.avatarUrl||'')}" onclick="chatAvatarClick(event,this)"`;
 
     html += `<div class="chat-msg${own ? ' own' : ''}">
       ${avatarHtml(m.fromName, m.avatarUrl, 32, clickData)}
       <div class="chat-msg-body">
-        ${showName ? `<div${own ? ' class="chat-msg-name"' : nameAttrs}>${esc(m.fromName)}</div>` : ''}
+        ${showName ? `<div class="${nameClass}"${nameExtra}>${esc(m.fromName)}</div>` : ''}
         <div class="chat-msg-bubble">${esc(m.text)}</div>
         <div class="chat-msg-time">${esc(timeStr)}</div>
       </div>
