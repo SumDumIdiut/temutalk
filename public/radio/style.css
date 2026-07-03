@@ -62,8 +62,13 @@
     .rmap-vol-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #e879f9; cursor: pointer; }
     .rmap-vol-slider::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; background: #e879f9; border: none; cursor: pointer; }
     /* Station list panel */
-    #radio-map { position: absolute; top: 0; left: 0; bottom: 0; right: 340px; z-index: 0; }
-    .rmap-panel { position: absolute; top: 0; right: 0; width: 340px; bottom: 0; background: rgba(6,8,16,.88); backdrop-filter: blur(24px); border-left: 1px solid var(--glass-border); display: flex; flex-direction: column; z-index: 500; }
+    #radio-map { position: absolute; top: 0; left: 0; bottom: 0; right: 0; z-index: 0; }
+    .rmap-panel { position: absolute; top: 0; right: 0; width: 320px; bottom: 0; background: rgba(6,8,16,.94); backdrop-filter: blur(24px); border-left: 1px solid var(--glass-border); display: flex; flex-direction: column; z-index: 500; transform: translateX(100%); transition: transform .28s cubic-bezier(0.4,0,0.2,1); }
+    .rmap-panel.open, .rmap-panel:hover { transform: translateX(0); }
+    /* Handle tab sticking out from the left edge of the panel */
+    .rmap-panel-handle { position: absolute; left: -32px; top: 50%; transform: translateY(-50%); width: 32px; height: 88px; background: rgba(6,8,16,.88); backdrop-filter: blur(12px); border: 1px solid var(--glass-border); border-right: none; border-radius: 10px 0 0 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--text-muted); transition: background .15s, color .15s; }
+    .rmap-panel-handle:hover, .rmap-panel.open .rmap-panel-handle { color: #e879f9; background: rgba(232,121,249,.12); }
+    .rmap-panel-handle span { writing-mode: vertical-rl; font-size: 9px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; }
     .rmap-panel-hdr { padding: 16px 12px 10px; display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
     .rmap-panel-title { font-size: 13px; font-weight: 700; color: var(--text-muted); letter-spacing: .6px; text-transform: uppercase; }
     .rmap-panel-search { background: var(--surface-hi); border: 1px solid var(--glass-border); border-radius: 10px; color: var(--text); font-family: inherit; font-size: 13px; padding: 7px 10px; outline: none; transition: border-color .15s, box-shadow .15s; }

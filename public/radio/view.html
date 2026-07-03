@@ -1,9 +1,13 @@
   <!-- Map -->
   <div id="radio-map"></div>
-  <!-- Station list panel (always open) -->
+  <!-- Station list panel (slide-in) -->
   <div class="rmap-panel" id="rmap-panel">
+    <button class="rmap-panel-handle" id="rmap-handle" onclick="toggleRadioPanel()" title="Stations">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg>
+      <span>Stations</span>
+    </button>
     <div class="rmap-panel-hdr">
-      <span class="rmap-panel-title" style="margin-bottom:2px;">Stations</span>
+      <span class="rmap-panel-title">Stations</span>
       <input class="rmap-panel-search" id="rmap-search" type="text" placeholder="Search…" oninput="filterRadioList(this.value)" autocomplete="off">
     </div>
     <div class="rmap-list" id="rmap-list"><div class="rmap-list-dim">Loading…</div></div>
