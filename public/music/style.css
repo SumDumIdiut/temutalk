@@ -162,7 +162,7 @@
 
     /* ── Stats / Discover ───────────────────────────────────────────────────── */
     .range-row      { display: flex; gap: 6px; margin-bottom: 4px; }
-    .range-btn      { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 999px; color: var(--text-dim); font-family: inherit; font-size: 12px; font-weight: 500; padding: 5px 14px; cursor: pointer; transition: background .15s, color .15s, border-color .15s; -webkit-tap-highlight-color: transparent; }
+    .range-btn      { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 999px; color: var(--text-dim); font-family: inherit; font-size: 12px; font-weight: 500; padding: 5px 14px; cursor: pointer; white-space: nowrap; transition: background .15s, color .15s, border-color .15s; -webkit-tap-highlight-color: transparent; }
     .range-btn.active { background: var(--primary-dark); border-color: var(--primary); color: var(--primary); }
     .stat-artist-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.06); cursor: pointer; -webkit-tap-highlight-color: transparent; }
     .stat-artist-row:last-child { border-bottom: none; }
