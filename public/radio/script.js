@@ -3,6 +3,10 @@ const RADIO_FALLBACK_IMG = 'data:image/svg+xml,' + encodeURIComponent('<svg xmln
 let radioMap = null, radioCluster = null, radioMarkers = [], radioAudio = null, radioStation = null;
 let radioStations = [], radioMapInited = false;
 
+function toggleRadioPanel() {
+  document.getElementById('rmap-panel').classList.toggle('open');
+}
+
 function initRadioMap() {
   if (radioMapInited) {
     setTimeout(() => radioMap && radioMap.invalidateSize(), 60);
