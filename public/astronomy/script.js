@@ -7,22 +7,38 @@ let _issData = null, _cssData = null;
 function astroInit() {
   if (astroLoaded) { _redrawStatic(); return; }
   astroLoaded = true;
+
+  // These don't need location — run immediately
+  astroCalcMoon();
+  astroCalcPlanets();
+  astroLoadISS();
+  astroGenEvents();
+
+  // Sun times + station map need lat/lng — resolve geolocation with 8s timeout
+  let geoSettled = false;
+  const _onGeo = (lat, lng, label) => {
+    if (geoSettled) return; geoSettled = true;
+    astroLat = lat; astroLng = lng;
+    _setText('astro-location', label);
+    astroLoadSun();
+    drawStationMap();
+  };
   if (navigator.geolocation) {
+    const timer = setTimeout(() => _onGeo(-26.2, 28.0, 'Default (Johannesburg)'), 8000);
     navigator.geolocation.getCurrentPosition(
-      p => { astroLat=p.coords.latitude; astroLng=p.coords.longitude;
-        _setText('astro-location', astroLat.toFixed(2)+'°, '+astroLng.toFixed(2)+'°');
-        _loadAll(); },
-      () => { astroLat=-26.2; astroLng=28.0;
-        _setText('astro-location','Default (Johannesburg)'); _loadAll(); }
+      p => { clearTimeout(timer); _onGeo(p.coords.latitude, p.coords.longitude, p.coords.latitude.toFixed(2)+'°, '+p.coords.longitude.toFixed(2)+'°'); },
+      ()  => { clearTimeout(timer); _onGeo(-26.2, 28.0, 'Default (Johannesburg)'); }
     );
-  } else { astroLat=-26.2; astroLng=28.0; _setText('astro-location','No geolocation'); _loadAll(); }
-  // 3D doesn't need location — start it immediately (waits for canvas size internally)
+  } else { _onGeo(-26.2, 28.0, 'No geolocation'); }
+
   _ss3dStart();
   window.addEventListener('resize', () => { _ss3dOnResize(); _redrawStatic(); });
 }
 
-function astroRefresh() { _loadAll(); }
-function _loadAll() { astroLoadSun(); astroCalcMoon(); astroCalcPlanets(); astroLoadISS(); astroGenEvents(); }
+function astroRefresh() {
+  astroCalcMoon(); astroCalcPlanets(); astroLoadISS(); astroGenEvents();
+  if (astroLat !== null) { astroLoadSun(); drawStationMap(); }
+}
 function _redrawStatic() { if(lastSunData) _drawSunArc(...lastSunData); drawStationMap(); }
 function _setText(id, v) { const e=document.getElementById(id); if(e) e.textContent=v; }
 
@@ -114,11 +130,20 @@ function _ss3dStart() {
   if(canvas.offsetWidth===0) { requestAnimationFrame(_ss3dStart); return; }
   if(_3d) { _ss3dOnResize(); return; }
   if(window.THREE) { _ss3dBuild(); return; }
-  const s=document.createElement('script');
-  s.src='https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js';
-  s.onload=_ss3dBuild;
-  s.onerror=()=>_setText('ss3d-loading','3D engine failed to load');
-  document.head.appendChild(s);
+  // Try CDNs in order — unpkg is most reliable for npm packages
+  const cdns=[
+    'https://unpkg.com/three@0.134.0/build/three.min.js',
+    'https://cdn.jsdelivr.net/npm/three@0.134.0/build/three.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js',
+  ];
+  let ci=0;
+  const tryNext=()=>{
+    if(ci>=cdns.length){_setText('ss3d-loading','3D engine unavailable (CDN unreachable)');return;}
+    const s=document.createElement('script'); s.src=cdns[ci++];
+    s.onload=()=>{window.THREE?_ss3dBuild():tryNext();};
+    s.onerror=tryNext; document.head.appendChild(s);
+  };
+  tryNext();
 }
 
 function _ss3dBuild() {
