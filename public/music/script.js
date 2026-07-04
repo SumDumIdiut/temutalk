@@ -970,12 +970,16 @@ function _updateNowPlaying(title, artist, album, artUrl) {
 // ── Override showAuth ─────────────────────────────────────────────────────────
 function showAuth() {
   _showAuthPanels();
+  const bar = document.getElementById('music-svc-bar');
+  if (bar) bar.style.display = '';
   document.getElementById('auth-screen').style.display = 'flex';
   document.getElementById('music-app').classList.remove('ma-show');
 }
 
 // ── Override showApp ──────────────────────────────────────────────────────────
 function showApp() {
+  const bar = document.getElementById('music-svc-bar');
+  if (bar) bar.style.display = 'none';
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('music-app').classList.add('ma-show');
   if (activeService === 'spotify' && !_credsSynced) {
