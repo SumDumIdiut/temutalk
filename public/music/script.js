@@ -906,4 +906,841 @@ window.liveOnMessage = function(msg) {
     if (liveMse) liveMse.push(msg._binary);
   }
 };
-
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MULTI-SERVICE MUSIC (YouTube Music + Apple Music)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let activeService = localStorage.getItem('musicService') || 'spotify';
+
+// YouTube
+let ytPlayer = null, ytPlayerReady = false;
+let ytQueue = [], ytQueueIdx = 0;
+let ytTicker = null;
+
+// Apple Music
+let appleMusic = null;
+let appleTicker = null;
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function _showAuthPanels() {
+  ['spotify', 'youtube', 'apple'].forEach(s => {
+    const el = document.getElementById('auth-' + s + '-wrap');
+    if (el) el.style.display = s === activeService ? '' : 'none';
+  });
+}
+
+function _updateSvcBtns() {
+  document.querySelectorAll('.msvc-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.svc === activeService)
+  );
+}
+
+function _updateNowPlaying(title, artist, album, artUrl) {
+  document.getElementById('fp-track').textContent  = title;
+  document.getElementById('fp-artist').textContent = artist;
+  document.getElementById('fp-ctx').textContent    = album;
+  document.getElementById('np-track').textContent  = title;
+  document.getElementById('np-artist').textContent = artist;
+  if (artUrl) {
+    document.getElementById('fp-art').src  = artUrl;
+    document.getElementById('bar-art').src = artUrl;
+    tintMusicCard(artUrl);
+  }
+  const npEmpty   = document.getElementById('np-empty');
+  const npDetails = document.getElementById('np-details');
+  const npDivider = document.getElementById('np-divider');
+  if (npEmpty)   npEmpty.style.display = 'none';
+  if (npDetails) npDetails.classList.remove('np-empty');
+  if (npDivider) npDivider.style.display = '';
+  document.getElementById('np-artist-section').innerHTML = '';
+  document.getElementById('home-np-track').textContent  = title;
+  document.getElementById('home-np-artist').textContent = artist;
+  document.getElementById('home-np-album').textContent  = album;
+  if (artUrl) document.getElementById('home-np-art').src = artUrl;
+  const npPlaying = document.getElementById('home-np-playing');
+  const npRecent  = document.getElementById('home-np-recent');
+  const musicLbl  = document.getElementById('home-music-label');
+  if (npPlaying) npPlaying.style.display = 'block';
+  if (npRecent)  npRecent.style.display  = 'none';
+  if (musicLbl)  { musicLbl.textContent = 'Now Playing'; musicLbl.style.color = ''; }
+}
+
+// ── Override showAuth ─────────────────────────────────────────────────────────
+function showAuth() {
+  _showAuthPanels();
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('music-app').classList.remove('ma-show');
+}
+
+// ── Override showApp ──────────────────────────────────────────────────────────
+function showApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('music-app').classList.add('ma-show');
+  if (activeService === 'spotify' && !_credsSynced) {
+    _credsSynced = true;
+    const { cid, csec } = getSpotifyCreds();
+    if (cid && csec) {
+      api('/api/save-creds', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId: cid, clientSecret: csec }) }).catch(() => {});
+    }
+    loadBrowserPlayer();
+  }
+}
+
+// ── Override loadMusicHome ────────────────────────────────────────────────────
+function loadMusicHome() {
+  _updateSvcBtns();
+  _showAuthPanels();
+  if (activeService === 'youtube') { _ytCheck(); return; }
+  if (activeService === 'apple')   { _appleCheck(); return; }
+  // Spotify
+  if (musicHomeLoaded) return; musicHomeLoaded = true;
+  loadMe().then(() => setLibTab('playlists'));
+  if (!discoverLoaded) { discoverLoaded = true; loadStats('medium_term'); loadNewReleases(); }
+}
+
+// ── Service switcher ──────────────────────────────────────────────────────────
+function musicSwitchSvc(svc) {
+  activeService = svc;
+  localStorage.setItem('musicService', svc);
+  _updateSvcBtns();
+  libSidebarCache = {};
+  _showAuthPanels();
+  if (svc === 'spotify')  _spotifyCheck();
+  else if (svc === 'youtube') _ytCheck();
+  else if (svc === 'apple')   _appleCheck();
+}
+
+function _spotifyCheck() {
+  fetch('/api/status?device=' + deviceId).then(r => r.json()).then(d => {
+    if (d.authenticated) {
+      showApp();
+      loadMe().then(() => setLibTab(libTab || 'playlists'));
+      if (!discoverLoaded) { discoverLoaded = true; loadStats('medium_term'); loadNewReleases(); }
+    } else { showAuth(); }
+  }).catch(() => showAuth());
+}
+
+function _ytCheck() {
+  fetch('/api/yt/status?device=' + deviceId).then(r => r.json()).then(d => {
+    if (d.authenticated) { showApp(); ytLoadPlayer(); _ytSetLibTab(libTab || 'playlists'); }
+    else { showAuth(); }
+  }).catch(() => showAuth());
+}
+
+function _appleCheck() {
+  fetch('/api/apple/status').then(r => r.json()).then(d => {
+    if (d.configured) { showApp(); appleLoadKit(); _appleSetLibTab(libTab || 'playlists'); }
+    else { showAuth(); }
+  }).catch(() => showAuth());
+}
+
+// ── Override onPlayer (only update UI when on Spotify) ────────────────────────
+function onPlayer(data) {
+  if (activeService !== 'spotify') return;
+  if (!data.authenticated) { showAuth(); return; }
+  showApp();
+  if (!data.item) return;
+
+  const name    = data.item.name;
+  const artists = data.item.artists.map(a => a.name).join(', ');
+  const album   = data.item.album?.name || '';
+  const images  = data.item.album?.images || [];
+  const src     = (images[1] || images[0])?.url || '';
+
+  document.getElementById('fp-track').textContent  = name;
+  document.getElementById('fp-artist').textContent = artists;
+  document.getElementById('fp-ctx').textContent    = album;
+  document.getElementById('np-track').textContent  = name;
+  document.getElementById('np-artist').textContent = artists;
+  const npEmpty   = document.getElementById('np-empty');
+  const npDetails = document.getElementById('np-details');
+  const npDivider = document.getElementById('np-divider');
+  if (npEmpty)   npEmpty.style.display = 'none';
+  if (npDetails) npDetails.classList.remove('np-empty');
+  if (npDivider) npDivider.style.display = '';
+  document.getElementById('home-np-track').textContent  = name;
+  document.getElementById('home-np-artist').textContent = artists;
+  document.getElementById('home-np-album').textContent  = album;
+  if (src) document.getElementById('home-np-art').src = src;
+
+  if (src && src !== lastArtSrc) {
+    lastArtSrc = src;
+    document.getElementById('fp-art').src  = src;
+    document.getElementById('bar-art').src = src;
+    tintMusicCard(src);
+  }
+
+  const artistIds = data.item.artists.map(a => a.id).join(',');
+  if (artistIds !== lastArtistIds) {
+    lastArtistIds = artistIds;
+    document.getElementById('np-artist-section').innerHTML = data.item.artists.map(a =>
+      '<div class="np-a-row" data-id="' + a.id + '" onclick="openArtist(this.dataset.id)">' +
+      '<img class="np-a-img" id="np-ai-' + a.id + '" src="" alt="">' +
+      '<div><div class="np-a-name">' + esc(a.name) + '</div><div class="np-a-sub" id="np-ag-' + a.id + '">Artist</div></div></div>'
+    ).join('');
+    data.item.artists.forEach(a => {
+      if (artistCache[a.id]) applyArtistCache(a.id);
+      else api('/api/artist/' + a.id).then(d => { artistCache[a.id] = d.artist || {}; applyArtistCache(a.id); }).catch(() => {});
+    });
+  }
+
+  hasTrack = true;
+  if (data.is_playing && radioStation) stopRadio();
+  if (!radioStation) {
+    const npPlaying = document.getElementById('home-np-playing');
+    const npRecent  = document.getElementById('home-np-recent');
+    const musicLbl  = document.getElementById('home-music-label');
+    if (npPlaying) npPlaying.style.display = 'block';
+    if (npRecent)  npRecent.style.display  = 'none';
+    if (musicLbl)  { musicLbl.textContent = 'Now Playing'; musicLbl.style.color = ''; }
+  }
+
+  const trackId = data.item.id;
+  if (trackId && trackId !== currentTrackId) {
+    currentTrackId = trackId;
+    api('/api/like-status?ids=' + trackId).then(res => { if (Array.isArray(res)) updateLikeBtn(res[0]); }).catch(() => {});
+  }
+
+  playing = data.is_playing;
+  progMs  = data.progress_ms || 0;
+  durMs   = data.item.duration_ms || 1;
+  clearInterval(ticker);
+  if (playing) ticker = setInterval(() => { progMs = Math.min(progMs + 500, durMs); renderProg(); }, 500);
+  renderProg();
+  setPlayIcons(playing);
+  if (data.device?.volume_percent != null) {
+    _serverVolume = true;
+    document.getElementById('fp-vol').value = data.device.volume_percent;
+    document.getElementById('home-np-vol').value = data.device.volume_percent;
+    _serverVolume = false;
+  }
+  shuffled = data.shuffle_state;
+  document.getElementById('fp-shuffle').classList.toggle('lit', shuffled);
+  if (data.repeat_state) { repeatState = data.repeat_state; renderRepeat(); }
+}
+
+// ── Override action ───────────────────────────────────────────────────────────
+function action(name) {
+  if (activeService === 'youtube') { ytAction(name); return; }
+  if (activeService === 'apple')   { appleAction(name); return; }
+  if (browserPlayer && browserPlayerReady) {
+    if (name === 'play') {
+      browserPlayer.activateElement();
+      browserPlayer.getCurrentState().then(state => {
+        if (state) browserPlayer.resume();
+        else api('/api/transfer', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ device_id: browserPlayer._deviceId }) })
+          .then(() => setTimeout(() => browserPlayer.resume(), 600))
+          .catch(() => api('/api/player/play', { method: 'POST' }));
+      });
+      return;
+    }
+    if (name === 'pause')    { browserPlayer.pause(); return; }
+    if (name === 'next')     { browserPlayer.nextTrack(); return; }
+    if (name === 'previous') { browserPlayer.previousTrack(); return; }
+  }
+  api('/api/player/' + name, { method: 'POST' });
+}
+
+// ── Override togglePlay ───────────────────────────────────────────────────────
+function togglePlay() {
+  if (activeService === 'youtube') { _ytTogglePlay(); return; }
+  if (activeService === 'apple')   { _appleTogglePlay(); return; }
+  if (browserPlayer) browserPlayer.activateElement();
+  playing = !playing; setPlayIcons(playing); action(playing ? 'play' : 'pause');
+}
+
+// ── Override seekTo ───────────────────────────────────────────────────────────
+function seekTo(e) {
+  const rect = document.getElementById('fp-bar').getBoundingClientRect();
+  progMs = Math.floor(Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)) * durMs);
+  renderProg();
+  if (activeService === 'youtube' && ytPlayer && ytPlayerReady) {
+    ytPlayer.seekTo(progMs / 1000, true); return;
+  }
+  if (activeService === 'apple' && appleMusic) {
+    appleMusic.seekToTime(progMs / 1000).catch(() => {}); return;
+  }
+  if (browserPlayer && browserPlayerReady) browserPlayer.seek(progMs);
+  else fetch('/api/player/seek?device=' + deviceId + '&ms=' + progMs, { method: 'POST' });
+}
+
+// ── Override setVolume ────────────────────────────────────────────────────────
+function setVolume(val) {
+  if (_serverVolume) return;
+  if (activeService === 'youtube' && ytPlayer && ytPlayerReady) { ytPlayer.setVolume(val); return; }
+  if (activeService === 'apple' && appleMusic) { try { appleMusic.volume = val / 100; } catch {} return; }
+  if (browserPlayer) browserPlayer.setVolume(val / 100).catch(() => {});
+  clearTimeout(volTimer);
+  volTimer = setTimeout(() => api('/api/player/volume', { method: 'PUT',
+    headers: {'Content-Type':'application/json'}, body: JSON.stringify({ volume: val }) }), 250);
+}
+
+// ── Override doSearch ─────────────────────────────────────────────────────────
+function doSearch(q) {
+  if (activeService === 'youtube') { ytSearch(q); return; }
+  if (activeService === 'apple')   { appleSearch(q); return; }
+  api('/api/search?q=' + encodeURIComponent(q)).then(data => {
+    let html = '';
+    const tracks = data.tracks?.items?.filter(Boolean) || [];
+    if (tracks.length) {
+      html += '<div class="browse-section">Songs</div><div>';
+      tracks.slice(0, 5).forEach(t => {
+        html += '<div class="sr-row" data-uri="' + t.uri + '" onclick="playUris([this.dataset.uri])">' +
+          '<img class="sr-art" src="' + (t.album?.images?.at(-1)?.url || '') + '" alt="" loading="lazy">' +
+          '<div class="sr-info"><div class="sr-name">' + esc(t.name) + '</div><div class="sr-sub">' + esc(t.artists.map(a => a.name).join(', ')) + '</div></div>' +
+          '<span class="sr-dur">' + fmt(t.duration_ms) + '</span></div>';
+      });
+      html += '</div>';
+    }
+    const artists = data.artists?.items?.filter(Boolean) || [];
+    if (artists.length) {
+      html += '<div class="browse-section">Artists</div><div>';
+      artists.slice(0, 4).forEach(a => {
+        html += '<div class="sr-row" data-id="' + a.id + '" onclick="openArtist(this.dataset.id)">' +
+          '<img class="sr-art round" src="' + (a.images?.at(-1)?.url || '') + '" alt="" loading="lazy">' +
+          '<div class="sr-info"><div class="sr-name">' + esc(a.name) + '</div><div class="sr-sub">' + ((a.genres || []).slice(0, 1).join(', ') || 'Artist') + '</div></div>' +
+          '<svg width="18" height="18" viewBox="0 0 24 24" fill="var(--text-muted)"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></div>';
+      });
+      html += '</div>';
+    }
+    const albums = data.albums?.items?.filter(Boolean) || [];
+    if (albums.length) {
+      html += '<div class="browse-section">Albums</div><div>';
+      albums.slice(0, 4).forEach(a => {
+        html += '<div class="sr-row" data-id="' + a.id + '" onclick="openAlbum(this.dataset.id)">' +
+          '<img class="sr-art" src="' + (a.images?.at(-1)?.url || '') + '" alt="" loading="lazy">' +
+          '<div class="sr-info"><div class="sr-name">' + esc(a.name) + '</div><div class="sr-sub">' + esc(a.artists[0]?.name || '') + ' · ' + (a.release_date?.slice(0, 4) || '') + '</div></div>' +
+          '<svg width="18" height="18" viewBox="0 0 24 24" fill="var(--text-muted)"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></div>';
+      });
+      html += '</div>';
+    }
+    const playlists = data.playlists?.items?.filter(Boolean) || [];
+    if (playlists.length) {
+      html += '<div class="browse-section">Playlists</div><div>';
+      playlists.slice(0, 4).forEach(p => {
+        html += '<div class="sr-row" data-id="' + p.id + '" onclick="openPlaylist(this.dataset.id)">' +
+          '<img class="sr-art" src="' + (p.images?.at(-1)?.url || '') + '" alt="" loading="lazy">' +
+          '<div class="sr-info"><div class="sr-name">' + esc(p.name) + '</div><div class="sr-sub">' + (p.tracks?.total || '') + ' songs</div></div>' +
+          '<svg width="18" height="18" viewBox="0 0 24 24" fill="var(--text-muted)"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></div>';
+      });
+      html += '</div>';
+    }
+    document.getElementById('search-results').innerHTML = html ||
+      '<div style="color:var(--text-muted);padding:16px 0;font-size:14px;">No results for "' + esc(q) + '"</div>';
+  }).catch(() => {
+    document.getElementById('search-results').innerHTML =
+      '<div style="color:var(--text-muted);padding:16px 0;font-size:14px;">Search failed</div>';
+  });
+}
+
+// ── Override setLibTab ────────────────────────────────────────────────────────
+function setLibTab(tab) {
+  libTab = tab;
+  ['playlists', 'artists', 'recent', 'live'].forEach(t =>
+    document.getElementById('lt-' + t)?.classList.toggle('active', t === tab)
+  );
+  if (activeService === 'youtube') { _ytSetLibTab(tab); return; }
+  if (activeService === 'apple')   { _appleSetLibTab(tab); return; }
+  const el = document.getElementById('sidebar-list'); if (!el) return;
+  if (tab === 'playlists') {
+    if (libSidebarCache.playlists) { el.innerHTML = libSidebarCache.playlists; return; }
+    api('/api/playlists').then(d => {
+      allPlaylists = d.items || [];
+      libSidebarCache.playlists = allPlaylists.map(p =>
+        '<div class="sl-item" data-id="' + p.id + '" onclick="openPlaylist(this.dataset.id)">' +
+        '<img src="' + (p.images?.[0]?.url || '') + '" alt="" loading="lazy">' +
+        '<div class="sl-item-info"><div class="sl-item-name">' + esc(p.name) + '</div>' +
+        '<div class="sl-item-sub">Playlist · ' + esc(ownerLabel(p)) + '</div></div></div>'
+      ).join('') || '<div style="color:var(--text-muted);font-size:13px;padding:8px;">No playlists</div>';
+      el.innerHTML = libSidebarCache.playlists;
+    }).catch(() => {});
+  } else if (tab === 'artists') {
+    if (libSidebarCache.artists) { el.innerHTML = libSidebarCache.artists; return; }
+    el.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:8px;">Loading…</div>';
+    api('/api/top-artists?range=medium_term').then(d => {
+      libSidebarCache.artists = (d.items || []).map(a =>
+        '<div class="sl-item" data-id="' + a.id + '" onclick="openArtist(this.dataset.id)">' +
+        '<img src="' + (a.images?.at(-1)?.url || '') + '" alt="" loading="lazy" style="border-radius:50%;">' +
+        '<div class="sl-item-info"><div class="sl-item-name">' + esc(a.name) + '</div>' +
+        '<div class="sl-item-sub">' + (a.genres?.slice(0, 1).join('') || 'Artist') + '</div></div></div>'
+      ).join('') || '<div style="color:var(--text-muted);font-size:13px;padding:8px;">No artists</div>';
+      el.innerHTML = libSidebarCache.artists;
+    }).catch(() => {});
+  } else if (tab === 'live') {
+    liveRenderSidebar();
+  } else if (tab === 'recent') {
+    el.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:8px;">Loading…</div>';
+    api('/api/recently-played').then(d => {
+      const seen = new Set();
+      const items = (d.items || []).filter(i => { if (seen.has(i.track?.id)) return false; seen.add(i.track?.id); return true; }).slice(0, 30);
+      el.innerHTML = items.map(i => {
+        const t = i.track;
+        return '<div class="sl-item" data-uri="' + t.uri + '" onclick="playUris([this.dataset.uri])">' +
+          '<img src="' + (t.album?.images?.at(-1)?.url || '') + '" alt="" loading="lazy">' +
+          '<div class="sl-item-info"><div class="sl-item-name">' + esc(t.name) + '</div>' +
+          '<div class="sl-item-sub">' + esc(t.artists.map(a => a.name).join(', ')) + '</div></div></div>';
+      }).join('') || '<div style="color:var(--text-muted);font-size:13px;padding:8px;">No history</div>';
+    }).catch(() => {});
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// YOUTUBE MUSIC
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function ytSaveCreds() {
+  const cid    = document.getElementById('yt-client-id')?.value.trim();
+  const sec    = document.getElementById('yt-client-sec')?.value.trim();
+  const status = document.getElementById('yt-auth-status');
+  if (!cid) { if (status) status.textContent = 'Client ID is required.'; return; }
+  if (status) status.textContent = 'Saving…';
+  fetch('/api/yt/save-creds?device=' + deviceId, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ clientId: cid, clientSecret: sec || '' }),
+  }).then(r => r.json()).then(() => {
+    if (status) status.textContent = 'Opening Google sign-in…';
+    const popup = window.open('/auth/google?device=' + deviceId, 'yt-auth', 'width=520,height=620');
+    const handler = e => {
+      if (e.data?.type === 'yt-auth-done') {
+        window.removeEventListener('message', handler);
+        if (popup && !popup.closed) popup.close();
+        _ytCheck();
+      } else if (e.data?.type === 'yt-auth-error') {
+        window.removeEventListener('message', handler);
+        if (status) status.textContent = 'Auth failed — check credentials and try again.';
+      }
+    };
+    window.addEventListener('message', handler);
+  }).catch(() => { if (status) status.textContent = 'Failed to save credentials.'; });
+}
+
+function ytLoadPlayer() {
+  if (ytPlayer || document.querySelector('#yt-player-host iframe')) return;
+  if (window.YT?.Player) { _ytCreatePlayer(); return; }
+  window.onYouTubeIframeAPIReady = _ytCreatePlayer;
+  const s = document.createElement('script');
+  s.src = '/yt/iframe-api.js';
+  document.head.appendChild(s);
+}
+
+function _ytCreatePlayer() {
+  if (ytPlayer) return;
+  const host = document.getElementById('yt-player-host');
+  if (!host) return;
+  ytPlayer = new YT.Player(host, {
+    height: '270', width: '480',
+    playerVars: { autoplay: 1, controls: 0, rel: 0, playsinline: 1 },
+    events: {
+      onReady: () => { ytPlayerReady = true; },
+      onStateChange: e => {
+        if (e.data === YT.PlayerState.PLAYING) {
+          playing = true; setPlayIcons(true);
+          clearInterval(ytTicker);
+          ytTicker = setInterval(() => {
+            if (!ytPlayer || !ytPlayerReady || activeService !== 'youtube') return;
+            try {
+              progMs = Math.round((ytPlayer.getCurrentTime() || 0) * 1000);
+              durMs  = Math.round((ytPlayer.getDuration()    || 0) * 1000) || 1;
+              renderProg();
+            } catch {}
+          }, 500);
+        } else if (e.data === YT.PlayerState.PAUSED) {
+          playing = false; setPlayIcons(false); clearInterval(ytTicker);
+        } else if (e.data === YT.PlayerState.ENDED) {
+          playing = false; setPlayIcons(false); clearInterval(ytTicker); _ytAdvance();
+        }
+      },
+    },
+  });
+}
+
+function ytPlay(videoId, title, artist, thumb) {
+  if (!ytPlayer || !ytPlayerReady) {
+    ytLoadPlayer();
+    setTimeout(() => ytPlay(videoId, title, artist, thumb), 1800);
+    return;
+  }
+  try { ytPlayer.loadVideoById(videoId); } catch { return; }
+  const artUrl = thumb || ('https://img.youtube.com/vi/' + videoId + '/mqdefault.jpg');
+  _updateNowPlaying(title, artist, 'YouTube Music', artUrl);
+  playing = true; setPlayIcons(true);
+}
+
+function ytPlayQueue(items, startIdx) {
+  ytQueue    = items || [];
+  ytQueueIdx = startIdx || 0;
+  const item = ytQueue[ytQueueIdx];
+  if (item) ytPlay(item.videoId, item.title, item.artist, item.thumb);
+}
+
+function _ytAdvance() {
+  if (ytQueueIdx < ytQueue.length - 1) {
+    ytQueueIdx++;
+    const item = ytQueue[ytQueueIdx];
+    ytPlay(item.videoId, item.title, item.artist, item.thumb);
+  }
+}
+
+function _ytTogglePlay() {
+  if (!ytPlayer || !ytPlayerReady) return;
+  if (playing) { try { ytPlayer.pauseVideo(); } catch {} playing = false; }
+  else         { try { ytPlayer.playVideo();  } catch {} playing = true; }
+  setPlayIcons(playing);
+}
+
+function ytAction(name) {
+  if (!ytPlayer || !ytPlayerReady) return;
+  if (name === 'play')     { try { ytPlayer.playVideo();  } catch {} playing = true;  setPlayIcons(true); }
+  else if (name === 'pause')    { try { ytPlayer.pauseVideo(); } catch {} playing = false; setPlayIcons(false); }
+  else if (name === 'next')     { _ytAdvance(); }
+  else if (name === 'previous') {
+    if (ytQueueIdx > 0) {
+      ytQueueIdx--;
+      const i = ytQueue[ytQueueIdx];
+      ytPlay(i.videoId, i.title, i.artist, i.thumb);
+    } else {
+      try { ytPlayer.seekTo(0, true); } catch {}
+    }
+  }
+}
+
+function ytSearch(q) {
+  const el = document.getElementById('search-results'); if (!el) return;
+  el.innerHTML = '<div style="color:var(--text-muted);padding:16px 0;font-size:14px;">Searching…</div>';
+  fetch('/api/yt/search?q=' + encodeURIComponent(q) + '&device=' + deviceId)
+    .then(r => r.json()).then(d => {
+      const items = d.items || [];
+      if (!items.length) {
+        el.innerHTML = '<div style="color:var(--text-muted);padding:16px 0;font-size:14px;">No results</div>'; return;
+      }
+      window._ytSearchQueue = items.map(v => ({
+        videoId: v.id?.videoId || '',
+        title:   v.snippet?.title || '',
+        artist:  v.snippet?.channelTitle || '',
+        thumb:   v.snippet?.thumbnails?.medium?.url || v.snippet?.thumbnails?.default?.url || '',
+      })).filter(v => v.videoId);
+      el.innerHTML = '<div class="browse-section">YouTube Music</div><div>' +
+        window._ytSearchQueue.map((v, i) =>
+          '<div class="sr-row" onclick="_ytPlayFromSearch(' + i + ')">' +
+          '<img class="sr-art" src="' + esc(v.thumb) + '" alt="" loading="lazy">' +
+          '<div class="sr-info"><div class="sr-name">' + esc(v.title) + '</div>' +
+          '<div class="sr-sub">' + esc(v.artist) + '</div></div>' +
+          '<svg width="18" height="18" viewBox="0 0 24 24" fill="var(--text-muted)"><path d="M8 5v14l11-7z"/></svg></div>'
+        ).join('') + '</div>';
+    }).catch(() => {
+      el.innerHTML = '<div style="color:var(--text-muted);padding:16px 0;font-size:14px;">Search failed</div>';
+    });
+}
+
+function _ytPlayFromSearch(i) { ytPlayQueue(window._ytSearchQueue || [], i); }
+
+function _ytSetLibTab(tab) {
+  const el = document.getElementById('sidebar-list'); if (!el) return;
+  if (tab === 'playlists') {
+    el.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:8px;">Loading…</div>';
+    fetch('/api/yt/playlists?device=' + deviceId).then(r => r.json()).then(d => {
+      const items = d.items || [];
+      if (!items.length) { el.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:8px;">No playlists</div>'; return; }
+      el.innerHTML = items.map(p => {
+        const name  = esc(p.snippet?.title || '');
+        const thumb = esc(p.snippet?.thumbnails?.default?.url || '');
+        const count = p.contentDetails?.itemCount ? ' · ' + p.contentDetails.itemCount + ' videos' : '';
+        const id    = esc(p.id || '');
+        return '<div class="sl-item" onclick="ytOpenPlaylist(\'' + id + '\',\'' + name + '\')">' +
+          (thumb ? '<img src="' + thumb + '" alt="" loading="lazy">' : '') +
+          '<div class="sl-item-info"><div class="sl-item-name">' + name + '</div>' +
+          '<div class="sl-item-sub">Playlist' + count + '</div></div></div>';
+      }).join('');
+    }).catch(() => { el.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:8px;">Failed to load</div>'; });
+  } else if (tab === 'recent' || tab === 'artists') {
+    el.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:8px;">Loading liked videos…</div>';
+    fetch('/api/yt/liked?device=' + deviceId).then(r => r.json()).then(d => {
+      const items = d.items || [];
+      window._ytLikedQueue = items.map(v => ({
+        videoId: v.id || '',
+        title:   v.snippet?.title || '',
+        artist:  v.snippet?.channelTitle || '',
+        thumb:   v.snippet?.thumbnails?.default?.url || '',
+      }));
+      el.innerHTML = window._ytLikedQueue.map((v, i) =>
+        '<div class="sl-item" onclick="ytPlayQueue(_ytLikedQueue,' + i + ')">' +
+        (v.thumb ? '<img src="' + esc(v.thumb) + '" alt="" loading="lazy">' : '') +
+        '<div class="sl-item-info"><div class="sl-item-name">' + esc(v.title) + '</div>' +
+        '<div class="sl-item-sub">' + esc(v.artist) + '</div></div></div>'
+      ).join('') || '<div style="color:var(--text-muted);font-size:13px;padding:8px;">No liked videos</div>';
+    }).catch(() => { el.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:8px;">Failed to load</div>'; });
+  } else if (tab === 'live') {
+    liveRenderSidebar();
+  }
+}
+
+function ytOpenPlaylist(id, title) {
+  document.getElementById('vpl-name').textContent = title || 'Playlist';
+  document.getElementById('vpl-sub').textContent  = 'Loading…';
+  document.getElementById('vpl-art').src = '';
+  document.getElementById('vpl-tracks').innerHTML = '<div style="color:var(--text-muted);padding:20px 16px;font-size:14px;">Loading…</div>';
+  const detPlayBtn = document.querySelector('#view-playlist .det-play-btn');
+  const detShufBtn = document.querySelector('#view-playlist .det-shuf-btn');
+  if (detPlayBtn) detPlayBtn.onclick = () => ytPlayQueue(window._ytPlaylistQueue || [], 0);
+  if (detShufBtn) detShufBtn.onclick = () => {
+    const q = [...(window._ytPlaylistQueue || [])].sort(() => Math.random() - .5);
+    ytPlayQueue(q, 0);
+  };
+  openDetail('view-playlist');
+  fetch('/api/yt/playlist-items?id=' + encodeURIComponent(id) + '&device=' + deviceId)
+    .then(r => r.json()).then(d => {
+      const items = (d.items || []).filter(i => i.snippet?.resourceId?.videoId);
+      window._ytPlaylistQueue = items.map(i => ({
+        videoId: i.snippet.resourceId.videoId,
+        title:   i.snippet.title || '',
+        artist:  i.snippet.videoOwnerChannelTitle || '',
+        thumb:   i.snippet.thumbnails?.default?.url || '',
+      }));
+      const coverThumb = items[0]?.snippet?.thumbnails?.medium?.url || '';
+      if (coverThumb) document.getElementById('vpl-art').src = coverThumb;
+      document.getElementById('vpl-sub').textContent = items.length + ' videos';
+      document.getElementById('vpl-tracks').innerHTML = window._ytPlaylistQueue.map((v, i) =>
+        '<div class="det-track" onclick="ytPlayQueue(_ytPlaylistQueue,' + i + ')">' +
+        '<span class="det-track-num">' + (i + 1) + '</span>' +
+        '<img class="det-track-art" src="' + esc(v.thumb) + '" alt="" loading="lazy">' +
+        '<div class="det-track-info"><div class="det-track-name">' + esc(v.title) + '</div>' +
+        '<div class="det-track-sub">' + esc(v.artist) + '</div></div></div>'
+      ).join('') || '<div style="color:var(--text-muted);padding:20px;font-size:14px;">No videos</div>';
+    }).catch(() => {
+      document.getElementById('vpl-tracks').innerHTML = '<div style="color:var(--text-muted);padding:20px 16px;">Failed to load</div>';
+    });
+}
+
+function ytDisconnect() {
+  fetch('/api/yt/disconnect?device=' + deviceId, { method: 'POST' }).catch(() => {});
+  ytPlayer = null; ytPlayerReady = false;
+  showAuth();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// APPLE MUSIC
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function appleSaveCreds() {
+  const teamId = document.getElementById('apple-team-id')?.value.trim();
+  const keyId  = document.getElementById('apple-key-id')?.value.trim();
+  const pk     = document.getElementById('apple-p8')?.value.trim();
+  const status = document.getElementById('apple-auth-status');
+  if (!teamId || !keyId || !pk) { if (status) status.textContent = 'All fields are required.'; return; }
+  if (status) status.textContent = 'Saving credentials…';
+  fetch('/api/apple/save-creds', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ teamId, keyId, privateKey: pk }),
+  }).then(r => r.json()).then(d => {
+    if (d.error) { if (status) status.textContent = 'Error: ' + d.error; return; }
+    if (status) status.textContent = 'Saved — loading Apple Music…';
+    _appleCheck();
+  }).catch(() => { if (status) status.textContent = 'Failed to save.'; });
+}
+
+function appleLoadKit() {
+  if (window.MusicKit) { _appleInit(); return; }
+  const s = document.createElement('script');
+  s.src = '/mk/musickitjs';
+  s.onload  = _appleInit;
+  s.onerror = () => console.error('[Apple Music] failed to load MusicKit.js');
+  document.head.appendChild(s);
+}
+
+async function _appleInit() {
+  try {
+    const r = await fetch('/api/apple/dev-token');
+    const d = await r.json();
+    if (d.error) { console.error('[Apple Music] dev-token error:', d.error); return; }
+    await MusicKit.configure({
+      developerToken: d.token,
+      app: { name: 'TemuTalk', build: '1.0' },
+    });
+    appleMusic = MusicKit.getInstance();
+    appleMusic.addEventListener('nowPlayingItemDidChange', _appleOnTrackChange);
+    appleMusic.addEventListener('playbackStateDidChange', _appleOnStateChange);
+    if (!appleMusic.isAuthorized) {
+      try { await appleMusic.authorize(); } catch (e) { console.error('[Apple Music] auth:', e); return; }
+    }
+    _appleSetLibTab(libTab || 'playlists');
+  } catch (e) { console.error('[Apple Music] init error:', e); }
+}
+
+function _appleOnTrackChange() {
+  if (activeService !== 'apple' || !appleMusic) return;
+  const item = appleMusic.nowPlayingItem;
+  if (!item) return;
+  const a      = item.attributes || {};
+  const artUrl = (a.artwork?.url || '').replace('{w}x{h}', '300x300');
+  durMs = a.durationInMillis || 1;
+  _updateNowPlaying(a.name || 'Unknown', a.artistName || '', a.albumName || '', artUrl);
+}
+
+function _appleOnStateChange() {
+  if (activeService !== 'apple' || !appleMusic) return;
+  const isPlaying = appleMusic.playbackState === 2; // MusicKit.PlaybackState.playing = 2
+  playing = isPlaying; setPlayIcons(isPlaying);
+  clearInterval(appleTicker);
+  if (isPlaying) {
+    appleTicker = setInterval(() => {
+      if (!appleMusic || activeService !== 'apple') return;
+      progMs = Math.round((appleMusic.currentPlaybackTime || 0) * 1000);
+      renderProg();
+    }, 500);
+  }
+}
+
+function _appleTogglePlay() {
+  if (!appleMusic) return;
+  if (playing) appleMusic.pause();
+  else appleMusic.play().catch(() => {});
+}
+
+function appleAction(name) {
+  if (!appleMusic) return;
+  if (name === 'play')     { appleMusic.play().catch(() => {}); }
+  else if (name === 'pause')    { appleMusic.pause(); }
+  else if (name === 'next')     { appleMusic.skipToNextItem().catch(() => {}); }
+  else if (name === 'previous') { appleMusic.skipToPreviousItem().catch(() => {}); }
+}
+
+async function applePlaySong(id) {
+  if (!appleMusic) return;
+  try { await appleMusic.setQueue({ song: id }); appleMusic.play().catch(() => {}); }
+  catch (e) { console.error('[Apple Music] play:', e); }
+}
+
+async function appleSearch(q) {
+  const el = document.getElementById('search-results'); if (!el) return;
+  el.innerHTML = '<div style="color:var(--text-muted);padding:16px 0;font-size:14px;">Searching…</div>';
+  try {
+    const sf = (appleMusic?.storefrontId || appleMusic?.storefrontCountryCode || 'us').toLowerCase();
+    const r  = await fetch('/api/apple/search?q=' + encodeURIComponent(q) + '&storefront=' + sf);
+    const d  = await r.json();
+    let html = '';
+    const songs = d.results?.songs?.data || [];
+    if (songs.length) {
+      html += '<div class="browse-section">Apple Music</div><div>';
+      songs.slice(0, 8).forEach(s => {
+        const a   = s.attributes || {};
+        const art = (a.artwork?.url || '').replace('{w}x{h}', '60x60');
+        const dur = a.durationInMillis ? fmt(a.durationInMillis) : '';
+        html += '<div class="sr-row" data-id="' + esc(s.id) + '" onclick="applePlaySong(this.dataset.id)">' +
+          '<img class="sr-art" src="' + esc(art) + '" alt="" loading="lazy">' +
+          '<div class="sr-info"><div class="sr-name">' + esc(a.name || '') + '</div>' +
+          '<div class="sr-sub">' + esc(a.artistName || '') + ' · ' + esc(a.albumName || '') + '</div></div>' +
+          '<span class="sr-dur">' + dur + '</span></div>';
+      });
+      html += '</div>';
+    }
+    const albums = d.results?.albums?.data || [];
+    if (albums.length) {
+      html += '<div class="browse-section">Albums</div><div>';
+      albums.slice(0, 4).forEach(a => {
+        const at  = a.attributes || {};
+        const art = (at.artwork?.url || '').replace('{w}x{h}', '60x60');
+        html += '<div class="sr-row" data-id="' + esc(a.id) + '" onclick="applePlayAlbum(this.dataset.id)">' +
+          '<img class="sr-art" src="' + esc(art) + '" alt="" loading="lazy">' +
+          '<div class="sr-info"><div class="sr-name">' + esc(at.name || '') + '</div>' +
+          '<div class="sr-sub">' + esc(at.artistName || '') + '</div></div>' +
+          '<svg width="18" height="18" viewBox="0 0 24 24" fill="var(--text-muted)"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></div>';
+      });
+      html += '</div>';
+    }
+    el.innerHTML = html || '<div style="color:var(--text-muted);padding:16px 0;font-size:14px;">No results</div>';
+  } catch {
+    el.innerHTML = '<div style="color:var(--text-muted);padding:16px 0;font-size:14px;">Search failed</div>';
+  }
+}
+
+async function applePlayAlbum(id) {
+  if (!appleMusic) return;
+  try { await appleMusic.setQueue({ album: id }); appleMusic.play().catch(() => {}); }
+  catch (e) { console.error('[Apple Music] play album:', e); }
+}
+
+async function _appleSetLibTab(tab) {
+  const el = document.getElementById('sidebar-list'); if (!el) return;
+  if (!appleMusic?.isAuthorized) {
+    el.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:8px;">Sign in to Apple Music to browse library</div>'; return;
+  }
+  el.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:8px;">Loading…</div>';
+  try {
+    if (tab === 'playlists') {
+      const r = await appleMusic.api.music('/v1/me/library/playlists', { params: { limit: 50 } });
+      const items = r.data?.data || [];
+      el.innerHTML = items.map(p => {
+        const a = p.attributes || {};
+        return '<div class="sl-item" data-id="' + esc(p.id) + '" onclick="appleOpenPlaylist(this.dataset.id,\'' + esc(a.name || '').replace(/'/g,'') + '\')">' +
+          '<div class="sl-item-info"><div class="sl-item-name">' + esc(a.name || '') + '</div>' +
+          '<div class="sl-item-sub">Playlist</div></div></div>';
+      }).join('') || '<div style="color:var(--text-muted);font-size:13px;padding:8px;">No playlists</div>';
+    } else if (tab === 'artists') {
+      const r = await appleMusic.api.music('/v1/me/library/artists', { params: { limit: 50 } });
+      const items = r.data?.data || [];
+      el.innerHTML = items.map(a => {
+        const at = a.attributes || {};
+        return '<div class="sl-item"><div class="sl-item-info"><div class="sl-item-name">' + esc(at.name || '') + '</div>' +
+          '<div class="sl-item-sub">Artist</div></div></div>';
+      }).join('') || '<div style="color:var(--text-muted);font-size:13px;padding:8px;">No artists</div>';
+    } else if (tab === 'recent') {
+      const r = await appleMusic.api.music('/v1/me/library/songs', { params: { limit: 50 } });
+      const items = r.data?.data || [];
+      el.innerHTML = items.map(s => {
+        const a = s.attributes || {};
+        return '<div class="sl-item" data-id="' + esc(s.id) + '" onclick="applePlaySong(this.dataset.id)">' +
+          '<div class="sl-item-info"><div class="sl-item-name">' + esc(a.name || '') + '</div>' +
+          '<div class="sl-item-sub">' + esc(a.artistName || '') + '</div></div></div>';
+      }).join('') || '<div style="color:var(--text-muted);font-size:13px;padding:8px;">No songs</div>';
+    } else if (tab === 'live') {
+      liveRenderSidebar();
+    }
+  } catch {
+    el.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:8px;">Failed to load library</div>';
+  }
+}
+
+async function appleOpenPlaylist(id, title) {
+  document.getElementById('vpl-name').textContent = title || 'Playlist';
+  document.getElementById('vpl-sub').textContent  = 'Loading…';
+  document.getElementById('vpl-art').src = '';
+  document.getElementById('vpl-tracks').innerHTML = '<div style="color:var(--text-muted);padding:20px 16px;font-size:14px;">Loading…</div>';
+  const detPlayBtn = document.querySelector('#view-playlist .det-play-btn');
+  const detShufBtn = document.querySelector('#view-playlist .det-shuf-btn');
+  if (detPlayBtn) detPlayBtn.onclick = async () => {
+    if (!appleMusic) return;
+    try { await appleMusic.setQueue({ playlist: id }); appleMusic.play().catch(() => {}); } catch {}
+  };
+  if (detShufBtn) detShufBtn.onclick = async () => {
+    if (!appleMusic) return;
+    try { appleMusic.shuffleMode = 1; await appleMusic.setQueue({ playlist: id }); appleMusic.play().catch(() => {}); } catch {}
+  };
+  openDetail('view-playlist');
+  try {
+    const r = await appleMusic.api.music('/v1/me/library/playlists/' + id + '/tracks', { params: { limit: 100 } });
+    const items = r.data?.data || [];
+    document.getElementById('vpl-sub').textContent = items.length + ' songs';
+    document.getElementById('vpl-tracks').innerHTML = items.map((s, i) => {
+      const a   = s.attributes || {};
+      const dur = a.durationInMillis ? fmt(a.durationInMillis) : '';
+      return '<div class="det-track" data-id="' + esc(s.id) + '" onclick="applePlaySong(this.dataset.id)">' +
+        '<span class="det-track-num">' + (i + 1) + '</span>' +
+        '<div class="det-track-info" style="padding-left:4px;">' +
+        '<div class="det-track-name">' + esc(a.name || '') + '</div>' +
+        '<div class="det-track-sub">' + esc(a.artistName || '') + '</div></div>' +
+        '<span class="det-track-dur">' + dur + '</span></div>';
+    }).join('') || '<div style="color:var(--text-muted);padding:20px;font-size:14px;">No tracks</div>';
+  } catch {
+    document.getElementById('vpl-tracks').innerHTML = '<div style="color:var(--text-muted);padding:20px 16px;">Failed to load tracks</div>';
+  }
+}
+
+function appleDisconnect() {
+  if (appleMusic) { try { appleMusic.unauthorize(); } catch {} appleMusic = null; }
+  clearInterval(appleTicker);
+  fetch('/api/apple/disconnect', { method: 'POST' }).catch(() => {});
+  showAuth();
+}

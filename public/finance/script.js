@@ -7,6 +7,7 @@ let _cryptoList     = null;
 let _cryptoDetId    = null;
 let _cryptoDetRange = '30';
 let _cryptoDetPrice = 0;
+let _cryptoSearch   = '';
 
 // ── Stock state ───────────────────────────────────────────────────────────────
 const _DEFAULT_WL = [
@@ -48,6 +49,7 @@ let _ratesConvRate   = 1;
 let _ratesConvFromLbl = 'USD';
 let _ratesConvToLbl   = 'GBP';
 let _ratesHistCache  = {};
+let _ratesSearch     = '';
 
 // ── Chart state ───────────────────────────────────────────────────────────────
 let _cs = null; // { values, labels, pad, cw, ch, mn, mx, rng, color, rateMode, W, H }
@@ -313,9 +315,17 @@ function loadCrypto(force) {
     }).catch(() => { el.innerHTML = '<div class="fin-empty">Could not load — try again shortly</div>'; });
 }
 
+function cryptoSearchFilter(val) {
+  _cryptoSearch = val.toLowerCase();
+  if (_cryptoList) _renderCryptoList(_cryptoList);
+}
+
 function _renderCryptoList(data) {
   const el = document.getElementById('crypto-list'); if (!el) return;
-  el.innerHTML = data.map((c,i) => {
+  const q = _cryptoSearch.trim();
+  const filtered = q ? data.filter(c => c.name.toLowerCase().includes(q) || c.symbol.toLowerCase().includes(q)) : data;
+  if (!filtered.length) { el.innerHTML = '<div class="fin-empty">No coins match</div>'; return; }
+  el.innerHTML = filtered.map((c,i) => {
     const chg = c.price_change_percentage_24h ?? 0, up = chg >= 0;
     const mcap = c.market_cap >= 1e12 ? '$'+(c.market_cap/1e12).toFixed(2)+'T'
                : c.market_cap >= 1e9  ? '$'+(c.market_cap/1e9).toFixed(1)+'B'
@@ -323,7 +333,7 @@ function _renderCryptoList(data) {
     const vol  = c.total_volume >= 1e9 ? '$'+(c.total_volume/1e9).toFixed(1)+'B'
                : c.total_volume >= 1e6 ? '$'+(c.total_volume/1e6).toFixed(0)+'M' : '';
     return `<div class="coin-card" onclick="cryptoOpen('${_esc(c.id)}')">
-      <span class="coin-rank">${i+1}</span>
+      <span class="coin-rank">${c.market_cap_rank||i+1}</span>
       <img class="coin-img" src="${_esc(c.image||'')}" alt="" loading="lazy" onerror="this.style.opacity='.2'">
       <div class="coin-info">
         <div class="coin-name">${_esc(c.name)}</div>
@@ -533,18 +543,17 @@ async function renderWatchlist() {
         <div class="stock-px" id="wl-px-${_esc(s.sym)}">—</div>
         <div class="stock-chg" id="wl-ch-${_esc(s.sym)}">…</div>
       </div>
-      <button class="fin-remove-btn" onclick="stockRemove('${_esc(s.sym)}',event)" title="Remove">×</button>
     </div>`
   ).join('');
   refreshWatchlistPrices();
 }
 
 async function refreshWatchlistPrices() {
-  for (const s of stockWatchlist) {
+  await Promise.all(stockWatchlist.map(async s => {
     try {
       const r = await fetch('/api/stock?symbol='+encodeURIComponent(s.sym)+'&range=5d&device='+deviceId);
       const d = await r.json();
-      const res = d?.chart?.result?.[0]; if (!res) continue;
+      const res = d?.chart?.result?.[0]; if (!res) return;
       const meta   = res.meta;
       const closes = res.indicators?.quote?.[0]?.close || [];
       const price  = meta.regularMarketPrice ?? meta.chartPreviousClose;
@@ -558,7 +567,7 @@ async function refreshWatchlistPrices() {
       if (chEl) { chEl.textContent=(up?'▲':'▼')+' '+Math.abs(chg).toFixed(2)+'%'; chEl.className='stock-chg '+(up?'up':'down'); }
       if (spEl) drawSparkline(spEl, closes.filter(v=>v!=null), up);
     } catch {}
-  }
+  }));
   setLastUpdate();
 }
 
@@ -712,12 +721,23 @@ async function loadRates(force) {
   } catch { el.innerHTML = '<div class="fin-empty">Could not load rates</div>'; }
 }
 
+function ratesSearchFilter(val) {
+  _ratesSearch = val.toLowerCase();
+  if (_ratesList) _renderRatesList(_ratesList);
+}
+
 function _renderRatesList(data) {
   const el = document.getElementById('rates-list'); if (!el || !data?.rates) return;
   const all = Object.keys(data.rates);
   const ordered = RATES_PRIORITY.filter(c => c !== data.base && all.includes(c))
     .concat(all.filter(c => !RATES_PRIORITY.includes(c) && c !== data.base));
-  el.innerHTML = ordered.map(c => {
+  const q = _ratesSearch.trim();
+  const filtered = q ? ordered.filter(c => {
+    const m = CURR_META[c] || {};
+    return c.toLowerCase().includes(q) || (m.n||'').toLowerCase().includes(q);
+  }) : ordered;
+  if (!filtered.length) { el.innerHTML = '<div class="fin-empty">No currencies match</div>'; return; }
+  el.innerHTML = filtered.map(c => {
     const m = CURR_META[c] || {};
     return `<div class="rate-card" id="rc-${c}" onclick="ratesOpen('${c}')">
       <span class="rate-flag">${m.f||'🏳'}</span>
@@ -735,29 +755,33 @@ function _renderRatesList(data) {
 }
 
 async function _loadRatesSparklines() {
-  const pairs = RATES_PRIORITY.filter(c=>c!==_ratesBase).slice(0,10).join(',');
-  try {
-    const r = await fetch('/api/rates/history?base='+_ratesBase+'&to='+pairs+'&days=30&device='+deviceId);
-    const d = await r.json(); if (!d?.rates) return;
-    const dates = Object.keys(d.rates).sort();
-    const firstDay = d.rates[dates[0]], lastDay = d.rates[dates[dates.length-1]];
-    if (!firstDay) return;
-    Object.keys(firstDay).forEach(c => {
-      const vals = dates.map(dt => d.rates[dt]?.[c]).filter(v=>v!=null);
-      const spEl = document.getElementById('rs-'+c);
-      const chgEl= document.getElementById('rc-chg-'+c);
-      if (spEl && vals.length > 2) {
-        const st = vals[0], en = vals[vals.length-1];
-        drawSparkline(spEl, vals, en >= st);
-        if (chgEl) {
-          const p = (en-st)/st*100;
-          chgEl.textContent = (p>=0?'▲':'▼')+' '+Math.abs(p).toFixed(2)+'%';
-          chgEl.className = 'rate-chg '+(p>=0?'up':'down');
+  if (!_ratesList?.rates) return;
+  const currencies = Object.keys(_ratesList.rates).filter(c => c !== _ratesBase);
+  // Batch into groups of 5 to stay within Frankfurter's per-request limit
+  const batches = [];
+  for (let i = 0; i < currencies.length; i += 5) batches.push(currencies.slice(i, i + 5));
+  await Promise.all(batches.map(async batch => {
+    try {
+      const r = await fetch('/api/rates/history?base='+_ratesBase+'&to='+batch.join(',')+'&days=30&device='+deviceId);
+      const d = await r.json(); if (!d?.rates) return;
+      const dates = Object.keys(d.rates).sort();
+      if (!dates.length) return;
+      batch.forEach(c => {
+        const vals = dates.map(dt => d.rates[dt]?.[c]).filter(v => v != null);
+        const spEl  = document.getElementById('rs-'+c);
+        const chgEl = document.getElementById('rc-chg-'+c);
+        if (spEl && vals.length > 2) {
+          const st = vals[0], en = vals[vals.length-1];
+          drawSparkline(spEl, vals, en >= st);
+          if (chgEl) {
+            const p = (en-st)/st*100;
+            chgEl.textContent = (p>=0?'▲':'▼')+' '+Math.abs(p).toFixed(2)+'%';
+            chgEl.className = 'rate-chg '+(p>=0?'up':'down');
+          }
         }
-      }
-    });
-    _ratesHistCache[_ratesBase+'_30'] = d;
-  } catch {}
+      });
+    } catch {}
+  }));
 }
 
 function ratesOpen(pair) {
