@@ -17,6 +17,7 @@
   <!-- ── CRYPTO ───────────────────────────────────────────────────────────── -->
   <div class="fin-panel" id="fin-crypto">
     <div id="crypto-list-wrap">
+      <input class="fin-search-inp" id="crypto-search-inp" placeholder="Search coins…" autocomplete="off" oninput="cryptoSearchFilter(this.value)" style="margin-bottom:10px">
       <div id="crypto-list"><div class="fin-loading">Loading…</div></div>
     </div>
     <div id="crypto-det-wrap" style="display:none">
@@ -54,6 +55,7 @@
           <option>INR</option><option>BRL</option><option>MXN</option>
         </select>
       </div>
+      <input class="fin-search-inp" id="rates-search-inp" placeholder="Search currencies…" autocomplete="off" oninput="ratesSearchFilter(this.value)" style="margin-bottom:10px">
       <div id="rates-list"><div class="fin-loading">Loading…</div></div>
     </div>
     <div id="rates-det-wrap" style="display:none">

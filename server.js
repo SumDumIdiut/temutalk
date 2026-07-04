@@ -67,11 +67,13 @@ if (fs.existsSync(CERT_KEY_FILE) && fs.existsSync(CERT_CERT_FILE) && savedIp ===
 // ─── Modules ──────────────────────────────────────────────────────────────────
 const state      = require('./lib/state');
 const { devices, resolveDevice, getDeviceToken } = require('./lib/devices');
-const setupSpotifyRoutes = require('./lib/spotify');
-const setupDataRoutes    = require('./lib/data');
-const setupStreamRoutes  = require('./lib/stream');
-const setupWebSocket     = require('./lib/ws');
-const chat               = require('./lib/chat');
+const setupSpotifyRoutes    = require('./lib/spotify');
+const setupDataRoutes       = require('./lib/data');
+const setupStreamRoutes     = require('./lib/stream');
+const setupWebSocket        = require('./lib/ws');
+const chat                  = require('./lib/chat');
+const setupYtMusicRoutes    = require('./lib/yt-music');
+const setupAppleMusicRoutes = require('./lib/apple-music');
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // EXPRESS + SERVER
@@ -167,6 +169,8 @@ setupSpotifyRoutes(app, REDIRECT_URI, MAIN_BASE);
 setupDataRoutes(app, WEATHER_CITY);
 const { broadcastLiveList, ffmpegRunning } = setupStreamRoutes(app, MAIN_BASE);
 chat.setupChatRoutes(app, resolveDevice);
+setupYtMusicRoutes(app, MAIN_BASE);
+setupAppleMusicRoutes(app);
 
 // ─── WebSocket ────────────────────────────────────────────────────────────────
 setupWebSocket(wss, broadcastLiveList);
