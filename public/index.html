@@ -707,6 +707,11 @@ function renderThemePanel() {
         </div>
         ${onoff('Background blobs', themeBlobsShow, '_setThemeBlobsShow')}
         ${onoff('Dot grid', themeDotGrid, '_setThemeDotGrid')}
+        ${onoff('Glow effects', themeGlow, '_setThemeGlow')}
+        <div class="th-toggle-row" onclick="_setThemeNavLabels(themeNavLabels==='show'?'hide':'show')">
+          <div class="th-toggle ${themeNavLabels==='show'?'on':''}"><div class="th-toggle-knob"></div></div>
+          <span>Nav labels</span>
+        </div>
       </div>
 
       <div class="th-card">
@@ -726,16 +731,12 @@ function renderThemePanel() {
       </div>
 
       <div class="th-card">
-        <div class="th-label">Glass &amp; borders</div>
+        <div class="th-label">Card style</div>
         ${slider('Glass opacity', themeGlassOpacity, 0, 60, 1, '_setThemeGlassOpacity', '%')}
         ${slider('Border strength', themeBorderPct, 0, 50, 1, '_setThemeBorderPct', '%')}
         ${slider('Shadow intensity', themeShadowPct, 0, 100, 5, '_setThemeShadowPct', '%')}
-        ${onoff('Tint with accent colour', themeGlassTint, '_setThemeGlassTint')}
-      </div>
-
-      <div class="th-card">
-        <div class="th-label">Shape</div>
         ${slider('Corner radius', themeRadiusPx, 0, 48, 1, '_setThemeRadiusPx', 'px')}
+        ${onoff('Tint with accent colour', themeGlassTint, '_setThemeGlassTint')}
       </div>
 
       <div class="th-card">
@@ -759,15 +760,6 @@ function renderThemePanel() {
         </div>
         <div class="th-sub-label">Any Google Font</div>
         <input class="th-input" placeholder="e.g. Playfair Display" value="${esc(themeCustomFont)}" onchange="_setThemeCustomFont(this.value)">
-      </div>
-
-      <div class="th-card">
-        <div class="th-label">Layout &amp; effects</div>
-        ${onoff('Glow effects', themeGlow, '_setThemeGlow')}
-        <div class="th-toggle-row" onclick="_setThemeNavLabels(themeNavLabels==='show'?'hide':'show')">
-          <div class="th-toggle ${themeNavLabels==='show'?'on':''}"><div class="th-toggle-knob"></div></div>
-          <span>Nav labels</span>
-        </div>
       </div>
 
       <div class="th-card th-card-wide">
