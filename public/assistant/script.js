@@ -368,21 +368,29 @@
   // same reasoning as the old speechSynthesis unlock, just aimed at a real
   // media element instead. First click/touch/key (or a granted mic
   // permission, the closest we get in the headless flow) plays it once,
-  // muted, to unlock playback for the rest of the session.
+  // muted, to unlock playback for the rest of the session. Muted playback
+  // outside a real gesture (e.g. from ensureMic()) doesn't reliably count
+  // as an unlock in every browser though, so if an actual spoken reply gets
+  // blocked, it's stashed and retried the moment a genuine gesture happens.
   let _audioUnlocked = false;
+  let _pendingSpeech = null;
   function unlockAudio() {
-    if (_audioUnlocked) return;
-    _audioUnlocked = true;
-    try {
-      chimeCtx = chimeCtx || new (window.AudioContext || window.webkitAudioContext)();
-      if (chimeCtx.state === 'suspended') chimeCtx.resume().catch(() => {});
-    } catch (_) {}
-    try {
-      player.muted = true;
-      player.play().then(() => { player.pause(); player.muted = false; }).catch(() => { player.muted = false; });
-    } catch (_) {}
+    if (!_audioUnlocked) {
+      _audioUnlocked = true;
+      try {
+        chimeCtx = chimeCtx || new (window.AudioContext || window.webkitAudioContext)();
+        if (chimeCtx.state === 'suspended') chimeCtx.resume().catch(() => {});
+      } catch (_) {}
+      try {
+        player.muted = true;
+        player.play().then(() => { player.pause(); player.muted = false; }).catch(() => { player.muted = false; });
+      } catch (_) {}
+    }
   }
-  ['click', 'touchstart', 'keydown'].forEach(ev => document.addEventListener(ev, unlockAudio, { once: true, passive: true }));
+  ['click', 'touchstart', 'keydown'].forEach(ev => document.addEventListener(ev, () => {
+    unlockAudio();
+    if (_pendingSpeech) { const t = _pendingSpeech; _pendingSpeech = null; speak(t); }
+  }, { once: true, passive: true }));
 
   async function speak(text) {
     if (!text) return;
@@ -406,7 +414,10 @@
       setBotSpeaking(true);
       await player.play();
     } catch (e) {
-      console.warn('[assistant] TTS failed:', e.message || e);
+      console.warn('[assistant] TTS failed:', e.name || '', e.message || e);
+      // Blocked by the browser's autoplay gesture requirement rather than a
+      // real failure — replay it the moment the user next touches the page.
+      if (e && e.name === 'NotAllowedError') _pendingSpeech = text;
       speaking = false;
       setBotSpeaking(false);
     }
