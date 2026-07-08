@@ -300,7 +300,9 @@ const _tabLoaded = { home: true }; // home is inline — already loaded
 
 async function ensureTab(tab) {
   if (_tabLoaded[tab]) return;
-  const r = await fetch('/' + tab + '/view.html');
+  // ?v= busts any cache (browser or the Cloudflare tunnel's edge) sitting
+  // between here and the server, same as the versioned <script>/<link> tags.
+  const r = await fetch('/' + tab + '/view.html' + (window.__ASSET_V ? '?v=' + window.__ASSET_V : ''));
   document.getElementById('view-' + tab).innerHTML = await r.text();
   _tabLoaded[tab] = true;
 }
