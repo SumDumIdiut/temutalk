@@ -127,6 +127,46 @@ find_node_bin() {
   command -v node 2>/dev/null
 }
 
+# ─── Piper (local text-to-speech, no client install required) ──────────────
+# The assistant's voice replies are synthesized server-side (lib/tts.js) and
+# streamed to the browser as WAV — Piper is a self-contained binary (like
+# node/cloudflared above), so no client device needs anything installed for
+# voice replies to work.
+ensure_piper() {
+  local arch piper_arch
+  arch=$(uname -m)
+  case "$arch" in
+    aarch64|arm64) piper_arch=aarch64 ;;
+    arm*)          piper_arch=armv7l  ;;
+    *)             piper_arch=x86_64  ;;
+  esac
+
+  if [ ! -x bin/linux/piper/piper ]; then
+    info "Downloading Piper TTS ($piper_arch)..."
+    mkdir -p bin/linux/piper
+    curl -L --progress-bar -o /tmp/piper.tar.gz \
+      "https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_linux_${piper_arch}.tar.gz"
+    tar -xzf /tmp/piper.tar.gz -C bin/linux/piper --strip-components=1
+    rm -f /tmp/piper.tar.gz
+    chmod +x bin/linux/piper/piper bin/linux/piper/piper_phonemize
+    ok "Piper ready."
+  else
+    ok "Piper already present."
+  fi
+
+  if [ ! -f voices/en_US-lessac-medium.onnx ]; then
+    info "Downloading Piper voice (en_US-lessac-medium)..."
+    mkdir -p voices
+    curl -L --progress-bar -o voices/en_US-lessac-medium.onnx \
+      "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx"
+    curl -sL -o voices/en_US-lessac-medium.onnx.json \
+      "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx.json"
+    ok "Voice ready."
+  else
+    ok "Piper voice already present."
+  fi
+}
+
 # ─── USB key setup ──────────────────────────────────────────────────────────
 USB_LABEL="${USB_LABEL:-C98E-49E1}"
 KEY_HASH_FILE=".run/panel-key-hash"
@@ -494,6 +534,7 @@ echo "  ${C_BOLD}TemuTalk Speaker — Setup${C_RESET}"
 echo ""
 install_system_deps
 ensure_portable_bins
+ensure_piper
 [ -f audio-source.conf ] || configure_audio_source
 setup_usb_key
 echo ""

@@ -603,25 +603,6 @@ function _setThemeClockSec(v)  { themeClockSec=v;  localStorage.setItem('themeCl
 function _setVaWakeWord(v)     { localStorage.setItem('vaWakeWord', v.trim().toLowerCase() || 'hey temu'); }
 function _setVaTts(v)          { vaTts=v;     localStorage.setItem('vaTts',v);     renderThemePanel(); }
 function _setVaTtsRate(v)      { vaTtsRate=v; localStorage.setItem('vaTtsRate',v); renderThemePanel(); }
-function _setVaVoice(uri)      { localStorage.setItem('vaVoiceURI', uri || ''); }
-
-// Speech-synthesis voices load asynchronously in most browsers — the first
-// call to getVoices() often returns []. Re-render once the real list is in.
-if ('speechSynthesis' in window) {
-  speechSynthesis.addEventListener('voiceschanged', () => {
-    if (document.getElementById('va-voice-select')) renderThemePanel();
-  });
-}
-function _voiceOptionsHtml() {
-  if (!('speechSynthesis' in window)) return '<option value="">Not supported in this browser</option>';
-  const voices = speechSynthesis.getVoices();
-  if (!voices.length) return '<option value="">Loading voices…</option>';
-  const chosen = localStorage.getItem('vaVoiceURI') || '';
-  const opts = ['<option value="">Browser default</option>'].concat(
-    voices.map(v => `<option value="${esc(v.voiceURI)}" ${v.voiceURI === chosen ? 'selected' : ''}>${esc(v.name)} (${esc(v.lang)})</option>`)
-  );
-  return opts.join('');
-}
 function _setThemeBgHex(hex)   { themeBgHex=hex; themeDark='custom'; localStorage.setItem('themeBgHex',hex); localStorage.setItem('themeDark','custom'); applyTheme(); renderThemePanel(); }
 function _setThemeGlassTint(v) { themeGlassTint=v; localStorage.setItem('themeGlassTint',v); applyTheme(); renderThemePanel(); }
 function _setThemeBorderStr(v) { themeBorderStr=v; localStorage.setItem('themeBorderStr',v); applyTheme(); renderThemePanel(); }
@@ -788,10 +769,6 @@ function renderThemePanel() {
         <div class="th-pills">
           ${onoff('Voice replies', vaTts, '_setVaTts')}
         </div>
-        <div class="th-sub-label">Voice</div>
-        <select class="th-input" id="va-voice-select" style="max-width:280px;margin-bottom:10px;" onchange="_setVaVoice(this.value)">
-          ${_voiceOptionsHtml()}
-        </select>
         <div class="th-sub-label">Speech speed</div>
         <div class="th-pills">
           ${pill('Slow',   '0.9',  vaTtsRate, '_setVaTtsRate')}

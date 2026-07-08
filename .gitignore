@@ -8,6 +8,8 @@ bin/win/node.exe
 bin/win/cloudflared.exe
 bin/linux/node
 bin/linux/cloudflared
+bin/linux/piper/
+voices/
 .cloudflared/config.yml
 .cloudflared/*.json
 .cloudflared/cert.pem
