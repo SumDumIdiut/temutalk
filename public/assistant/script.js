@@ -51,6 +51,7 @@
   async function ensureMic() {
     if (micStream && micStream.active) return micStream;
     micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    unlockAudio(); // closest thing to a user gesture we get in the headless flow
     return micStream;
   }
   function releaseMic() {
@@ -351,6 +352,32 @@
   // browser's own voiceURI so it survives across sessions on this device.
   // Every reply and error is spoken in full — with no transcript panel
   // anymore, TTS is the only place the full text is available.
+  //
+  // Chrome (and embedded WebViews especially) will silently swallow
+  // speechSynthesis.speak() — no error, no sound — until the page has seen
+  // at least one real user gesture. The old floating mic button used to
+  // supply that gesture for free; now that everything is headless/automatic
+  // there may never be one, so we grab the very first click/touch/key on the
+  // page (or the mic permission grant) and use it to "prime" the engine.
+  let _audioUnlocked = false;
+  function unlockAudio() {
+    if (_audioUnlocked) return;
+    _audioUnlocked = true;
+    try {
+      chimeCtx = chimeCtx || new (window.AudioContext || window.webkitAudioContext)();
+      if (chimeCtx.state === 'suspended') chimeCtx.resume().catch(() => {});
+    } catch (_) {}
+    try {
+      if ('speechSynthesis' in window) {
+        if (speechSynthesis.paused) speechSynthesis.resume();
+        const u = new SpeechSynthesisUtterance(' ');
+        u.volume = 0;
+        speechSynthesis.speak(u);
+      }
+    } catch (_) {}
+  }
+  ['click', 'touchstart', 'keydown'].forEach(ev => document.addEventListener(ev, unlockAudio, { once: true, passive: true }));
+
   function pickVoice() {
     if (!('speechSynthesis' in window)) return null;
     const uri = localStorage.getItem('vaVoiceURI');
@@ -361,6 +388,7 @@
     if (!('speechSynthesis' in window) || !text) return;
     if (localStorage.getItem('vaTts') === 'off') return; // voice replies disabled in settings
     try {
+      if (speechSynthesis.paused) speechSynthesis.resume(); // known Chrome bug: stays paused after idle
       speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text);
       u.rate = parseFloat(localStorage.getItem('vaTtsRate')) || 1.05;
@@ -368,12 +396,13 @@
       if (voice) { u.voice = voice; u.lang = voice.lang; }
       else u.lang = navigator.language || 'en-US';
       speaking = true;
-      u.onend = u.onerror = () => { speaking = false; setBotSpeaking(false); };
+      u.onend = () => { speaking = false; setBotSpeaking(false); };
+      u.onerror = (e) => { console.warn('[assistant] TTS error:', e.error); speaking = false; setBotSpeaking(false); };
       speechSynthesis.speak(u);
       setBotSpeaking(true);
       // Safety: some engines never fire onend
       setTimeout(() => { speaking = false; setBotSpeaking(false); }, Math.min(30000, 2000 + text.length * 90));
-    } catch (_) { speaking = false; setBotSpeaking(false); }
+    } catch (e) { console.warn('[assistant] TTS failed:', e); speaking = false; setBotSpeaking(false); }
   }
 
   // ── Device actions returned by the server ───────────────────────────────
