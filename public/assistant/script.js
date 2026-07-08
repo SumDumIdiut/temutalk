@@ -20,15 +20,15 @@
   function wakeWord() { return (localStorage.getItem('vaWakeWord') || 'hey temu').toLowerCase(); }
 
   // ── Wake glow ───────────────────────────────────────────────────────────
-  // The only visual feedback left: an orange edge-glow overlay. Turns on the
-  // instant the wake chime plays, pulses while actively capturing the user's
-  // spoken command, and fades out once the whole exchange is done.
+  // The only visual feedback left: a solid orange edge border, styled after
+  // the accent border on the home screen's mini-cards. Turns on the instant
+  // the wake chime plays and stays on (no pulsing) until the whole exchange
+  // is done.
   const glow = document.createElement('div');
   glow.id = 'va-glow';
   document.body.appendChild(glow);
-  function glowOn()      { glow.classList.add('on'); }
-  function glowOff()     { glow.classList.remove('on', 'pulse'); }
-  function glowPulse(on) { glow.classList.toggle('pulse', on); }
+  function glowOn()  { glow.classList.add('on'); }
+  function glowOff() { glow.classList.remove('on'); }
 
   // ── State ───────────────────────────────────────────────────────────────
   let busy        = false;  // command round-trip in flight
@@ -42,7 +42,7 @@
   // No visual UI beyond the wake glow — status is console-only for
   // debugging; replies/errors are always spoken in full via TTS instead.
   function setStatus(msg, isErr) { if (msg) console.log('[assistant]', isErr ? 'error:' : 'status:', msg); }
-  function setListening(on) { listening = on; glowPulse(on); }
+  function setListening(on) { listening = on; }
   function setBotSpeaking() { /* no-op — kept for call-site symmetry, no UI to update */ }
 
   // ── Audio helpers ───────────────────────────────────────────────────────
