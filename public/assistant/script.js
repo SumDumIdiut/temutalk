@@ -399,9 +399,34 @@
     if (_pendingSpeech) { const t = _pendingSpeech; _pendingSpeech = null; speak(t); }
   }, { once: true, passive: true }));
 
+  // ── Duck the music volume while speaking ────────────────────────────────
+  // Smoothly lowers whatever's currently playing (Spotify/YouTube/Apple —
+  // setVolume() in music/script.js already abstracts over all of them),
+  // then smoothly brings it back once the reply finishes.
+  function _tweenVolume(from, to, ms) {
+    return new Promise((resolve) => {
+      if (typeof setVolume !== 'function' || from == null) return resolve();
+      const steps = 12;
+      const stepMs = ms / steps;
+      let i = 0;
+      const iv = setInterval(() => {
+        i++;
+        setVolume(Math.round(from + (to - from) * (i / steps)));
+        if (i >= steps) { clearInterval(iv); resolve(); }
+      }, stepMs);
+    });
+  }
+  function _currentVolume() {
+    const el = document.getElementById('fp-vol');
+    return (el && typeof playing !== 'undefined' && playing) ? parseInt(el.value, 10) : null;
+  }
+
   async function speak(text) {
     if (!text) return;
     if (localStorage.getItem('vaTts') === 'off') return; // voice replies disabled in settings
+    const origVol = _currentVolume();
+    const duckVol = origVol != null ? Math.round(origVol * 0.25) : null;
+    let ducked = false;
     try {
       const rate = parseFloat(localStorage.getItem('vaTtsRate')) || 1.05;
       const r = await fetch('/api/assistant/tts?device=' + encodeURIComponent(deviceId), {
@@ -421,12 +446,20 @@
       player.volume = 1;
       speaking = true;
       setBotSpeaking(true);
+      if (origVol != null) { await _tweenVolume(origVol, duckVol, 350); ducked = true; }
       await player.play();
+      await new Promise((resolve) => {
+        const done = () => { player.removeEventListener('ended', done); player.removeEventListener('error', done); resolve(); };
+        player.addEventListener('ended', done);
+        player.addEventListener('error', done);
+      });
+      if (ducked) await _tweenVolume(duckVol, origVol, 350);
     } catch (e) {
       console.warn('[assistant] TTS failed:', e.name || '', e.message || e);
       // Blocked by the browser's autoplay gesture requirement rather than a
       // real failure — replay it the moment the user next touches the page.
       if (e && e.name === 'NotAllowedError') _pendingSpeech = text;
+      if (ducked) _tweenVolume(duckVol, origVol, 350);
       speaking = false;
       setBotSpeaking(false);
     }
