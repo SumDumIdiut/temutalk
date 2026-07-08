@@ -443,7 +443,7 @@ function openAddToPlaylistModal() {
       if (!items.length) { list.innerHTML = '<div class="apm-empty">No playlists found.</div>'; return; }
       list.innerHTML = items.map(p => {
         const img = p.images?.at(-1)?.url || p.images?.[0]?.url || '';
-        return '<button class="add-playlist-item" onclick="addCurrentTrackToPlaylist(this,' + JSON.stringify(p.id) + ')">' +
+        return '<button class="add-playlist-item" data-playlist="' + esc(p.id) + '" onclick="addCurrentTrackToPlaylist(this,this.dataset.playlist)">' +
           (img ? '<img class="apm-item-art" src="' + esc(img) + '" alt="">' : '<div class="apm-item-art"></div>') +
           '<div class="apm-item-info"><div class="apm-item-name">' + esc(p.name) + '</div>' +
           '<div class="apm-item-sub">' + (p.tracks?.total ?? 0) + ' songs</div></div>' +
@@ -612,7 +612,7 @@ function openPlaylist(id) {
         '<img class="det-track-art" src="' + (t.album?.images?.at(-1)?.url || '') + '" alt="" loading="lazy">' +
         '<div class="det-track-info"><div class="det-track-name">' + esc(t.name) + '</div><div class="det-track-sub">' + esc(t.artists.map(a => a.name).join(', ')) + '</div></div>' +
         '<span class="det-track-dur">' + fmt(t.duration_ms) + '</span>' +
-        '<button class="det-track-remove" title="Remove from playlist" onclick="event.stopPropagation();removeFromPlaylist(this,' + JSON.stringify(id) + ',' + JSON.stringify(t.uri) + ')">' +
+        '<button class="det-track-remove" data-playlist="' + esc(id) + '" data-uri="' + esc(t.uri) + '" title="Remove from playlist" onclick="event.stopPropagation();removeFromPlaylist(this,this.dataset.playlist,this.dataset.uri)">' +
           '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M6 7h12l-1 13.02A2 2 0 0 1 15.01 22H8.99a2 2 0 0 1-1.99-1.98L6 7zm3-4h6l1 2h4v2H4V5h4l1-2z"/></svg>' +
         '</button></div>';
     }).join('');
