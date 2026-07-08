@@ -1,45 +1,4 @@
 /* ── Voice assistant ─────────────────────────────────────────────────────── */
-/* Integrated directly into the nav sidebar as one more nav-style control —
-   no floating action button, no floating panel. Wake word is the only input;
-   status/replies show as a short label under the icon (full text in the
-   native tooltip, complete text spoken via TTS). */
-
-.va-widget {
-  margin-top: auto; /* pinned to the bottom of the nav column */
-  padding-top: 10px;
-}
-.va-widget .nav-pill { position: relative; }
-
-.va-widget.on { color: var(--primary, #b09ffc); }
-.va-widget.on .nav-pill {
-  background: linear-gradient(135deg, rgba(176,159,252,.32), rgba(248,124,196,.16));
-  box-shadow: 0 0 20px rgba(176,159,252,.36), inset 0 1px 0 rgba(255,255,255,.18);
-  border: 1.5px solid rgba(176,159,252,.28);
-}
-
-.va-widget.va-listening .nav-pill,
-.va-widget.va-busy .nav-pill {
-  animation: va-pulse 1.6s ease-out infinite;
-}
-@keyframes va-pulse {
-  0%   { box-shadow: 0 0 0 0 var(--primary-glow, rgba(176,159,252,.4)); }
-  70%  { box-shadow: 0 0 0 14px rgba(0,0,0,0); }
-  100% { box-shadow: 0 0 0 0 rgba(0,0,0,0); }
-}
-
-.va-widget.va-speaking .nav-icon { animation: va-speak-pulse 1s ease-in-out infinite; }
-@keyframes va-speak-pulse {
-  0%, 100% { opacity: 0.6; }
-  50%      { opacity: 1; }
-}
-
-.va-widget.va-err { color: #f87171; }
-.va-widget.va-err .nav-pill { border: 1.5px solid rgba(248,113,113,.4); }
-
-#va-label {
-  display: block;
-  max-width: 76px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+/* Fully headless by design — no UI. Wake word listening starts automatically
+   (public/assistant/script.js) with nothing rendered on screen; replies and
+   errors are spoken aloud via TTS instead. */

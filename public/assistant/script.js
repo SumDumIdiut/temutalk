@@ -1,15 +1,10 @@
 // ── Voice assistant ──────────────────────────────────────────────────────────
-// Wake word only — no text input, no tap-to-talk button. Say the wake word,
-// then the command; STT → POST /api/assistant → server runs a tool loop on a
-// local Ollama model → reply is spoken via speechSynthesis and device actions
+// Fully headless — no UI at all. Wake word listening starts automatically on
+// page load and runs continuously in the background; say the wake word, then
+// the command. STT → POST /api/assistant → server runs a tool loop on a local
+// Ollama model → reply is spoken via speechSynthesis and device actions
 // (radio, timers, chat, navigation) are executed here using the globals the
 // tab scripts already define (playStation, addTimer, ws, …).
-//
-// UI is a single control integrated into the nav sidebar (same nav-item /
-// nav-pill / nav-label classes every tab button uses) — no floating button,
-// no floating panel. It doubles as the wake-word on/off toggle and a status
-// readout (current state, truncated reply/error text — full text is in the
-// native tooltip and is always spoken aloud via TTS).
 //
 // Speech-to-text engines, best first:
 //   1. Web Speech API (Chrome/Edge with Google STT)
@@ -18,23 +13,6 @@
 
 (function () {
   'use strict';
-
-  // ── DOM ─────────────────────────────────────────────────────────────────
-  const MIC_SVG =
-    '<svg width="21" height="21" viewBox="0 0 24 24" fill="currentColor">' +
-    '<path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg>';
-
-  const widget = document.createElement('button');
-  widget.className = 'nav-item va-widget';
-  widget.id = 'va-widget';
-  widget.innerHTML =
-    '<div class="nav-pill">' + MIC_SVG + '</div>' +
-    '<span class="nav-label" id="va-label">Voice</span>';
-
-  const nav = document.querySelector('.nav') || document.body;
-  nav.appendChild(widget);
-
-  const $label = widget.querySelector('#va-label');
 
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   // Wake word + voice settings are read live so the System-tab settings apply
@@ -45,49 +23,16 @@
   let busy        = false;  // command round-trip in flight
   let speaking    = false;  // TTS playing (don't listen to ourselves)
   let listening   = false;  // any capture in progress
-  // Wake mode is never auto-armed on load (see the bottom of this file for
-  // why) — always starts off, regardless of what was remembered last time.
-  let wakeEnabled = false;
-  const _wakeWasOnLastTime = localStorage.getItem('vaWake') === 'on';
+  let wakeEnabled = true;   // always on — no UI toggle
   let wakeLoopOn  = false;
   let cancelCapture = null; // cancels the in-flight recorder capture
   let srSession   = null;
 
-  // ── Status label (replaces the old chat-log/bubble panel) ──────────────
-  // Short label under the icon; full text always available via the native
-  // tooltip and is spoken aloud via TTS, so nothing is lost by not having a
-  // persistent transcript panel.
-  let statusResetTimer = null;
-  function idleLabel() { return wakeEnabled ? 'Armed' : 'Voice'; }
-  function idleTitle() {
-    return wakeEnabled
-      ? 'Voice assistant armed — say “' + wakeWord() + '” to give a command. Tap to disarm.'
-      : 'Voice assistant off. Tap to arm wake word “' + wakeWord() + '”.';
-  }
-  function setStatus(msg, isErr, sticky) {
-    if (statusResetTimer) { clearTimeout(statusResetTimer); statusResetTimer = null; }
-    widget.classList.toggle('va-err', !!isErr);
-    $label.textContent = msg || idleLabel();
-    widget.title = msg || idleTitle();
-    if (msg && !sticky) {
-      statusResetTimer = setTimeout(() => {
-        widget.classList.remove('va-err');
-        $label.textContent = idleLabel();
-        widget.title = idleTitle();
-      }, isErr ? 6000 : 4500);
-    }
-  }
-  function setListening(on) {
-    listening = on;
-    widget.classList.toggle('va-listening', on);
-  }
-  function setBotSpeaking(on) {
-    widget.classList.toggle('va-speaking', on);
-  }
-  function renderWake() {
-    widget.classList.toggle('on', wakeEnabled);
-    if (!busy && !listening) setStatus('');
-  }
+  // No visual UI — status is console-only for debugging; replies/errors are
+  // always spoken in full via TTS instead.
+  function setStatus(msg, isErr) { if (msg) console.log('[assistant]', isErr ? 'error:' : 'status:', msg); }
+  function setListening(on) { listening = on; }
+  function setBotSpeaking() { /* no-op — kept for call-site symmetry, no UI to update */ }
 
   // ── Audio helpers ───────────────────────────────────────────────────────
   let micStream = null, chimeCtx = null;
@@ -238,7 +183,7 @@
           else interim += e.results[i][0].transcript;
         }
         lastInterim = (finalText + interim).trim();
-        if (lastInterim) setStatus(lastInterim, false, true);
+        if (lastInterim) setStatus(lastInterim);
       };
       rec.onerror = (e) => {
         if (e.error === 'not-allowed') setStatus('Mic blocked', true);
@@ -321,11 +266,11 @@
     if (!command) {
       // Wake word alone — listen for the command as the next utterance
       setListening(true);
-      setStatus('Yes?', false, true);
+      setStatus('Yes?');
       if (SR) command = await srListenOnce();
       else {
         const blob = await captureUtterance({ startTimeoutMs: 6000 });
-        if (blob) { setStatus('Transcribing…', false, true); command = await sttBlob(blob).catch(() => ''); }
+        if (blob) { setStatus('Transcribing…'); command = await sttBlob(blob).catch(() => ''); }
       }
       setListening(false);
     }
@@ -375,24 +320,14 @@
 
   function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-  async function setWake(on) {
-    wakeEnabled = on;
-    localStorage.setItem('vaWake', on ? 'on' : 'off');
-    renderWake();
-    if (on) {
-      if (!SR) {
-        try { await ensureMic(); }
-        catch (_) { wakeEnabled = false; localStorage.setItem('vaWake', 'off'); renderWake(); setStatus('Mic blocked', true); return; }
-      }
-      setStatus('Armed — say ' + wakeWord(), false, true);
-      if (SR) wakeLoopSR();
-      else if (!wakeLoopOn) { wakeLoopOn = true; wakeLoopRecorder().finally(() => { wakeLoopOn = false; }); }
-    } else {
-      if (cancelCapture) cancelCapture();
-      if (srSession) { try { srSession.onend = null; srSession.stop(); } catch (_) {} srSession = null; }
-      if (!SR) releaseMic();
-      setStatus('');
+  async function startWake() {
+    if (!SR) {
+      try { await ensureMic(); }
+      catch (_) { wakeEnabled = false; setStatus('Mic blocked — wake word needs mic access.', true); return; }
     }
+    setStatus('Armed — say ' + wakeWord());
+    if (SR) wakeLoopSR();
+    else if (!wakeLoopOn) { wakeLoopOn = true; wakeLoopRecorder().finally(() => { wakeLoopOn = false; }); }
   }
 
   // ── Text to speech ──────────────────────────────────────────────────────
@@ -470,8 +405,7 @@
       else return handleWokenCommand('');
     }
     busy = true;
-    widget.classList.add('va-busy');
-    setStatus('Thinking…', false, true);
+    setStatus('Thinking…');
     try {
       const r = await fetch('/api/assistant?device=' + encodeURIComponent(deviceId), {
         method: 'POST',
@@ -497,21 +431,14 @@
       speak(msg);
     } finally {
       busy = false;
-      widget.classList.remove('va-busy');
     }
   }
 
-  // ── Wiring ──────────────────────────────────────────────────────────────
-  widget.addEventListener('click', () => setWake(!wakeEnabled));
-
-  renderWake();
-  // Wake mode deliberately does NOT auto-resume on page load. Opening the
-  // microphone (whether via getUserMedia or the browser's own Web Speech
-  // API) makes the OS/browser renegotiate the active audio device — on many
-  // systems (especially Bluetooth speakers/headsets switching from a
-  // stereo-playback profile to a mic-capable one) that briefly interrupts or
-  // pauses whatever else is playing, including audio in a completely
-  // unrelated browser tab. Silently re-arming the mic on every refresh was
-  // causing exactly that. One explicit tap re-enables it.
-  if (_wakeWasOnLastTime) setStatus('Tap to resume', false, true);
+  // ── Auto-start ───────────────────────────────────────────────────────────
+  // No toggle, no button — wake word listening starts as soon as the page
+  // loads. Note: opening the mic (getUserMedia or Web Speech API) can make
+  // the OS/browser renegotiate the active audio device (notably Bluetooth
+  // speakers switching profiles), which may briefly interrupt audio playing
+  // in another tab. Accepted tradeoff for always-on hands-free listening.
+  startWake();
 })();
