@@ -422,21 +422,22 @@ let themeAccent       = localStorage.getItem('themeAccent')       || 'violet';
 let themeAutoAccent   = localStorage.getItem('themeAutoAccent')   !== 'false';
 let themeCustomHex    = localStorage.getItem('themeCustomHex')    || '#b09ffc';
 let themeDark         = localStorage.getItem('themeDark')         || 'dark';
-let themeBg           = localStorage.getItem('themeBg')           || 'vivid';
+let themeBlobsShow    = localStorage.getItem('themeBlobsShow')    || 'on';
 let themeBlobs        = localStorage.getItem('themeBlobs')        || 'auto';
 let themeDotGrid      = localStorage.getItem('themeDotGrid')      || 'on';
-let themeGlass        = localStorage.getItem('themeGlass')        || 'mid';
-let themeRadius       = localStorage.getItem('themeRadius')       || 'rounded';
-let themeClockSize    = localStorage.getItem('themeClockSize')    || 'xl';
+let themeGlassOpacity = localStorage.getItem('themeGlassOpacity') || '8';
+let themeRadiusPx     = localStorage.getItem('themeRadiusPx')     || '26';
+let themeClockPx      = localStorage.getItem('themeClockPx')      || '150';
 let themeClock        = localStorage.getItem('themeClock')        || '24';
 let themeFont         = localStorage.getItem('themeFont')         || 'nunito';
+let themeCustomFont   = localStorage.getItem('themeCustomFont')   || '';
 let themeGlow         = localStorage.getItem('themeGlow')         || 'on';
 let themeNavLabels    = localStorage.getItem('themeNavLabels')    || 'show';
 let themeClockSec     = localStorage.getItem('themeClockSec')     || 'off';
 let themeBgHex        = localStorage.getItem('themeBgHex')        || '#08090f';
 let themeGlassTint    = localStorage.getItem('themeGlassTint')    || 'off';
-let themeBorderStr    = localStorage.getItem('themeBorderStr')    || 'normal';
-let themeShadows      = localStorage.getItem('themeShadows')      || 'on';
+let themeBorderPct    = localStorage.getItem('themeBorderPct')    || '18';
+let themeShadowPct    = localStorage.getItem('themeShadowPct')    || '100';
 let themeBlobMotion   = localStorage.getItem('themeBlobMotion')   || 'on';
 let themeBlobHexes    = JSON.parse(localStorage.getItem('themeBlobHexes') || '["#7c6cf8","#f87cc4","#42c8ff","#ff9f4a"]');
 let vaTts             = localStorage.getItem('vaTts')             || 'on';
@@ -469,7 +470,16 @@ function _applyBlobColors(preset) {
   });
 }
 
-function _applyFont(id) {
+function _applyFont(id, customName) {
+  if (customName && customName.trim()) {
+    const fam = customName.trim();
+    const href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(fam).replace(/%20/g,'+')}:wght@400;500;600;700;800&display=swap`;
+    let lk = document.getElementById('custom-font-link');
+    if (!lk) { lk = document.createElement('link'); lk.rel='stylesheet'; lk.id='custom-font-link'; document.head.appendChild(lk); }
+    if (lk.href !== href) lk.href = href;
+    document.body.style.fontFamily = `'${fam}',-apple-system,BlinkMacSystemFont,sans-serif`;
+    return;
+  }
   const fonts = {
     nunito:  { name:'Nunito',        url:'https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap' },
     inter:   { name:'Inter',         url:'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap' },
@@ -509,26 +519,24 @@ function applyTheme() {
 
   // Blobs visibility
   const bgEl = document.getElementById('bg');
-  const showBlobs = (themeBg === 'vivid');
+  const showBlobs = (themeBlobsShow !== 'off');
   if (bgEl) bgEl.style.display = showBlobs ? '' : 'none';
 
   // Blob colors (only relevant when blobs are shown)
   _applyBlobColors(showBlobs ? themeBlobs : 'auto');
 
-  // Dot grid — always set explicitly so cascade doesn't interfere
-  const showDots = (themeDotGrid !== 'off' && themeBg !== 'clean');
+  // Dot grid — independent of blob visibility now, always set explicitly
+  // so cascade doesn't interfere
+  const showDots = (themeDotGrid !== 'off');
   document.body.style.backgroundImage = showDots
     ? 'radial-gradient(circle, rgba(255,255,255,.022) 1px, transparent 1px)'
     : 'none';
   document.body.style.backgroundSize = showDots ? '28px 28px' : '';
 
-  // Glass — optionally tinted with the accent colour
-  const glass = {
-    clear:   ['.13','.20','.28','.25'],
-    mid:     ['.075','.12','.18','.18'],
-    frosted: ['.04','.07','.11','.12'],
-    solid:   ['.19','.26','.34','.30'],
-  }[themeGlass] || ['.075','.12','.18','.18'];
+  // Glass — a single opacity slider drives all three surface tiers at a
+  // fixed ratio (1 / 1.6 / 2.4), optionally tinted with the accent colour
+  const base = Math.max(0, parseFloat(themeGlassOpacity) || 8) / 100;
+  const glass = [base, base * 1.6, base * 2.4];
   let tintH = null, tintS = 0;
   if (themeGlassTint === 'on') {
     if (themeAccent === 'custom') [tintH, tintS] = _hexToHsl(themeCustomHex);
@@ -536,36 +544,39 @@ function applyTheme() {
     tintS = Math.min(tintS, 55);
   }
   const surf = a => tintH === null ? `rgba(255,255,255,${a})` : `hsla(${tintH},${tintS}%,72%,${a})`;
-  R.style.setProperty('--surface',         surf(glass[0]));
-  R.style.setProperty('--surface-hi',      surf(glass[1]));
-  R.style.setProperty('--surface-highest', surf(glass[2]));
-  const borderA = themeBorderStr === 'soft' ? '.07' : themeBorderStr === 'strong' ? '.36' : glass[3];
-  R.style.setProperty('--glass-border', surf(borderA));
+  R.style.setProperty('--surface',         surf(glass[0].toFixed(3)));
+  R.style.setProperty('--surface-hi',      surf(glass[1].toFixed(3)));
+  R.style.setProperty('--surface-highest', surf(glass[2].toFixed(3)));
+  const borderA = Math.max(0, parseFloat(themeBorderPct) || 18) / 100;
+  R.style.setProperty('--glass-border', surf(borderA.toFixed(3)));
 
-  // Radius
-  const rad = { pill:['24px','32px','42px'], rounded:['18px','26px','34px'], sharp:['8px','12px','18px'], square:['5px','8px','12px'] }[themeRadius] || ['18px','26px','34px'];
-  R.style.setProperty('--radius-sm', rad[0]);
-  R.style.setProperty('--radius',    rad[1]);
-  R.style.setProperty('--radius-lg', rad[2]);
+  // Radius — one slider for the base value, sm/lg derived at a fixed ratio
+  const radPx = Math.max(0, parseFloat(themeRadiusPx) || 26);
+  R.style.setProperty('--radius-sm', Math.round(radPx * 0.7) + 'px');
+  R.style.setProperty('--radius',    Math.round(radPx) + 'px');
+  R.style.setProperty('--radius-lg', Math.round(radPx * 1.3) + 'px');
 
-  // Card shadows
-  if (themeShadows === 'off') {
+  // Card shadows — intensity slider scales the shadow alpha, 0 = none
+  const shadowPct = Math.max(0, parseFloat(themeShadowPct));
+  if (shadowPct <= 0) {
     R.style.setProperty('--card-shadow', 'none');
     R.style.setProperty('--card-shadow-hover', 'none');
   } else {
-    R.style.setProperty('--card-shadow', '3px 4px 0 rgba(0,0,0,.55), 0 6px 24px rgba(0,0,0,.28)');
-    R.style.setProperty('--card-shadow-hover', '4px 6px 0 rgba(0,0,0,.6), 0 12px 38px rgba(0,0,0,.35)');
+    const sp = shadowPct / 100;
+    R.style.setProperty('--card-shadow', `3px 4px 0 rgba(0,0,0,${(.55*sp).toFixed(3)}), 0 6px 24px rgba(0,0,0,${(.28*sp).toFixed(3)})`);
+    R.style.setProperty('--card-shadow-hover', `4px 6px 0 rgba(0,0,0,${(.6*sp).toFixed(3)}), 0 12px 38px rgba(0,0,0,${(.35*sp).toFixed(3)})`);
   }
 
   // Blob motion
   document.body.classList.toggle('no-blob-motion', themeBlobMotion === 'off');
 
-  // Clock size
+  // Clock size — one slider for the max size, min/vw scaled proportionally
   const clk = document.querySelector('.home-time');
-  if (clk) clk.style.fontSize = { xl:'clamp(80px,12vw,150px)', lg:'clamp(58px,9vw,110px)', md:'clamp(40px,6.5vw,78px)' }[themeClockSize] || 'clamp(80px,12vw,150px)';
+  const clockPx = Math.max(20, parseFloat(themeClockPx) || 150);
+  if (clk) clk.style.fontSize = `clamp(${Math.round(clockPx*0.53)}px, ${(clockPx*0.08).toFixed(1)}vw, ${Math.round(clockPx)}px)`;
 
   // Font
-  _applyFont(themeFont);
+  _applyFont(themeFont, themeCustomFont);
 
   // Glow
   document.body.classList.toggle('no-glow', themeGlow === 'off');
@@ -594,24 +605,28 @@ function _setThemeAuto(val) {
 }
 function _th(k,v,lk) { window[k]=v; localStorage.setItem(lk,v); applyTheme(); renderThemePanel(); }
 function _setThemeDark(v)      { themeDark=v;      localStorage.setItem('themeDark',v);      applyTheme(); renderThemePanel(); }
-function _setThemeBg(v)        { themeBg=v;        localStorage.setItem('themeBg',v);        applyTheme(); renderThemePanel(); }
+function _setThemeBlobsShow(v) { themeBlobsShow=v; localStorage.setItem('themeBlobsShow',v); applyTheme(); renderThemePanel(); }
 function _setThemeBlobs(v)     { themeBlobs=v;     localStorage.setItem('themeBlobs',v);     applyTheme(); renderThemePanel(); }
 function _setThemeDotGrid(v)   { themeDotGrid=v;   localStorage.setItem('themeDotGrid',v);   applyTheme(); renderThemePanel(); }
-function _setThemeGlass(v)     { themeGlass=v;     localStorage.setItem('themeGlass',v);     applyTheme(); renderThemePanel(); }
-function _setThemeRadius(v)    { themeRadius=v;    localStorage.setItem('themeRadius',v);    applyTheme(); renderThemePanel(); }
-function _setThemeClockSize(v) { themeClockSize=v; localStorage.setItem('themeClockSize',v); applyTheme(); renderThemePanel(); }
 function _setThemeClock(v)     { themeClock=v;     localStorage.setItem('themeClock',v);     tick(); renderThemePanel(); }
-function _setThemeFont(v)      { themeFont=v;      localStorage.setItem('themeFont',v);      applyTheme(); renderThemePanel(); }
+function _setThemeFont(v)      { themeFont=v; themeCustomFont=''; localStorage.setItem('themeFont',v); localStorage.setItem('themeCustomFont',''); applyTheme(); renderThemePanel(); }
+function _setThemeCustomFont(v){ themeCustomFont=v.trim(); localStorage.setItem('themeCustomFont',themeCustomFont); applyTheme(); renderThemePanel(); }
 function _setThemeGlow(v)      { themeGlow=v;      localStorage.setItem('themeGlow',v);      applyTheme(); renderThemePanel(); }
 function _setThemeNavLabels(v) { themeNavLabels=v; localStorage.setItem('themeNavLabels',v); applyTheme(); renderThemePanel(); }
 function _setThemeClockSec(v)  { themeClockSec=v;  localStorage.setItem('themeClockSec',v);  tick(); renderThemePanel(); }
 function _setVaWakeWord(v)     { localStorage.setItem('vaWakeWord', v.trim().toLowerCase() || 'hey temu'); }
 function _setVaTts(v)          { vaTts=v;     localStorage.setItem('vaTts',v);     renderThemePanel(); }
-function _setVaTtsRate(v)      { vaTtsRate=v; localStorage.setItem('vaTtsRate',v); renderThemePanel(); }
+// Slider setters — no renderThemePanel() here, that would rebuild the
+// panel's DOM mid-drag and drop the slider's focus/pointer capture. The
+// number readout next to each slider updates live via its own oninput.
+function _setVaTtsRate(v)         { vaTtsRate=v;         localStorage.setItem('vaTtsRate',v); }
+function _setThemeGlassOpacity(v) { themeGlassOpacity=v; localStorage.setItem('themeGlassOpacity',v); applyTheme(); }
+function _setThemeBorderPct(v)    { themeBorderPct=v;    localStorage.setItem('themeBorderPct',v);    applyTheme(); }
+function _setThemeShadowPct(v)    { themeShadowPct=v;    localStorage.setItem('themeShadowPct',v);    applyTheme(); }
+function _setThemeRadiusPx(v)     { themeRadiusPx=v;     localStorage.setItem('themeRadiusPx',v);     applyTheme(); }
+function _setThemeClockPx(v)      { themeClockPx=v;      localStorage.setItem('themeClockPx',v);      applyTheme(); }
 function _setThemeBgHex(hex)   { themeBgHex=hex; themeDark='custom'; localStorage.setItem('themeBgHex',hex); localStorage.setItem('themeDark','custom'); applyTheme(); renderThemePanel(); }
 function _setThemeGlassTint(v) { themeGlassTint=v; localStorage.setItem('themeGlassTint',v); applyTheme(); renderThemePanel(); }
-function _setThemeBorderStr(v) { themeBorderStr=v; localStorage.setItem('themeBorderStr',v); applyTheme(); renderThemePanel(); }
-function _setThemeShadows(v)   { themeShadows=v;   localStorage.setItem('themeShadows',v);   applyTheme(); renderThemePanel(); }
 function _setThemeBlobMotion(v){ themeBlobMotion=v;localStorage.setItem('themeBlobMotion',v);applyTheme(); renderThemePanel(); }
 function _setThemeBlobHex(i, hex) {
   themeBlobHexes[i] = hex; themeBlobs = 'custom';
@@ -621,9 +636,10 @@ function _setThemeBlobHex(i, hex) {
 }
 function _resetTheme() {
   if (!confirm('Reset all appearance settings to defaults?')) return;
-  ['themeAccent','themeAutoAccent','themeCustomHex','themeDark','themeBg','themeBlobs','themeDotGrid',
-   'themeGlass','themeRadius','themeClockSize','themeClock','themeFont','themeGlow','themeNavLabels',
-   'themeClockSec','themeBgHex','themeGlassTint','themeBorderStr','themeShadows','themeBlobMotion','themeBlobHexes',
+  ['themeAccent','themeAutoAccent','themeCustomHex','themeDark','themeBlobsShow','themeBlobs','themeDotGrid',
+   'themeGlassOpacity','themeRadiusPx','themeClockPx','themeClock','themeFont','themeCustomFont','themeGlow','themeNavLabels',
+   'themeClockSec','themeBgHex','themeGlassTint','themeBorderPct','themeShadowPct','themeBlobMotion','themeBlobHexes',
+   'vaTtsRate',
   ].forEach(k => localStorage.removeItem(k));
   location.reload();
 }
@@ -640,6 +656,15 @@ function renderThemePanel() {
     `<div class="th-toggle-row" onclick="${fn}('${cur==='on'?'off':'on'}')">
       <div class="th-toggle ${cur==='on'?'on':''}"><div class="th-toggle-knob"></div></div>
       <span>${label}</span></div>`;
+  let _sliderSeq = 0;
+  const slider = (label, val, min, max, step, fn, unit='') => {
+    const id = 'th-slider-' + (_sliderSeq++);
+    return `<div class="th-slider-row">
+      <div class="th-slider-hdr"><span>${label}</span><span class="th-slider-val" id="${id}">${val}${unit}</span></div>
+      <input class="th-slider" type="range" min="${min}" max="${max}" step="${step}" value="${val}"
+             oninput="document.getElementById('${id}').textContent=this.value+'${unit}';${fn}(this.value)">
+    </div>`;
+  };
 
   const swatches = ACCENT_PRESETS.map(p =>
     `<button class="th-swatch ${!themeAutoAccent&&themeAccent===p.id?'active':''} ${themeAutoAccent?'muted':''}"
@@ -680,12 +705,7 @@ function renderThemePanel() {
             <input type="color" value="${themeBgHex}" oninput="_setThemeBgHex(this.value)">
           </div>
         </div>
-        <div class="th-sub-label">Style</div>
-        <div class="th-pills">
-          ${pill('Vivid',   'vivid',   themeBg, '_setThemeBg')}
-          ${pill('Minimal', 'minimal', themeBg, '_setThemeBg')}
-          ${pill('Clean',   'clean',   themeBg, '_setThemeBg')}
-        </div>
+        ${onoff('Background blobs', themeBlobsShow, '_setThemeBlobsShow')}
         ${onoff('Dot grid', themeDotGrid, '_setThemeDotGrid')}
       </div>
 
@@ -707,39 +727,20 @@ function renderThemePanel() {
 
       <div class="th-card">
         <div class="th-label">Glass &amp; borders</div>
-        <div class="th-pills">
-          ${pill('Clear',   'clear',   themeGlass, '_setThemeGlass')}
-          ${pill('Glass',   'mid',     themeGlass, '_setThemeGlass')}
-          ${pill('Frosted', 'frosted', themeGlass, '_setThemeGlass')}
-          ${pill('Solid',   'solid',   themeGlass, '_setThemeGlass')}
-        </div>
-        <div class="th-sub-label">Border strength</div>
-        <div class="th-pills">
-          ${pill('Soft',   'soft',   themeBorderStr, '_setThemeBorderStr')}
-          ${pill('Normal', 'normal', themeBorderStr, '_setThemeBorderStr')}
-          ${pill('Strong', 'strong', themeBorderStr, '_setThemeBorderStr')}
-        </div>
+        ${slider('Glass opacity', themeGlassOpacity, 0, 60, 1, '_setThemeGlassOpacity', '%')}
+        ${slider('Border strength', themeBorderPct, 0, 50, 1, '_setThemeBorderPct', '%')}
+        ${slider('Shadow intensity', themeShadowPct, 0, 100, 5, '_setThemeShadowPct', '%')}
         ${onoff('Tint with accent colour', themeGlassTint, '_setThemeGlassTint')}
-        ${onoff('Card shadows', themeShadows, '_setThemeShadows')}
       </div>
 
       <div class="th-card">
         <div class="th-label">Shape</div>
-        <div class="th-pills">
-          ${pill('Pill',    'pill',    themeRadius, '_setThemeRadius')}
-          ${pill('Rounded', 'rounded', themeRadius, '_setThemeRadius')}
-          ${pill('Sharp',   'sharp',   themeRadius, '_setThemeRadius')}
-          ${pill('Square',  'square',  themeRadius, '_setThemeRadius')}
-        </div>
+        ${slider('Corner radius', themeRadiusPx, 0, 48, 1, '_setThemeRadiusPx', 'px')}
       </div>
 
       <div class="th-card">
         <div class="th-label">Clock</div>
-        <div class="th-pills">
-          ${pill('XL',   'xl', themeClockSize, '_setThemeClockSize')}
-          ${pill('Large','lg', themeClockSize, '_setThemeClockSize')}
-          ${pill('Medium','md',themeClockSize, '_setThemeClockSize')}
-        </div>
+        ${slider('Size', themeClockPx, 40, 180, 2, '_setThemeClockPx', 'px')}
         <div class="th-sub-label">Format</div>
         <div class="th-pills">
           ${pill('12h',  '12', themeClock, '_setThemeClock')}
@@ -751,11 +752,13 @@ function renderThemePanel() {
       <div class="th-card">
         <div class="th-label">Typography</div>
         <div class="th-pills">
-          ${pill('Nunito',  'nunito',  themeFont, '_setThemeFont')}
-          ${pill('Inter',   'inter',   themeFont, '_setThemeFont')}
-          ${pill('Poppins', 'poppins', themeFont, '_setThemeFont')}
-          ${pill('Grotesk', 'grotesk', themeFont, '_setThemeFont')}
+          ${pill('Nunito',  'nunito',  !themeCustomFont ? themeFont : '', '_setThemeFont')}
+          ${pill('Inter',   'inter',   !themeCustomFont ? themeFont : '', '_setThemeFont')}
+          ${pill('Poppins', 'poppins', !themeCustomFont ? themeFont : '', '_setThemeFont')}
+          ${pill('Grotesk', 'grotesk', !themeCustomFont ? themeFont : '', '_setThemeFont')}
         </div>
+        <div class="th-sub-label">Any Google Font</div>
+        <input class="th-input" placeholder="e.g. Playfair Display" value="${esc(themeCustomFont)}" onchange="_setThemeCustomFont(this.value)">
       </div>
 
       <div class="th-card">
@@ -774,12 +777,7 @@ function renderThemePanel() {
         <div class="th-pills">
           ${onoff('Voice replies', vaTts, '_setVaTts')}
         </div>
-        <div class="th-sub-label">Speech speed</div>
-        <div class="th-pills">
-          ${pill('Slow',   '0.9',  vaTtsRate, '_setVaTtsRate')}
-          ${pill('Normal', '1.05', vaTtsRate, '_setVaTtsRate')}
-          ${pill('Fast',   '1.3',  vaTtsRate, '_setVaTtsRate')}
-        </div>
+        ${slider('Speech speed', vaTtsRate, 0.5, 2, 0.05, '_setVaTtsRate', 'x')}
       </div>
 
       <div class="th-card th-card-wide" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
