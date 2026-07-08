@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#060810">
-  <title>Hub</title>
+  <title>TemuTalk</title>
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="icon" type="image/svg+xml" href="/icon.svg">
   <link rel="icon" type="image/png" sizes="32x32" href="/icon-32.png">
@@ -313,12 +313,15 @@ async function ensureTab(tab) {
 
 // ── Navigation ────────────────────────────────────────────────────────────
 const TAB_IDX = { home: 0, music: 1, radio: 2, finance: 3, news: 4, weather: 5, timer: 6, chat: 7, system: 8 };
+const TAB_TITLES = { home: 'TemuTalk', music: 'TemuTalk - Music', radio: 'TemuTalk - Radio', finance: 'TemuTalk - Finance', news: 'TemuTalk - News', weather: 'TemuTalk - Weather', timer: 'TemuTalk - Timer', chat: 'TemuTalk - Chat', system: 'TemuTalk - System' };
 let curTab = 'home';
+document.title = TAB_TITLES.home;
 
 async function navigate(tab) {
   if (tab === curTab) return;
   await ensureTab(tab);
 
+  document.title = TAB_TITLES[tab] || 'TemuTalk';
   document.body.dataset.tab = tab;
   const dir = TAB_IDX[tab] > TAB_IDX[curTab] ? 1 : -1;
   const $old = document.getElementById('view-' + curTab);
