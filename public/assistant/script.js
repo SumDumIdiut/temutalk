@@ -372,6 +372,12 @@
   // outside a real gesture (e.g. from ensureMic()) doesn't reliably count
   // as an unlock in every browser though, so if an actual spoken reply gets
   // blocked, it's stashed and retried the moment a genuine gesture happens.
+  //
+  // Uses its own throwaway element rather than `player` — sharing one
+  // element meant a real reply's play() could land while the unlock
+  // sequence's mute/pause/unmute was still settling and silently inherit
+  // muted=true: play() resolves fine either way, so nothing ever errors,
+  // it just plays with no sound.
   let _audioUnlocked = false;
   let _pendingSpeech = null;
   function unlockAudio() {
@@ -382,8 +388,9 @@
         if (chimeCtx.state === 'suspended') chimeCtx.resume().catch(() => {});
       } catch (_) {}
       try {
-        player.muted = true;
-        player.play().then(() => { player.pause(); player.muted = false; }).catch(() => { player.muted = false; });
+        const primer = new Audio();
+        primer.muted = true;
+        primer.play().then(() => primer.pause()).catch(() => {});
       } catch (_) {}
     }
   }
@@ -410,6 +417,8 @@
       _revokePlayerUrl();
       _playerUrl = URL.createObjectURL(blob);
       player.src = _playerUrl;
+      player.muted = false;
+      player.volume = 1;
       speaking = true;
       setBotSpeaking(true);
       await player.play();
