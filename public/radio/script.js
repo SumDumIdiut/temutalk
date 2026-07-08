@@ -9,7 +9,8 @@ function toggleRadioPanel() {
 
 function initRadioMap() {
   if (radioMapInited) {
-    setTimeout(() => radioMap && radioMap.invalidateSize(), 60);
+    setTimeout(() => { if (radioMap) { radioMap.invalidateSize(); fitMapWidth(); } }, 60);
+    setTimeout(() => { if (radioMap) fitMapWidth(); }, 400); // after the view slide-in
     if (radioSSE || radioStations.length) return;
     loadRadioStations();
     return;
@@ -44,6 +45,7 @@ function setupRadioMap() {
     worldCopyJump: false,
     maxBounds: [[-85.05, -180], [85.05, 180]],
     maxBoundsViscosity: 1.0,
+    zoomSnap: 0.25, zoomDelta: 0.5,
   });
   L.tileLayer('/api/tiles/dark_nolabels/{z}/{x}/{y}', {
     attribution: '© OpenStreetMap © CARTO',
@@ -68,10 +70,25 @@ function setupRadioMap() {
     },
   });
   radioMap.addLayer(radioCluster);
-  // Ensure map fills the container after the view becomes visible
-  setTimeout(() => radioMap.invalidateSize(), 100);
+  // Ensure map fills the container after the view becomes visible,
+  // then raise minZoom so the world fills the viewport WIDTH — no
+  // letterbox bars on wide (16:9) screens; the poles crop instead.
+  setTimeout(() => { radioMap.invalidateSize(); fitMapWidth(); }, 100);
+  setTimeout(() => { radioMap.invalidateSize(); fitMapWidth(); }, 500); // view transition done
+  radioMap.on('resize', () => fitMapWidth());
+  window.addEventListener('resize', () => setTimeout(fitMapWidth, 150));
   // Add any stations that loaded while Leaflet was initialising
   if (radioStations.length) addRadioMarkers(radioStations);
+}
+
+function fitMapWidth() {
+  if (!radioMap) return;
+  const w = radioMap.getSize().x;
+  if (!w) return;
+  // Zoom at which the 256px world tile spans the container width
+  const z = Math.max(2, Math.log2(w / 256));
+  radioMap.setMinZoom(z);
+  if (radioMap.getZoom() < z) radioMap.setView([24, 10], z);
 }
 
 function setRadioLoading(vis) {

@@ -67,11 +67,10 @@ function timerFmt(s) {
 function addTimer(totalSecs, label) {
   _pingAudio(); // prime AudioContext during the tap gesture that creates the timer
   const id = Date.now();
-  timers.push({ id, total: totalSecs, remaining: totalSecs, label, running: false, done: false });
+  timers.push({ id, total: totalSecs, remaining: totalSecs, label, running: true, done: false });
   renderTimers();
   if (typeof updateHomeTimers === 'function') updateHomeTimers();
   if (!timerInterval) timerInterval = setInterval(tickTimers, 1000);
-  _startAudioKeepAlive();
 }
 function addCustomTimer() {
   const inp = document.getElementById('timer-custom-val');
@@ -81,7 +80,34 @@ function addCustomTimer() {
   let secs = 0;
   if (val.includes(':')) { const parts = val.split(':'); secs = (+parts[0]) * 60 + (+parts[1]); }
   else secs = +val;
-  if (secs > 0) { addTimer(Math.round(secs), timerFmt(Math.round(secs))); inp.value = ''; }
+  const lblInp = document.getElementById('timer-label-val');
+  const label  = (lblInp?.value || '').trim();
+  if (secs > 0) {
+    addTimer(Math.round(secs), label || timerFmt(Math.round(secs)));
+    inp.value = '';
+    if (lblInp) lblInp.value = '';
+  }
+}
+function addAlarmAt() {
+  const inp = document.getElementById('timer-alarm-val');
+  const val = inp?.value; // "HH:MM"
+  if (!val) return;
+  const [h, m] = val.split(':').map(Number);
+  const target = new Date();
+  target.setHours(h, m, 0, 0);
+  if (target <= new Date()) target.setDate(target.getDate() + 1); // next occurrence
+  const secs = Math.round((target - new Date()) / 1000);
+  addTimer(secs, 'Alarm ' + val);
+  inp.value = '';
+}
+function plusTimer(id) {
+  const t = timers.find(x => x.id === id);
+  if (!t) return;
+  t.remaining += 60;
+  t.total = Math.max(t.total, t.remaining);
+  if (t.done) { t.done = false; t.running = true; if (!timerInterval) timerInterval = setInterval(tickTimers, 1000); }
+  renderTimers();
+  if (typeof updateHomeTimers === 'function') updateHomeTimers();
 }
 function tickTimers() {
   let changed = false;
@@ -166,6 +192,7 @@ function renderTimers() {
        t.running ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>' :
                    '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>') +
       '</button>' +
+      '<button class="timer-btn" style="width:auto;padding:0 10px;font-size:11px;font-weight:800;font-family:inherit;" onclick="plusTimer(' + t.id + ')">+1m</button>' +
       '<button class="timer-btn" onclick="resetTimer(' + t.id + ')"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg></button>' +
       '<button class="timer-btn" onclick="removeTimer(' + t.id + ')"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>' +
       '</div></div>';

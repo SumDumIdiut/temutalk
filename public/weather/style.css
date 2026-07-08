@@ -43,10 +43,11 @@
     .wx-day:last-child { border-bottom: none; }
     .wx-day-name  { font-size: 14px; font-weight: 500; width: 76px; flex-shrink: 0; }
     .wx-day-icon  { font-size: 22px; flex-shrink: 0; width: 30px; text-align: center; }
-    .wx-day-lo    { font-size: 13px; color: var(--text-muted); flex-shrink: 0; width: 28px; text-align: right; }
-    .wx-day-bar-wrap { flex: 1; height: 4px; border-radius: 999px; background: var(--surface-hi); position: relative; margin: 0 6px; }
-    .wx-day-bar   { position: absolute; top: 0; bottom: 0; border-radius: 999px; background: linear-gradient(to right,#5a9fd4,#f5a33a); }
-    .wx-day-hi    { font-size: 14px; font-weight: 500; flex-shrink: 0; width: 28px; text-align: right; }
+    .wx-day-lo    { font-size: 13px; color: var(--text-muted); flex-shrink: 0; width: 34px; text-align: right; }
+    .wx-day-bar-wrap { flex: 1; max-width: 300px; height: 6px; border-radius: 999px; background: rgba(255,255,255,.06); position: relative; margin: 0 12px; }
+    .wx-day-bar   { position: absolute; top: 0; bottom: 0; border-radius: 999px; background: linear-gradient(to right,#5a9fd4,#f5a33a); box-shadow: 0 0 8px rgba(245,163,58,.28); }
+    .wx-day-hi    { font-size: 14px; font-weight: 600; flex-shrink: 0; width: 34px; text-align: right; }
+    .wx-day-rain  { font-size: 11px; color: #38bdf8; flex-shrink: 0; width: 42px; text-align: right; font-variant-numeric: tabular-nums; }
     .wx-skeleton  { height: 180px; border-radius: var(--radius); margin-bottom: 10px; }
     .wx-stat-skeleton { height: 82px; border-radius: var(--radius-sm); }
 

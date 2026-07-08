@@ -1,0 +1,206 @@
+/* ── Voice assistant ─────────────────────────────────────────────────────── */
+
+#va-btn {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 600;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  border: 1px solid var(--glass-border);
+  background: var(--surface-hi);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  color: var(--primary, #b09ffc);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.35);
+  transition: transform 160ms ease, background 160ms ease, box-shadow 160ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+#va-btn:hover { transform: scale(1.06); background: var(--surface-highest); }
+#va-btn.va-listening {
+  color: #fff;
+  background: var(--primary, #b09ffc);
+  box-shadow: 0 0 0 0 var(--primary-glow, rgba(124,108,248,0.4));
+  animation: va-pulse 1.6s ease-out infinite;
+}
+@keyframes va-pulse {
+  0%   { box-shadow: 0 0 0 0 var(--primary-glow, rgba(124,108,248,0.4)); }
+  70%  { box-shadow: 0 0 0 16px rgba(0,0,0,0); }
+  100% { box-shadow: 0 0 0 0 rgba(0,0,0,0); }
+}
+
+#va-panel {
+  position: fixed;
+  right: 22px;
+  bottom: 88px;
+  z-index: 600;
+  width: min(380px, calc(100vw - 44px));
+  padding: 16px;
+  border-radius: var(--radius, 26px);
+  border: 1px solid var(--glass-border);
+  background: var(--surface-hi);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  box-shadow: 0 14px 44px rgba(0,0,0,0.45);
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 14px;
+}
+#va-panel.open { display: flex; }
+
+.va-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.va-title {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--primary, #b09ffc);
+}
+.va-close {
+  background: none;
+  border: none;
+  color: var(--text-muted, #8b90a5);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 4px;
+  font-family: inherit;
+}
+
+.va-status { color: var(--text-muted, #8b90a5); font-size: 12px; min-height: 15px; }
+.va-status.va-err { color: #f87171; }
+
+/* Chat log — scrollable running history instead of a single overwritten line */
+.va-log {
+  max-height: min(46vh, 380px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding-right: 2px;
+  scrollbar-width: thin;
+}
+.va-log-hint {
+  color: var(--text-muted, #8b90a5);
+  font-size: 13px;
+  font-style: italic;
+  padding: 6px 2px;
+}
+.va-msg { display: flex; }
+.va-msg-user { justify-content: flex-end; }
+.va-msg-bot  { justify-content: flex-start; }
+.va-bubble {
+  max-width: 86%;
+  padding: 8px 12px;
+  border-radius: 14px;
+  line-height: 1.42;
+  font-size: 13.5px;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+.va-msg-user .va-bubble {
+  background: var(--primary, #b09ffc);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+.va-msg-bot .va-bubble {
+  background: rgba(255,255,255,0.08);
+  color: inherit;
+  border-bottom-left-radius: 4px;
+}
+.va-bubble-err {
+  background: rgba(248,113,113,0.16) !important;
+  color: #f87171 !important;
+}
+.va-bubble.va-speaking::after {
+  content: '';
+  display: inline-block;
+  width: 6px; height: 6px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  vertical-align: middle;
+  animation: va-speak-pulse 1s ease-in-out infinite;
+}
+@keyframes va-speak-pulse {
+  0%, 100% { opacity: 0.25; transform: scale(0.8); }
+  50%      { opacity: 1;    transform: scale(1.1); }
+}
+
+.va-input-row { display: flex; gap: 8px; }
+.va-input {
+  flex: 1;
+  min-width: 0;
+  background: rgba(0,0,0,0.25);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  padding: 9px 12px;
+  color: inherit;
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
+}
+.va-input:focus { border-color: var(--primary, #b09ffc); }
+.va-send, .va-mic {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  border: 1px solid var(--glass-border);
+  background: var(--surface, rgba(255,255,255,0.075));
+  color: var(--primary, #b09ffc);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+.va-send:hover, .va-mic:hover { background: var(--surface-highest); }
+.va-mic.va-listening { background: var(--primary, #b09ffc); color: #fff; }
+
+/* Wake-word toggle row */
+.va-wake-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-muted, #8b90a5);
+  user-select: none;
+  padding-top: 2px;
+}
+.va-toggle {
+  width: 34px;
+  height: 20px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid var(--glass-border);
+  position: relative;
+  transition: background 160ms ease;
+  flex-shrink: 0;
+}
+.va-toggle.on { background: var(--primary, #b09ffc); }
+.va-toggle-knob {
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 160ms ease;
+}
+.va-toggle.on .va-toggle-knob { transform: translateX(14px); }
+
+/* Subtle ring on the fab while wake mode is armed */
+#va-btn.va-wake { border-color: var(--primary, #b09ffc); }
+
