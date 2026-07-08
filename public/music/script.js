@@ -131,8 +131,7 @@ function _initBrowserPlayer() {
   });
   browserPlayer.addListener('ready', ({ device_id }) => {
     browserPlayerReady = true;
-    _bpRetry = 0;
-    clearTimeout(_bpRetryTimer); _bpRetryTimer = null;
+    _bpNotReadySince = null;
     browserPlayer._deviceId = device_id;
     _setBrowserPlayerStatus('ready ✓ ' + device_id.slice(0,8));
     const wasPaused = localStorage.getItem('tt_was_paused') === '1';
@@ -149,18 +148,20 @@ function _initBrowserPlayer() {
   });
   browserPlayer.addListener('not_ready', () => {
     browserPlayerReady = false;
-    _scheduleBrowserPlayerReconnect('connection lost');
+    _bpNotReadySince = _bpNotReadySince || Date.now();
+    _nudgeBrowserPlayer('connection lost');
   });
   browserPlayer.addListener('initialization_error', ({ message }) => _setBrowserPlayerStatus('init error: ' + message));
   browserPlayer.addListener('authentication_error', ({ message }) => {
     // token was bad/expired mid-session — reconnect pulls a fresh one via getOAuthToken
     browserPlayerReady = false;
-    _scheduleBrowserPlayerReconnect('auth: ' + message);
+    _bpNotReadySince = _bpNotReadySince || Date.now();
+    _nudgeBrowserPlayer('auth: ' + message);
   });
   browserPlayer.addListener('account_error', ({ message }) => _setBrowserPlayerStatus('account error: ' + message));
   browserPlayer.connect().then(ok => {
     console.log('[player] connect() resolved:', ok);
-    if (!ok) _scheduleBrowserPlayerReconnect('connect failed');
+    if (!ok) { _bpNotReadySince = _bpNotReadySince || Date.now(); _nudgeBrowserPlayer('connect failed'); }
   });
   document.addEventListener('click', function _activate() {
     if (browserPlayer) browserPlayer.activateElement();
