@@ -152,12 +152,12 @@
     .det-track-sub  { font-size: 12px; color: var(--text-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .det-track-dur  { font-size: 12px; color: var(--text-muted); flex-shrink: 0; }
     .det-track-remove {
-      background: rgba(255,107,129,.10); border: 1px solid rgba(255,107,129,.22); color: var(--red);
+      background: none; border: none; color: var(--text-muted);
       cursor: pointer; width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
       display: flex; align-items: center; justify-content: center;
-      transition: background .15s, transform .1s; -webkit-tap-highlight-color: transparent;
+      transition: color .15s, background .15s, transform .1s; -webkit-tap-highlight-color: transparent;
     }
-    .det-track-remove:hover  { background: rgba(255,107,129,.22); }
+    .det-track-remove:hover  { color: var(--red); background: rgba(255,107,129,.12); }
     .det-track-remove:active { transform: scale(.85); }
     .det-track-remove:disabled { opacity: .4; cursor: default; }
     .det-section-lbl { font-size: 11px; font-weight: 600; letter-spacing: .8px; text-transform: uppercase; color: var(--text-muted); padding: 14px 18px 8px; }
@@ -192,6 +192,7 @@
     .stat-track-name  { font-size: 13px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .stat-track-sub   { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
     .stat-track-dur   { font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
+    .q-info           { flex: 1; min-width: 0; } /* missing flex:1 left duration sitting right after the title instead of at the row's end */
     .new-rel-grid     { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
     .new-rel-card     { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: var(--radius-sm); overflow: hidden; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background .15s, transform .15s; }
     .new-rel-card:hover { background: rgba(255,255,255,.08); transform: translateY(-2px); }

@@ -108,7 +108,10 @@
   let busy        = false;  // command round-trip in flight
   let speaking    = false;  // TTS playing (don't listen to ourselves)
   let listening   = false;  // any capture in progress
-  let wakeEnabled = localStorage.getItem('vaWake') === 'on';
+  // Wake mode is never auto-armed on load (see the bottom of this file for
+  // why) — always starts off, regardless of what was remembered last time.
+  let wakeEnabled = false;
+  const _wakeWasOnLastTime = localStorage.getItem('vaWake') === 'on';
   let wakeLoopOn  = false;
   let cancelCapture = null; // cancels the in-flight recorder capture
   let srSession   = null;
@@ -617,7 +620,13 @@
   });
 
   renderWake();
-  // Resume wake mode from a previous session (needs a prior mic grant;
-  // if the permission prompt would block, the toggle just switches off).
-  if (wakeEnabled) setWake(true);
+  // Wake mode deliberately does NOT auto-resume on page load. Opening the
+  // microphone (whether via getUserMedia or the browser's own Web Speech
+  // API) makes the OS/browser renegotiate the active audio device — on many
+  // systems (especially Bluetooth speakers/headsets switching from a
+  // stereo-playback profile to a mic-capable one) that briefly interrupts or
+  // pauses whatever else is playing, including audio in a completely
+  // unrelated browser tab. Silently re-arming the mic on every refresh was
+  // causing exactly that. One explicit tap on the toggle re-enables it.
+  if (_wakeWasOnLastTime) setStatus('Wake word was on last time — tap to resume.');
 })();
