@@ -411,7 +411,11 @@
       let i = 0;
       const iv = setInterval(() => {
         i++;
-        setVolume(Math.round(from + (to - from) * (i / steps)));
+        // A throw here (e.g. from setVolume touching a stale player
+        // reference) must never stop the loop from finishing and
+        // resolving — speak() awaits this, and a hang here would leave
+        // `speaking` stuck true forever, silently blocking the wake loop.
+        try { setVolume(Math.round(from + (to - from) * (i / steps))); } catch (_) {}
         if (i >= steps) { clearInterval(iv); resolve(); }
       }, stepMs);
     });
@@ -448,11 +452,23 @@
       setBotSpeaking(true);
       if (origVol != null) { await _tweenVolume(origVol, duckVol, 350); ducked = true; }
       await player.play();
-      await new Promise((resolve) => {
-        const done = () => { player.removeEventListener('ended', done); player.removeEventListener('error', done); resolve(); };
-        player.addEventListener('ended', done);
-        player.addEventListener('error', done);
-      });
+      // Race against a hard timeout — some engines/edge cases never fire
+      // 'ended'/'error' at all, and without this speak() would hang forever,
+      // leaving `speaking` stuck true and silently blocking the wake loop
+      // from ever listening again.
+      await Promise.race([
+        new Promise((resolve) => {
+          const done = () => { player.removeEventListener('ended', done); player.removeEventListener('error', done); resolve(); };
+          player.addEventListener('ended', done);
+          player.addEventListener('error', done);
+        }),
+        new Promise((resolve) => setTimeout(resolve, Math.min(30000, 2000 + text.length * 90))),
+      ]);
+      // Don't rely solely on the persistent 'ended'/'error' listener (set up
+      // once at player creation) to clear these — if the timeout above is
+      // what actually resolved this race, that listener never fires either.
+      speaking = false;
+      setBotSpeaking(false);
       if (ducked) await _tweenVolume(duckVol, origVol, 350);
     } catch (e) {
       console.warn('[assistant] TTS failed:', e.name || '', e.message || e);
