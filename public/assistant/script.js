@@ -342,6 +342,7 @@
       try { await ensureMic(); }
       catch (_) { wakeEnabled = false; setStatus('Mic blocked — wake word needs mic access.', true); return; }
     }
+    unlockAudio(); // SR path never calls ensureMic(), so it never got a chance to run this
     setStatus('Armed — say ' + wakeWord());
     if (SR) wakeLoopSR();
     else if (!wakeLoopOn) { wakeLoopOn = true; wakeLoopRecorder().finally(() => { wakeLoopOn = false; }); }
