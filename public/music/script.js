@@ -613,7 +613,7 @@ function openPlaylist(id) {
         '<div class="det-track-info"><div class="det-track-name">' + esc(t.name) + '</div><div class="det-track-sub">' + esc(t.artists.map(a => a.name).join(', ')) + '</div></div>' +
         '<span class="det-track-dur">' + fmt(t.duration_ms) + '</span>' +
         '<button class="det-track-remove" title="Remove from playlist" onclick="event.stopPropagation();removeFromPlaylist(this,' + JSON.stringify(id) + ',' + JSON.stringify(t.uri) + ')">' +
-          '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>' +
+          '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M6 7h12l-1 13.02A2 2 0 0 1 15.01 22H8.99a2 2 0 0 1-1.99-1.98L6 7zm3-4h6l1 2h4v2H4V5h4l1-2z"/></svg>' +
         '</button></div>';
     }).join('');
   }).catch(() => { document.getElementById('vpl-tracks').innerHTML = '<div style="color:var(--text-muted);padding:20px 16px;">Failed to load</div>'; });

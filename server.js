@@ -25,6 +25,14 @@ const crypto     = require('crypto');
 const MAIN_PORT    = parseInt(process.env.PORT || '3000', 10);
 const WEATHER_CITY = process.env.WEATHER_CITY || 'London';
 
+// Changes on every restart — appended as ?v= to every local script/link/fetch
+// URL so a stale copy behind the browser or the Cloudflare tunnel's edge cache
+// can never shadow a freshly deployed file. `Cache-Control: no-cache` alone
+// isn't reliable through a proxied Cloudflare hostname, which caches common
+// static extensions (js/css) at the edge by default regardless of what the
+// origin sends; a changed URL bypasses that unconditionally.
+const ASSET_VERSION = Date.now();
+
 function getLocalIP() {
   for (const ifaces of Object.values(os.networkInterfaces()))
     for (const a of ifaces)
@@ -126,6 +134,25 @@ app.use('/panel', (req, res) => {
   );
   proxy.on('error', () => res.status(502).send('Control panel offline'));
   if (bodyBuf) proxy.end(bodyBuf); else proxy.end();
+});
+
+// ─── SPA shell (versioned) ────────────────────────────────────────────────────
+// Serves public/index.html with every local <script src>/<link href> stamped
+// ?v=ASSET_VERSION, and exposes that same version to client JS so ensureTab()
+// can stamp its own /<tab>/view.html fetches. Computed once and cached in
+// memory — ASSET_VERSION is fixed for the life of this process.
+let _indexHtmlVersioned = null;
+function getVersionedIndexHtml() {
+  if (_indexHtmlVersioned) return _indexHtmlVersioned;
+  let html = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
+  html = html.replace(/((?:src|href)=")(\/[^"]+\.(?:js|css))(")/g, (m, pre, url, post) => `${pre}${url}?v=${ASSET_VERSION}${post}`);
+  html = html.replace('</head>', `<script>window.__ASSET_V='${ASSET_VERSION}';</script></head>`);
+  _indexHtmlVersioned = html;
+  return _indexHtmlVersioned;
+}
+app.get('/', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache');
+  res.send(getVersionedIndexHtml());
 });
 
 app.use(express.static(path.join(__dirname, 'public'), {
