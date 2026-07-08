@@ -1,103 +1,40 @@
 // ── Voice assistant ──────────────────────────────────────────────────────────
-// Mic button → speech-to-text → POST /api/assistant → server runs a tool loop
-// on a local Ollama model → reply is spoken via speechSynthesis and device
-// actions (radio, timers, chat, navigation) are executed here using the
-// globals the tab scripts already define (playStation, addTimer, ws, …).
+// Wake word only — no text input, no tap-to-talk button. Say the wake word,
+// then the command; STT → POST /api/assistant → server runs a tool loop on a
+// local Ollama model → reply is spoken via speechSynthesis and device actions
+// (radio, timers, chat, navigation) are executed here using the globals the
+// tab scripts already define (playStation, addTimer, ws, …).
+//
+// UI is a single control integrated into the nav sidebar (same nav-item /
+// nav-pill / nav-label classes every tab button uses) — no floating button,
+// no floating panel. It doubles as the wake-word on/off toggle and a status
+// readout (current state, truncated reply/error text — full text is in the
+// native tooltip and is always spoken aloud via TTS).
 //
 // Speech-to-text engines, best first:
 //   1. Web Speech API (Chrome/Edge with Google STT)
 //   2. MediaRecorder + silence detection → POST /api/assistant/stt
 //      (local whisper.cpp on the server — works in Firefox/Chromium)
-//
-// Wake word ("hey temu", localStorage 'vaWakeWord'): opt-in toggle in the
-// panel. Background-listens for utterances, discards anything that doesn't
-// start with the wake word, runs the rest as a command.
 
 (function () {
   'use strict';
 
   // ── DOM ─────────────────────────────────────────────────────────────────
   const MIC_SVG =
-    '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">' +
+    '<svg width="21" height="21" viewBox="0 0 24 24" fill="currentColor">' +
     '<path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg>';
 
-  const btn = document.createElement('button');
-  btn.id = 'va-btn';
-  btn.title = 'Voice assistant';
-  btn.innerHTML = MIC_SVG;
+  const widget = document.createElement('button');
+  widget.className = 'nav-item va-widget';
+  widget.id = 'va-widget';
+  widget.innerHTML =
+    '<div class="nav-pill">' + MIC_SVG + '</div>' +
+    '<span class="nav-label" id="va-label">Voice</span>';
 
-  const panel = document.createElement('div');
-  panel.id = 'va-panel';
-  panel.innerHTML =
-    '<div class="va-hdr"><span class="va-title">Assistant</span>' +
-    '<button class="va-close" title="Close">✕</button></div>' +
-    '<div class="va-log" id="va-log"><div class="va-log-hint" id="va-log-hint">Ask me anything, or say the wake word.</div></div>' +
-    '<div class="va-status" id="va-status"></div>' +
-    '<div class="va-input-row">' +
-    '<input class="va-input" id="va-input" placeholder="Type a command…" autocomplete="off">' +
-    '<button class="va-mic" id="va-mic" title="Speak">' + MIC_SVG + '</button>' +
-    '<button class="va-send" id="va-send" title="Send">' +
-    '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21 23 12 2.01 3 2 10l15 2-15 2z"/></svg>' +
-    '</button></div>' +
-    '<div class="va-wake-row" id="va-wake-row">' +
-    '<div class="va-toggle" id="va-wake-toggle"><div class="va-toggle-knob"></div></div>' +
-    '<span>Wake word <b id="va-wake-word"></b></span></div>';
+  const nav = document.querySelector('.nav') || document.body;
+  nav.appendChild(widget);
 
-  document.body.appendChild(btn);
-  document.body.appendChild(panel);
-
-  const $status     = panel.querySelector('#va-status');
-  const $log        = panel.querySelector('#va-log');
-  const $logHint    = panel.querySelector('#va-log-hint');
-  const $input      = panel.querySelector('#va-input');
-  const $micInner   = panel.querySelector('#va-mic');
-  const $wakeToggle = panel.querySelector('#va-wake-toggle');
-
-  // ── Chat log ────────────────────────────────────────────────────────────
-  // Replaces the old single-turn transcript/reply lines with a scrollable
-  // running history, so a session reads like an actual conversation.
-  const LOG_MAX_MSGS = 16;
-  let $pendingUserBubble = null; // live-updates while STT/SR is still talking
-
-  function logScrollBottom() { $log.scrollTop = $log.scrollHeight; }
-  function logTrim() {
-    while ($log.children.length > LOG_MAX_MSGS) $log.removeChild($log.firstChild);
-  }
-  function logEsc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-  function logUserLive(text) {
-    if ($logHint) { $logHint.remove(); }
-    if (!$pendingUserBubble) {
-      const row = document.createElement('div');
-      row.className = 'va-msg va-msg-user';
-      row.innerHTML = '<div class="va-bubble"></div>';
-      $log.appendChild(row);
-      $pendingUserBubble = row.querySelector('.va-bubble');
-      logTrim();
-    }
-    $pendingUserBubble.textContent = text;
-    logScrollBottom();
-  }
-  function logUserFinal(text) {
-    logUserLive(text);
-    $pendingUserBubble = null; // next utterance starts a fresh bubble
-  }
-  function logBot(text, isError) {
-    if ($logHint) { $logHint.remove(); }
-    const row = document.createElement('div');
-    row.className = 'va-msg va-msg-bot';
-    row.innerHTML = '<div class="va-bubble' + (isError ? ' va-bubble-err' : '') + '"></div>';
-    row.querySelector('.va-bubble').textContent = text;
-    $log.appendChild(row);
-    logTrim();
-    logScrollBottom();
-    return row;
-  }
-  function setBotSpeaking(on) {
-    const bubbles = $log.querySelectorAll('.va-msg-bot .va-bubble');
-    const last = bubbles[bubbles.length - 1];
-    if (last) last.classList.toggle('va-speaking', on);
-  }
+  const $label = widget.querySelector('#va-label');
 
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   // Wake word + voice settings are read live so the System-tab settings apply
@@ -116,19 +53,40 @@
   let cancelCapture = null; // cancels the in-flight recorder capture
   let srSession   = null;
 
-  function setStatus(msg, isErr) {
-    $status.textContent = msg || '';
-    $status.classList.toggle('va-err', !!isErr);
+  // ── Status label (replaces the old chat-log/bubble panel) ──────────────
+  // Short label under the icon; full text always available via the native
+  // tooltip and is spoken aloud via TTS, so nothing is lost by not having a
+  // persistent transcript panel.
+  let statusResetTimer = null;
+  function idleLabel() { return wakeEnabled ? 'Armed' : 'Voice'; }
+  function idleTitle() {
+    return wakeEnabled
+      ? 'Voice assistant armed — say “' + wakeWord() + '” to give a command. Tap to disarm.'
+      : 'Voice assistant off. Tap to arm wake word “' + wakeWord() + '”.';
+  }
+  function setStatus(msg, isErr, sticky) {
+    if (statusResetTimer) { clearTimeout(statusResetTimer); statusResetTimer = null; }
+    widget.classList.toggle('va-err', !!isErr);
+    $label.textContent = msg || idleLabel();
+    widget.title = msg || idleTitle();
+    if (msg && !sticky) {
+      statusResetTimer = setTimeout(() => {
+        widget.classList.remove('va-err');
+        $label.textContent = idleLabel();
+        widget.title = idleTitle();
+      }, isErr ? 6000 : 4500);
+    }
   }
   function setListening(on) {
     listening = on;
-    btn.classList.toggle('va-listening', on);
-    $micInner.classList.toggle('va-listening', on);
+    widget.classList.toggle('va-listening', on);
+  }
+  function setBotSpeaking(on) {
+    widget.classList.toggle('va-speaking', on);
   }
   function renderWake() {
-    $wakeToggle.classList.toggle('on', wakeEnabled);
-    btn.classList.toggle('va-wake', wakeEnabled);
-    panel.querySelector('#va-wake-word').textContent = '“' + wakeWord() + '”';
+    widget.classList.toggle('on', wakeEnabled);
+    if (!busy && !listening) setStatus('');
   }
 
   // ── Audio helpers ───────────────────────────────────────────────────────
@@ -187,7 +145,7 @@
     return new Promise(async (resolve) => {
       let stream;
       try { stream = await ensureMic(); }
-      catch (_) { setStatus('Microphone blocked — allow mic access or type instead.', true); return resolve(null); }
+      catch (_) { setStatus('Mic blocked', true); return resolve(null); }
 
       const ac = new (window.AudioContext || window.webkitAudioContext)();
       if (ac.state === 'suspended') ac.resume().catch(() => {});
@@ -280,49 +238,14 @@
           else interim += e.results[i][0].transcript;
         }
         lastInterim = (finalText + interim).trim();
-        logUserLive(lastInterim);
+        if (lastInterim) setStatus(lastInterim, false, true);
       };
       rec.onerror = (e) => {
-        if (e.error === 'not-allowed') setStatus('Microphone blocked — allow mic access or type instead.', true);
+        if (e.error === 'not-allowed') setStatus('Mic blocked', true);
       };
       rec.onend = () => { srSession = null; resolve((finalText.trim() || lastInterim).trim()); };
       try { rec.start(); } catch (_) { resolve(''); }
     });
-  }
-
-  // ── Unified one-shot listen ─────────────────────────────────────────────
-  async function listenOnce() {
-    if (busy || listening) return;
-    // A background wake-word capture may be mid-flight — take over the mic.
-    if (cancelCapture) cancelCapture();
-    if (srSession) { try { srSession.onend = null; srSession.stop(); } catch (_) {} srSession = null; }
-    // Clean up an empty bubble left by a previous attempt that yielded nothing.
-    if ($pendingUserBubble && !$pendingUserBubble.textContent.trim()) {
-      $pendingUserBubble.closest('.va-msg')?.remove();
-      $pendingUserBubble = null;
-    }
-    setListening(true);
-    setStatus('Listening…');
-    let text = '';
-    try {
-      if (SR) {
-        text = await srListenOnce();
-      } else {
-        const blob = await captureUtterance();
-        if (blob) {
-          setStatus('Transcribing…');
-          text = await sttBlob(blob);
-          logUserLive(text);
-        }
-      }
-    } catch (e) {
-      setListening(false);
-      setStatus(e.message || 'Speech recognition failed.', true);
-      return;
-    }
-    setListening(false);
-    if (text) submit(text);
-    else if (!$status.classList.contains('va-err')) setStatus('Didn’t catch that — tap the mic to try again.');
   }
 
   // ── Wake word ───────────────────────────────────────────────────────────
@@ -395,15 +318,14 @@
 
   async function handleWokenCommand(command) {
     chime();
-    panel.classList.add('open');
     if (!command) {
       // Wake word alone — listen for the command as the next utterance
       setListening(true);
-      setStatus('Yes?');
+      setStatus('Yes?', false, true);
       if (SR) command = await srListenOnce();
       else {
         const blob = await captureUtterance({ startTimeoutMs: 6000 });
-        if (blob) { setStatus('Transcribing…'); command = await sttBlob(blob).catch(() => ''); logUserLive(command); }
+        if (blob) { setStatus('Transcribing…', false, true); command = await sttBlob(blob).catch(() => ''); }
       }
       setListening(false);
     }
@@ -460,9 +382,9 @@
     if (on) {
       if (!SR) {
         try { await ensureMic(); }
-        catch (_) { wakeEnabled = false; localStorage.setItem('vaWake', 'off'); renderWake(); setStatus('Microphone blocked — wake word needs mic access.', true); return; }
+        catch (_) { wakeEnabled = false; localStorage.setItem('vaWake', 'off'); renderWake(); setStatus('Mic blocked', true); return; }
       }
-      setStatus('Wake word on — say ' + wakeWord() + '.');
+      setStatus('Armed — say ' + wakeWord(), false, true);
       if (SR) wakeLoopSR();
       else if (!wakeLoopOn) { wakeLoopOn = true; wakeLoopRecorder().finally(() => { wakeLoopOn = false; }); }
     } else {
@@ -476,6 +398,8 @@
   // ── Text to speech ──────────────────────────────────────────────────────
   // Voice choice (System tab → Voice assistant → Voice) is stored as the
   // browser's own voiceURI so it survives across sessions on this device.
+  // Every reply and error is spoken in full — with no transcript panel
+  // anymore, TTS is the only place the full text is available.
   function pickVoice() {
     if (!('speechSynthesis' in window)) return null;
     const uri = localStorage.getItem('vaVoiceURI');
@@ -538,16 +462,16 @@
   // ── Send a command to the server ────────────────────────────────────────
   async function submit(text) {
     if (busy || !text) return;
-    // Wake word said into any capture path (tap-to-talk included):
-    // strip it, and if it was said alone, chime and ask for the command.
+    // Wake word said into any capture path: strip it, and if it was said
+    // alone, chime and ask for the command.
     const woke = matchWake(text);
     if (woke) {
       if (woke.command) text = woke.command;
       else return handleWokenCommand('');
     }
     busy = true;
-    logUserFinal(text);
-    setStatus('Thinking…');
+    widget.classList.add('va-busy');
+    setStatus('Thinking…', false, true);
     try {
       const r = await fetch('/api/assistant?device=' + encodeURIComponent(deviceId), {
         method: 'POST',
@@ -565,59 +489,20 @@
       if (!r.ok) throw new Error(data.error || ('HTTP ' + r.status));
       (data.actions || []).forEach(runAction);
       const reply = data.reply || 'Done.';
-      logBot(reply);
-      setStatus('');
+      setStatus(reply);
       speak(reply);
     } catch (e) {
       const msg = e.message || 'Something went wrong.';
-      logBot(msg, true);
-      setStatus('');
+      setStatus(msg, true);
+      speak(msg);
     } finally {
       busy = false;
+      widget.classList.remove('va-busy');
     }
   }
 
   // ── Wiring ──────────────────────────────────────────────────────────────
-  function openPanel(withVoice) {
-    panel.classList.add('open');
-    if (withVoice) listenOnce();
-    else $input.focus();
-  }
-  function closePanel() {
-    if (!wakeEnabled && cancelCapture) cancelCapture();
-    if (!wakeEnabled && srSession) { try { srSession.stop(); } catch (_) {} }
-    if ('speechSynthesis' in window) { try { speechSynthesis.cancel(); } catch (_) {} speaking = false; }
-    panel.classList.remove('open');
-  }
-
-  btn.addEventListener('click', () => {
-    if (listening) { // tap again = stop the current capture early
-      if (cancelCapture) cancelCapture();
-      if (srSession) { try { srSession.stop(); } catch (_) {} }
-      setListening(false);
-    } else if (panel.classList.contains('open')) closePanel();
-    else openPanel(true);
-  });
-  panel.querySelector('.va-close').addEventListener('click', closePanel);
-  $micInner.addEventListener('click', () => {
-    if (listening) { if (cancelCapture) cancelCapture(); if (srSession) { try { srSession.stop(); } catch (_) {} } }
-    else listenOnce();
-  });
-  $wakeToggle.parentElement.addEventListener('click', () => setWake(!wakeEnabled));
-  panel.querySelector('#va-send').addEventListener('click', () => {
-    const v = $input.value.trim();
-    if (v) { $input.value = ''; submit(v); }
-  });
-  $input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      const v = $input.value.trim();
-      if (v) { $input.value = ''; submit(v); }
-    }
-    if (e.key === 'Escape') closePanel();
-  });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && panel.classList.contains('open')) closePanel();
-  });
+  widget.addEventListener('click', () => setWake(!wakeEnabled));
 
   renderWake();
   // Wake mode deliberately does NOT auto-resume on page load. Opening the
@@ -627,6 +512,6 @@
   // stereo-playback profile to a mic-capable one) that briefly interrupts or
   // pauses whatever else is playing, including audio in a completely
   // unrelated browser tab. Silently re-arming the mic on every refresh was
-  // causing exactly that. One explicit tap on the toggle re-enables it.
-  if (_wakeWasOnLastTime) setStatus('Wake word was on last time — tap to resume.');
+  // causing exactly that. One explicit tap re-enables it.
+  if (_wakeWasOnLastTime) setStatus('Tap to resume', false, true);
 })();
