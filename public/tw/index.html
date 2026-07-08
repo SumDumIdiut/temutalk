@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#060810">
-  <title>Hub</title>
+  <title>Hub · mobile shell</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css">
@@ -57,6 +57,26 @@
     /* ── Page headers ─────────────────────────────────────────────────────────────────── */
     .page-header { display: flex; align-items: center; gap: 10px; padding-top: 12px; font-size: 22px; font-weight: 600; }
     .page-header-accent { width: 4px; height: 28px; border-radius: 2px; flex-shrink: 0; }
+
+    /* ── Responsive shell (testbed): left rail becomes a bottom tab bar ──── */
+    @media (max-width: 767px) {
+      :root { --nav-w: 0px; --nav-h: 66px; --safe-b: env(safe-area-inset-bottom); }
+      .nav {
+        top: auto; right: 0; bottom: 0; left: 0;
+        width: auto; height: calc(var(--nav-h) + var(--safe-b));
+        flex-direction: row; justify-content: space-around; align-items: flex-start;
+        padding: 6px 2px calc(4px + var(--safe-b));
+        border-right: none; border-top: 2px solid rgba(255,255,255,.1);
+        overflow-x: auto; scrollbar-width: none;
+      }
+      .nav::-webkit-scrollbar { display: none; }
+      .nav-item { width: auto; flex: 1 0 54px; }
+      .view { bottom: calc(var(--nav-h) + var(--safe-b)); }
+      .home-widgets { flex-wrap: wrap; }
+      .home-time { letter-spacing: -3px; }
+      #va-btn { bottom: calc(var(--nav-h) + var(--safe-b) + 16px); }
+      #va-panel { bottom: calc(var(--nav-h) + var(--safe-b) + 82px); }
+    }
   </style>
 </head>
 <body data-tab="home">

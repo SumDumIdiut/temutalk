@@ -61,6 +61,54 @@ function loadBrowserPlayer() {
   }, 500);
 }
 
+// ── SDK connection resilience ────────────────────────────────────────────
+// The Web Playback SDK already retries dropped connections on its own.
+// 'not_ready' fires routinely for entirely normal reasons — playback moved
+// to another device, the tab got backgrounded and throttled, a brief
+// heartbeat blip — none of which mean this device is actually broken.
+// Forcing our own reconnect on every one of those (the previous version of
+// this code did, plus a 45s polling watchdog) fought the SDK's own recovery
+// and periodically interrupted/restarted whatever was currently playing.
+//
+// Now: nudge with a single reconnect only in response to a real environment
+// change (tab woke up, network came back), and only escalate to a full
+// teardown+rebuild if the connection has been stuck for a genuinely long
+// time (5 minutes) while the user is actually looking at this tab.
+let _bpNotReadySince = null;
+
+function _rebuildBrowserPlayer() {
+  _setBrowserPlayerStatus('rebuilding player…');
+  try { browserPlayer && browserPlayer.disconnect(); } catch (_) {}
+  browserPlayer = null;
+  browserPlayerReady = false;
+  _bpNotReadySince = null;
+  _initBrowserPlayer();
+}
+
+function _nudgeBrowserPlayer(reason) {
+  if (!browserPlayer || browserPlayerReady) return;
+  _setBrowserPlayerStatus('reconnecting (' + reason + ')…');
+  browserPlayer.connect().catch(() => {});
+}
+
+// Wake from sleep / network back → nudge once (not a repeating retry loop)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') _nudgeBrowserPlayer('tab visible');
+});
+window.addEventListener('online', () => _nudgeBrowserPlayer('network back'));
+
+// Last-resort rebuild — low frequency, and only acts after a long, real
+// outage while the tab is visible (never while merely backgrounded).
+setInterval(() => {
+  if (!browserPlayer || browserPlayerReady || !_bpNotReadySince) return;
+  if (document.visibilityState !== 'visible') return;
+  if (Date.now() - _bpNotReadySince > 5 * 60 * 1000) _rebuildBrowserPlayer();
+}, 60000);
+
+window.addEventListener('beforeunload', () => {
+  localStorage.setItem('tt_was_paused', playing ? '0' : '1');
+});
+
 function _initBrowserPlayer() {
   if (browserPlayer) return;
   _setBrowserPlayerStatus('connecting…');
@@ -68,10 +116,9 @@ function _initBrowserPlayer() {
   browserPlayer = new Spotify.Player({
     name: 'TemuTalk',
     getOAuthToken: cb => {
+      // /api/token refreshes server-side when the token is near expiry
       fetch('/api/token?device=' + deviceId).then(r => r.json()).then(d => {
-        const tok = d.token || d.access_token || '';
-        console.log('[player] getOAuthToken returning:', tok ? tok.slice(0,20)+'…' : '(empty)', 'd=', JSON.stringify(d).slice(0,80));
-        cb(tok);
+        cb(d.token || d.access_token || '');
       }).catch(e => { console.log('[player] getOAuthToken fetch error:', e); cb(''); });
     },
     volume: vol,
@@ -84,6 +131,8 @@ function _initBrowserPlayer() {
   });
   browserPlayer.addListener('ready', ({ device_id }) => {
     browserPlayerReady = true;
+    _bpRetry = 0;
+    clearTimeout(_bpRetryTimer); _bpRetryTimer = null;
     browserPlayer._deviceId = device_id;
     _setBrowserPlayerStatus('ready ✓ ' + device_id.slice(0,8));
     const wasPaused = localStorage.getItem('tt_was_paused') === '1';
@@ -98,20 +147,23 @@ function _initBrowserPlayer() {
       })
       .catch(() => {});
   });
-  window.addEventListener('beforeunload', () => {
-    localStorage.setItem('tt_was_paused', playing ? '0' : '1');
+  browserPlayer.addListener('not_ready', () => {
+    browserPlayerReady = false;
+    _scheduleBrowserPlayerReconnect('connection lost');
   });
-  browserPlayer.addListener('not_ready', ({ device_id }) => { browserPlayerReady = false; _setBrowserPlayerStatus('not ready'); });
   browserPlayer.addListener('initialization_error', ({ message }) => _setBrowserPlayerStatus('init error: ' + message));
-  browserPlayer.addListener('authentication_error', ({ message }) => _setBrowserPlayerStatus('auth error: ' + message));
-  browserPlayer.addListener('account_error',        ({ message }) => _setBrowserPlayerStatus('account error: ' + message));
-  browserPlayer.connect().then(ok => console.log('[player] connect() resolved:', ok));
-  setTimeout(() => {
-    const iframe = document.querySelector('iframe[allow*="encrypted-media"]');
-    console.log('[player] iframe in DOM:', !!iframe, iframe?.src);
-  }, 2000);
+  browserPlayer.addListener('authentication_error', ({ message }) => {
+    // token was bad/expired mid-session — reconnect pulls a fresh one via getOAuthToken
+    browserPlayerReady = false;
+    _scheduleBrowserPlayerReconnect('auth: ' + message);
+  });
+  browserPlayer.addListener('account_error', ({ message }) => _setBrowserPlayerStatus('account error: ' + message));
+  browserPlayer.connect().then(ok => {
+    console.log('[player] connect() resolved:', ok);
+    if (!ok) _scheduleBrowserPlayerReconnect('connect failed');
+  });
   document.addEventListener('click', function _activate() {
-    browserPlayer.activateElement();
+    if (browserPlayer) browserPlayer.activateElement();
     document.removeEventListener('click', _activate);
   }, { once: true });
 }
@@ -353,6 +405,77 @@ function shuffleContext(uri) {
   playContext(uri);
 }
 
+// ── Remove a track from a playlist (playlist detail view) ─────────────────
+function removeFromPlaylist(btnEl, playlistId, uri) {
+  const row = btnEl.closest('.det-track');
+  if (!row) return;
+  btnEl.disabled = true;
+  api('/api/playlist/' + playlistId + '/tracks', {
+    method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uri }),
+  }).then(r => {
+    if (r.error) { btnEl.disabled = false; alert(r.error); return; }
+    row.remove();
+    const remaining = document.querySelectorAll('#vpl-tracks .det-track').length;
+    document.querySelectorAll('#vpl-tracks .det-track-num').forEach((el, i) => { el.textContent = (i + 1); });
+    const sub = document.getElementById('vpl-sub');
+    if (sub) sub.textContent = sub.textContent.replace(/\d+ songs?/, remaining + (remaining === 1 ? ' song' : ' songs'));
+  }).catch(() => { btnEl.disabled = false; alert('Could not remove track — check your connection.'); });
+}
+
+// ── Add the currently playing track to a playlist (player bar) ────────────
+// Full centered modal — a small corner popover made "pick a playlist" too
+// easy to miss/mis-tap on a touch-first hub.
+let _addToPlaylistList = null;
+
+function openAddToPlaylistModal() {
+  if (!currentTrackId) { alert('Nothing is playing.'); return; }
+  const modal = document.getElementById('add-playlist-modal');
+  const list  = document.getElementById('apm-list');
+  const sub   = document.getElementById('apm-track-sub');
+  if (!modal || !list) return;
+  const track  = document.getElementById('fp-track')?.textContent || '';
+  const artist = document.getElementById('fp-artist')?.textContent || '';
+  if (sub) sub.textContent = artist ? track + ' — ' + artist : track;
+  modal.classList.add('open');
+  list.innerHTML = '<div class="apm-empty">Loading playlists…</div>';
+  (_addToPlaylistList ? Promise.resolve(_addToPlaylistList) : api('/api/playlists').then(d => _addToPlaylistList = d.items || []))
+    .then(items => {
+      if (!items.length) { list.innerHTML = '<div class="apm-empty">No playlists found.</div>'; return; }
+      list.innerHTML = items.map(p => {
+        const img = p.images?.at(-1)?.url || p.images?.[0]?.url || '';
+        return '<button class="add-playlist-item" onclick="addCurrentTrackToPlaylist(this,' + JSON.stringify(p.id) + ')">' +
+          (img ? '<img class="apm-item-art" src="' + esc(img) + '" alt="">' : '<div class="apm-item-art"></div>') +
+          '<div class="apm-item-info"><div class="apm-item-name">' + esc(p.name) + '</div>' +
+          '<div class="apm-item-sub">' + (p.tracks?.total ?? 0) + ' songs</div></div>' +
+          '<svg class="apm-item-check" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>' +
+          '</button>';
+      }).join('');
+    }).catch(() => { list.innerHTML = '<div class="apm-empty">Could not load playlists.</div>'; });
+}
+
+function closeAddToPlaylistModal() {
+  document.getElementById('add-playlist-modal')?.classList.remove('open');
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeAddToPlaylistModal();
+});
+
+function addCurrentTrackToPlaylist(btnEl, playlistId) {
+  if (!currentTrackId) return;
+  const uri = 'spotify:track:' + currentTrackId;
+  btnEl.disabled = true;
+  api('/api/playlist/' + playlistId + '/tracks', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uri }),
+  }).then(r => {
+    if (r.error) { btnEl.disabled = false; alert(r.error); return; }
+    btnEl.classList.add('apm-added');
+    const sub = btnEl.querySelector('.apm-item-sub');
+    if (sub) sub.textContent = 'Added ✓';
+    setTimeout(closeAddToPlaylistModal, 650);
+  }).catch(() => { btnEl.disabled = false; alert('Could not add track — check your connection.'); });
+}
+
 let _meId = null, _meName = null;
 function loadMe() {
   if (_meId) return Promise.resolve();
@@ -473,15 +596,25 @@ function openPlaylist(id) {
   Promise.all([api('/api/playlist/' + id), api('/api/playlist/' + id + '/tracks')]).then(([info, data]) => {
     document.getElementById('vpl-name').textContent = info.name || '';
     if (info.images?.[0]?.url) document.getElementById('vpl-art').src = info.images[0].url;
-    const items = (data.items || []).filter(i => i?.track);
+    // Keep each item's ORIGINAL index — Spotify's offset.position refers to
+    // position in the real (unfiltered) playlist, so numbering from the
+    // filtered array here would send the wrong offset and play a different
+    // track than the one clicked whenever an earlier row is filtered out
+    // (removed/unavailable tracks show up as null entries).
+    const items = (data.items || [])
+      .map((item, originalIdx) => ({ item, originalIdx }))
+      .filter(x => x.item?.track);
     document.getElementById('vpl-sub').textContent = (info.owner ? ownerLabel(info) + ' · ' : '') + items.length + ' songs';
-    document.getElementById('vpl-tracks').innerHTML = items.map((item, idx) => {
+    document.getElementById('vpl-tracks').innerHTML = items.map(({ item, originalIdx }, displayIdx) => {
       const t = item.track;
-      return '<div class="det-track" data-uri="' + vplUri + '" data-off="' + idx + '" onclick="playContext(this.dataset.uri,+this.dataset.off)">' +
-        '<span class="det-track-num">' + (idx+1) + '</span>' +
+      return '<div class="det-track" data-uri="' + vplUri + '" data-off="' + originalIdx + '" onclick="playContext(this.dataset.uri,+this.dataset.off)">' +
+        '<span class="det-track-num">' + (displayIdx+1) + '</span>' +
         '<img class="det-track-art" src="' + (t.album?.images?.at(-1)?.url || '') + '" alt="" loading="lazy">' +
         '<div class="det-track-info"><div class="det-track-name">' + esc(t.name) + '</div><div class="det-track-sub">' + esc(t.artists.map(a => a.name).join(', ')) + '</div></div>' +
-        '<span class="det-track-dur">' + fmt(t.duration_ms) + '</span></div>';
+        '<span class="det-track-dur">' + fmt(t.duration_ms) + '</span>' +
+        '<button class="det-track-remove" title="Remove from playlist" onclick="event.stopPropagation();removeFromPlaylist(this,' + JSON.stringify(id) + ',' + JSON.stringify(t.uri) + ')">' +
+          '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>' +
+        '</button></div>';
     }).join('');
   }).catch(() => { document.getElementById('vpl-tracks').innerHTML = '<div style="color:var(--text-muted);padding:20px 16px;">Failed to load</div>'; });
 }

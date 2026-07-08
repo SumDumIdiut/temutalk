@@ -36,51 +36,6 @@ function changeWxCity() {
   wxCity = city;
   localStorage.setItem('wxCity', city);
   loadWx(city);
-  _updateHomeWxWidget(city);
-}
-function homeWxEditStart(e) {
-  e.stopPropagation();
-  document.getElementById('home-wx-display').style.display = 'none';
-  const form = document.getElementById('home-wx-edit');
-  form.style.display = 'flex';
-  const inp = document.getElementById('home-wx-city-inp');
-  inp.value = wxCity;
-  setTimeout(() => inp.focus(), 30);
-}
-function homeWxEditCancel() {
-  document.getElementById('home-wx-edit').style.display = 'none';
-  document.getElementById('home-wx-display').style.display = 'flex';
-}
-function homeWxEditDone() {
-  const city = document.getElementById('home-wx-city-inp').value.trim();
-  homeWxEditCancel();
-  if (!city) return;
-  wxCity = city;
-  localStorage.setItem('wxCity', city);
-  _updateHomeWxWidget(city);
-  wxLoaded = false;
-}
-function _updateHomeWxWidget(city) {
-  document.getElementById('w-desc').textContent = 'Loading…';
-  fetch('/api/weather?city=' + encodeURIComponent(city))
-    .then(r => r.json()).then(d => {
-      if (!d.current_condition) return;
-      const c = d.current_condition[0];
-      document.getElementById('w-temp').textContent = c.temp_C + '°';
-      document.getElementById('w-desc').textContent = c.weatherDesc[0].value;
-      document.getElementById('w-city').textContent = d.nearest_area?.[0]?.areaName?.[0]?.value || city;
-      document.getElementById('w-icon').textContent = wxEmoji(c.weatherCode);
-      const wxCard = document.getElementById('home-wx-card');
-      if (wxCard) {
-        const code = +c.weatherCode;
-        wxCard.classList.remove('wx-sunny','wx-cloudy','wx-rain','wx-storm','wx-snow');
-        if ([113,116].includes(code)) wxCard.classList.add('wx-sunny');
-        else if ([119,122,143,248,260].includes(code)) wxCard.classList.add('wx-cloudy');
-        else if ([200,386,389,392,395].includes(code)) wxCard.classList.add('wx-storm');
-        else if ([227,230,323,326,329,332,335,338,368,371,395].includes(code)) wxCard.classList.add('wx-snow');
-        else wxCard.classList.add('wx-rain');
-      }
-    }).catch(() => { document.getElementById('w-desc').textContent = 'Unavailable'; });
 }
 
 function renderWx(data) {
@@ -143,22 +98,62 @@ function renderWx(data) {
   }
 
   if (data.weather?.length) {
-    const weekMin = Math.min(...data.weather.map(d => +d.mintempC));
-    const weekMax = Math.max(...data.weather.map(d => +d.maxtempC));
-    const range   = weekMax - weekMin || 1;
-    document.getElementById('daily-list').innerHTML = data.weather.map((day, i) => {
-      const d    = new Date(day.date);
-      const lbl  = i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : SHORT_DAY[d.getDay()];
-      const icon = wxEmoji(day.hourly?.[4]?.weatherCode ?? 113);
-      const lo   = +day.mintempC, hi = +day.maxtempC;
-      const left  = Math.round((lo - weekMin) / range * 100);
-      const width = Math.max(6, Math.round((hi - lo) / range * 100));
-      return '<div class="wx-day"><div class="wx-day-name">' + lbl + '</div><div class="wx-day-icon">' + icon + '</div>' +
-        '<div class="wx-day-lo">' + lo + '°</div>' +
-        '<div class="wx-day-bar-wrap"><div class="wx-day-bar" style="left:' + left + '%;width:' + width + '%;"></div></div>' +
-        '<div class="wx-day-hi">' + hi + '°</div></div>';
-    }).join('');
-    document.getElementById('daily-wrap').style.display = 'block';
+    renderDailyList(data.weather.map((day, i) => ({
+      label: i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : SHORT_DAY[new Date(day.date).getDay()],
+      emoji: wxEmoji(day.hourly?.[4]?.weatherCode ?? 113),
+      lo: +day.mintempC, hi: +day.maxtempC,
+      rain: Math.max(...(day.hourly || []).map(h => +h.chanceofrain || 0)),
+    })), data.weather.length + '-Day Forecast');
+    // wttr.in only gives 3 days — upgrade to 7 via Open-Meteo when we have coords
+    upgradeTo7Day();
   }
+}
+
+// ── Daily forecast list (shared renderer) ──────────────────────────────────
+function renderDailyList(days, hdr) {
+  const weekMin = Math.min(...days.map(d => d.lo));
+  const weekMax = Math.max(...days.map(d => d.hi));
+  const range   = weekMax - weekMin || 1;
+  document.getElementById('daily-hdr').textContent = hdr;
+  document.getElementById('daily-list').innerHTML = days.map(d => {
+    const left  = Math.round((d.lo - weekMin) / range * 100);
+    const width = Math.max(6, Math.round((d.hi - d.lo) / range * 100));
+    return '<div class="wx-day"><div class="wx-day-name">' + d.label + '</div><div class="wx-day-icon">' + d.emoji + '</div>' +
+      '<div class="wx-day-lo">' + Math.round(d.lo) + '°</div>' +
+      '<div class="wx-day-bar-wrap"><div class="wx-day-bar" style="left:' + left + '%;width:' + width + '%;"></div></div>' +
+      '<div class="wx-day-hi">' + Math.round(d.hi) + '°</div>' +
+      '<div class="wx-day-rain">' + (d.rain > 15 ? '💧' + Math.round(d.rain) + '%' : '') + '</div></div>';
+  }).join('');
+  document.getElementById('daily-wrap').style.display = 'block';
+}
+
+// WMO weather codes (Open-Meteo) → emoji
+function wmoEmoji(c) {
+  if (c === 0) return '☀️';
+  if (c === 1) return '🌤️';
+  if (c === 2) return '⛅';
+  if (c === 3) return '☁️';
+  if (c === 45 || c === 48) return '🌫️';
+  if (c >= 51 && c <= 57) return '🌦️';
+  if ((c >= 61 && c <= 67) || (c >= 80 && c <= 82)) return '🌧️';
+  if ((c >= 71 && c <= 77) || c === 85 || c === 86) return '❄️';
+  if (c >= 95) return '⛈️';
+  return '🌤️';
+}
+
+async function upgradeTo7Day() {
+  const coords = (localStorage.getItem('wxCoords') || '').split(',');
+  if (coords.length !== 2) return;
+  try {
+    const r = await fetch('/api/forecast?lat=' + coords[0] + '&lng=' + coords[1] + '&device=' + deviceId);
+    const daily = await r.json();
+    if (!daily?.time?.length) return;
+    renderDailyList(daily.time.map((date, i) => ({
+      label: i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : SHORT_DAY[new Date(date).getDay()],
+      emoji: wmoEmoji(daily.weather_code?.[i]),
+      lo: daily.temperature_2m_min[i], hi: daily.temperature_2m_max[i],
+      rain: daily.precipitation_probability_max?.[i] || 0,
+    })), daily.time.length + '-Day Forecast');
+  } catch (_) { /* keep the 3-day wttr fallback */ }
 }
 

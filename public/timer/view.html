@@ -31,7 +31,13 @@
     </div>
     <div class="timer-custom-row mt-8">
       <input class="timer-custom-input" id="timer-custom-val" type="text" placeholder="Custom: mm:ss or seconds" onkeydown="if(event.key==='Enter')addCustomTimer()">
+      <input class="timer-custom-input" id="timer-label-val" type="text" placeholder="Label (optional)" style="flex:0 1 180px;" onkeydown="if(event.key==='Enter')addCustomTimer()">
       <button class="timer-custom-btn" onclick="addCustomTimer()">Add</button>
+    </div>
+    <div class="timer-custom-row mt-8">
+      <input class="timer-custom-input" id="timer-alarm-val" type="time" style="flex:0 1 150px;">
+      <button class="timer-custom-btn" onclick="addAlarmAt()">Ring at time</button>
+      <span style="font-size:12px;color:var(--text-muted);align-self:center;">counts down to the chosen clock time</span>
     </div>
     <div id="timers-list" style="margin-top:10px;"></div>
   </main>

@@ -74,6 +74,7 @@ const setupWebSocket        = require('./lib/ws');
 const chat                  = require('./lib/chat');
 const setupYtMusicRoutes    = require('./lib/yt-music');
 const setupAppleMusicRoutes = require('./lib/apple-music');
+const setupAssistantRoutes  = require('./lib/assistant');
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // EXPRESS + SERVER
@@ -171,6 +172,7 @@ const { broadcastLiveList, ffmpegRunning } = setupStreamRoutes(app, MAIN_BASE);
 chat.setupChatRoutes(app, resolveDevice);
 setupYtMusicRoutes(app, MAIN_BASE);
 setupAppleMusicRoutes(app);
+setupAssistantRoutes(app, resolveDevice, WEATHER_CITY);
 
 // ─── WebSocket ────────────────────────────────────────────────────────────────
 setupWebSocket(wss, broadcastLiveList);

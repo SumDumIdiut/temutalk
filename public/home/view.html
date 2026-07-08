@@ -20,24 +20,15 @@
   <!-- Bottom compact widgets -->
   <div class="home-widgets">
 
-    <!-- Mini weather -->
+    <!-- Mini weather (auto-located, not editable) -->
     <div class="home-mini-card home-mini-wx" id="home-wx-card">
-      <div id="home-wx-display" style="display:flex;align-items:center;gap:14px;width:100%;">
-        <div class="home-mini-wx-icon" id="w-icon" onclick="navigate('weather')" style="cursor:pointer;">⛅</div>
-        <div style="flex:1;min-width:0;cursor:pointer;" onclick="navigate('weather')">
+      <div id="home-wx-display" style="display:flex;align-items:center;gap:14px;width:100%;cursor:pointer;" onclick="navigate('weather')">
+        <div class="home-mini-wx-icon" id="w-icon">⛅</div>
+        <div style="flex:1;min-width:0;">
           <div class="home-mini-wx-temp" id="w-temp">--°</div>
           <div class="home-mini-wx-desc" id="w-desc">Loading…</div>
           <div class="home-mini-wx-city" id="w-city"></div>
         </div>
-        <button class="home-wx-edit-btn" onclick="homeWxEditStart(event)" title="Change city">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-        </button>
-      </div>
-      <div class="home-wx-city-form" id="home-wx-edit">
-        <input class="home-wx-city-inp" id="home-wx-city-inp" placeholder="City name…" autocomplete="off"
-          onkeydown="if(event.key==='Enter')homeWxEditDone();if(event.key==='Escape')homeWxEditCancel();">
-        <button class="home-wx-go-btn" onclick="homeWxEditDone()">→</button>
-        <button class="home-wx-go-btn" onclick="homeWxEditCancel()" style="background:none;border-color:transparent;color:var(--text-muted);">✕</button>
       </div>
     </div>
 
