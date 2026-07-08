@@ -2,7 +2,9 @@
 // Fully headless — no UI at all. Wake word listening starts automatically on
 // page load and runs continuously in the background; say the wake word, then
 // the command. STT → POST /api/assistant → server runs a tool loop on a local
-// Ollama model → reply is spoken via speechSynthesis and device actions
+// Ollama model → reply is synthesized server-side (POST /api/assistant/tts,
+// local Piper install) and played back through a plain <audio> element, so no
+// client needs anything installed for voice replies to work. Device actions
 // (radio, timers, chat, navigation) are executed here using the globals the
 // tab scripts already define (playStation, addTimer, ws, …).
 //
@@ -349,17 +351,24 @@
   }
 
   // ── Text to speech ──────────────────────────────────────────────────────
-  // Voice choice (System tab → Voice assistant → Voice) is stored as the
-  // browser's own voiceURI so it survives across sessions on this device.
-  // Every reply and error is spoken in full — with no transcript panel
-  // anymore, TTS is the only place the full text is available.
-  //
-  // Chrome (and embedded WebViews especially) will silently swallow
-  // speechSynthesis.speak() — no error, no sound — until the page has seen
-  // at least one real user gesture. The old floating mic button used to
-  // supply that gesture for free; now that everything is headless/automatic
-  // there may never be one, so we grab the very first click/touch/key on the
-  // page (or the mic permission grant) and use it to "prime" the engine.
+  // Synthesized server-side (POST /api/assistant/tts, local Piper install —
+  // see lib/tts.js) and played back through a plain <audio> element. This
+  // replaces the browser's speechSynthesis entirely: that API depends on an
+  // OS-level speech engine the client may not have (e.g. Firefox on Linux
+  // needs speech-dispatcher + espeak-ng installed system-wide, and silently
+  // produces no audio at all without it). Playing a WAV byte stream from the
+  // server works in every browser, on every device, with nothing to install.
+  const player = new Audio();
+  let _playerUrl = null;
+  function _revokePlayerUrl() { if (_playerUrl) { URL.revokeObjectURL(_playerUrl); _playerUrl = null; } }
+  player.addEventListener('ended', () => { speaking = false; setBotSpeaking(false); _revokePlayerUrl(); });
+  player.addEventListener('error', () => { speaking = false; setBotSpeaking(false); _revokePlayerUrl(); });
+
+  // <audio>.play() is still gated behind a user gesture in most browsers —
+  // same reasoning as the old speechSynthesis unlock, just aimed at a real
+  // media element instead. First click/touch/key (or a granted mic
+  // permission, the closest we get in the headless flow) plays it once,
+  // muted, to unlock playback for the rest of the session.
   let _audioUnlocked = false;
   function unlockAudio() {
     if (_audioUnlocked) return;
@@ -369,41 +378,38 @@
       if (chimeCtx.state === 'suspended') chimeCtx.resume().catch(() => {});
     } catch (_) {}
     try {
-      if ('speechSynthesis' in window) {
-        if (speechSynthesis.paused) speechSynthesis.resume();
-        const u = new SpeechSynthesisUtterance(' ');
-        u.volume = 0;
-        speechSynthesis.speak(u);
-      }
+      player.muted = true;
+      player.play().then(() => { player.pause(); player.muted = false; }).catch(() => { player.muted = false; });
     } catch (_) {}
   }
   ['click', 'touchstart', 'keydown'].forEach(ev => document.addEventListener(ev, unlockAudio, { once: true, passive: true }));
 
-  function pickVoice() {
-    if (!('speechSynthesis' in window)) return null;
-    const uri = localStorage.getItem('vaVoiceURI');
-    if (!uri) return null;
-    return speechSynthesis.getVoices().find(v => v.voiceURI === uri) || null;
-  }
-  function speak(text) {
-    if (!('speechSynthesis' in window) || !text) return;
+  async function speak(text) {
+    if (!text) return;
     if (localStorage.getItem('vaTts') === 'off') return; // voice replies disabled in settings
     try {
-      if (speechSynthesis.paused) speechSynthesis.resume(); // known Chrome bug: stays paused after idle
-      speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.rate = parseFloat(localStorage.getItem('vaTtsRate')) || 1.05;
-      const voice = pickVoice();
-      if (voice) { u.voice = voice; u.lang = voice.lang; }
-      else u.lang = navigator.language || 'en-US';
+      const rate = parseFloat(localStorage.getItem('vaTtsRate')) || 1.05;
+      const r = await fetch('/api/assistant/tts?device=' + encodeURIComponent(deviceId), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, rate }),
+      });
+      if (!r.ok) {
+        const data = await r.json().catch(() => ({}));
+        throw new Error(data.error || ('HTTP ' + r.status));
+      }
+      const blob = await r.blob();
+      _revokePlayerUrl();
+      _playerUrl = URL.createObjectURL(blob);
+      player.src = _playerUrl;
       speaking = true;
-      u.onend = () => { speaking = false; setBotSpeaking(false); };
-      u.onerror = (e) => { console.warn('[assistant] TTS error:', e.error); speaking = false; setBotSpeaking(false); };
-      speechSynthesis.speak(u);
       setBotSpeaking(true);
-      // Safety: some engines never fire onend
-      setTimeout(() => { speaking = false; setBotSpeaking(false); }, Math.min(30000, 2000 + text.length * 90));
-    } catch (e) { console.warn('[assistant] TTS failed:', e); speaking = false; setBotSpeaking(false); }
+      await player.play();
+    } catch (e) {
+      console.warn('[assistant] TTS failed:', e.message || e);
+      speaking = false;
+      setBotSpeaking(false);
+    }
   }
 
   // ── Device actions returned by the server ───────────────────────────────
