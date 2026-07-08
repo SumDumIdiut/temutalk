@@ -19,6 +19,17 @@
   // without a reload.
   function wakeWord() { return (localStorage.getItem('vaWakeWord') || 'hey temu').toLowerCase(); }
 
+  // ── Wake glow ───────────────────────────────────────────────────────────
+  // The only visual feedback left: an orange edge-glow overlay. Turns on the
+  // instant the wake chime plays, pulses while actively capturing the user's
+  // spoken command, and fades out once the whole exchange is done.
+  const glow = document.createElement('div');
+  glow.id = 'va-glow';
+  document.body.appendChild(glow);
+  function glowOn()      { glow.classList.add('on'); }
+  function glowOff()     { glow.classList.remove('on', 'pulse'); }
+  function glowPulse(on) { glow.classList.toggle('pulse', on); }
+
   // ── State ───────────────────────────────────────────────────────────────
   let busy        = false;  // command round-trip in flight
   let speaking    = false;  // TTS playing (don't listen to ourselves)
@@ -28,10 +39,10 @@
   let cancelCapture = null; // cancels the in-flight recorder capture
   let srSession   = null;
 
-  // No visual UI — status is console-only for debugging; replies/errors are
-  // always spoken in full via TTS instead.
+  // No visual UI beyond the wake glow — status is console-only for
+  // debugging; replies/errors are always spoken in full via TTS instead.
   function setStatus(msg, isErr) { if (msg) console.log('[assistant]', isErr ? 'error:' : 'status:', msg); }
-  function setListening(on) { listening = on; }
+  function setListening(on) { listening = on; glowPulse(on); }
   function setBotSpeaking() { /* no-op — kept for call-site symmetry, no UI to update */ }
 
   // ── Audio helpers ───────────────────────────────────────────────────────
@@ -263,19 +274,24 @@
 
   async function handleWokenCommand(command) {
     chime();
-    if (!command) {
-      // Wake word alone — listen for the command as the next utterance
-      setListening(true);
-      setStatus('Yes?');
-      if (SR) command = await srListenOnce();
-      else {
-        const blob = await captureUtterance({ startTimeoutMs: 6000 });
-        if (blob) { setStatus('Transcribing…'); command = await sttBlob(blob).catch(() => ''); }
+    glowOn();
+    try {
+      if (!command) {
+        // Wake word alone — listen for the command as the next utterance
+        setListening(true);
+        setStatus('Yes?');
+        if (SR) command = await srListenOnce();
+        else {
+          const blob = await captureUtterance({ startTimeoutMs: 6000 });
+          if (blob) { setStatus('Transcribing…'); command = await sttBlob(blob).catch(() => ''); }
+        }
+        setListening(false);
       }
-      setListening(false);
+      if (command) await submit(command);
+      else setStatus('');
+    } finally {
+      glowOff();
     }
-    if (command) await submit(command);
-    else setStatus('');
   }
 
   // Background loop, recorder engine: VAD-gated utterances → STT → wake check.
