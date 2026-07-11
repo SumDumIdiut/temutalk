@@ -64,13 +64,13 @@ unset _SELF_REAL _REPO_SELF
 
 mkdir -p logs .run bin/linux
 
-# ─── System package dependencies (icecast2, ffmpeg) ─────────────────────────
+# ─── System package dependencies (ffmpeg — used by lib/assistant.js to
+# convert browser mic audio to WAV for local whisper.cpp speech-to-text) ────
 install_system_deps() {
   local need=()
-  command -v ffmpeg   >/dev/null 2>&1 || need+=(ffmpeg)
-  command -v icecast2 >/dev/null 2>&1 || need+=(icecast2)
+  command -v ffmpeg >/dev/null 2>&1 || need+=(ffmpeg)
   if [ ${#need[@]} -eq 0 ]; then
-    ok "icecast2 and ffmpeg already installed."
+    ok "ffmpeg already installed."
     return
   fi
   if ! command -v apt-get >/dev/null 2>&1; then
@@ -202,25 +202,6 @@ setup_usb_key() {
   ok "Key hash enrolled. Panel now requires this USB to be plugged in."
 }
 
-# ─── Audio source detection ─────────────────────────────────────────────────
-configure_audio_source() {
-  local monitor
-  monitor=$(pactl list sources short 2>/dev/null | grep '\.monitor' | grep -iv 'null\|auto_null\|virtual' | head -1 | awk '{print $2}')
-  if [ -z "$monitor" ]; then
-    monitor=$(pactl list sources short 2>/dev/null | grep '\.monitor' | head -1 | awk '{print $2}')
-  fi
-  if [ -z "$monitor" ]; then
-    echo ""
-    warn "Could not auto-detect an audio monitor source."
-    echo "  Available sources:"
-    pactl list sources short 2>/dev/null || echo "  (pactl not available)"
-    echo ""
-    read -rp "  Enter monitor source name: " monitor
-  fi
-  echo "$monitor" > audio-source.conf
-  ok "Audio source set: $monitor"
-}
-
 # ─── Status helpers ──────────────────────────────────────────────────────────
 server_pid() { [ -f .run/launcher.pid ] && cat .run/launcher.pid; }
 server_running() { local p; p="$(server_pid)"; [ -n "$p" ] && kill -0 "$p" 2>/dev/null; }
@@ -245,71 +226,6 @@ local_ip() {
 }
 
 # ─── Start / stop — individual components ───────────────────────────────────
-start_icecast() {
-  if ! command -v icecast2 >/dev/null 2>&1 || [ ! -f icecast.xml ]; then
-    warn "icecast2 not installed or icecast.xml missing — skipping."
-    return
-  fi
-  if pgrep icecast2 >/dev/null 2>&1; then
-    warn "icecast2 already running."
-    return
-  fi
-  [ -n "$SUDO" ] && $SUDO -v
-  mkdir -p /tmp/speaker-icecast
-  $SUDO systemctl stop icecast2    2>/dev/null || true
-  $SUDO systemctl disable icecast2 2>/dev/null || true
-  $SUDO fuser -k 8000/tcp           2>/dev/null || true
-  sleep 1
-  icecast2 -b -c "$DIR/icecast.xml"
-  sleep 1
-  if pgrep icecast2 > /dev/null; then
-    ok "icecast2 started → :8000/stream"
-  else
-    err "icecast2 failed to start — check /tmp/speaker-icecast/icecast.log"
-  fi
-}
-
-stop_icecast() {
-  if pgrep icecast2 >/dev/null 2>&1; then
-    [ -n "$SUDO" ] && $SUDO -v
-    $SUDO fuser -k 8000/tcp 2>/dev/null
-    ok "icecast2 stopped."
-  else
-    warn "icecast2 wasn't running."
-  fi
-}
-
-start_ffmpeg() {
-  if [ ! -f audio-source.conf ]; then
-    warn "No audio-source.conf — run 'Configure audio source' first."
-    return
-  fi
-  if ! command -v ffmpeg >/dev/null 2>&1; then
-    err "ffmpeg not installed."
-    return
-  fi
-  local monitor; monitor=$(cat audio-source.conf)
-  pkill -f "ffmpeg.*icecast" 2>/dev/null; sleep 0.5
-  ffmpeg -f pulse -i "$monitor" \
-    -ac 2 -ar 48000 -c:a libmp3lame -b:a 192k -f mp3 \
-    -content_type audio/mpeg \
-    "icecast://source:hackme@localhost:8000/stream" \
-    > /tmp/speaker-ffmpeg.log 2>&1 &
-  echo $! > .run/ffmpeg.pid
-  ok "ffmpeg stream started."
-}
-
-stop_ffmpeg() {
-  local stopped=0
-  if [ -f .run/ffmpeg.pid ] && kill -0 "$(cat .run/ffmpeg.pid)" 2>/dev/null; then
-    kill "$(cat .run/ffmpeg.pid)" 2>/dev/null
-    stopped=1
-  fi
-  pkill -f "ffmpeg.*icecast" 2>/dev/null && stopped=1
-  rm -f .run/ffmpeg.pid
-  if [ "$stopped" -eq 1 ]; then ok "ffmpeg stream stopped."; else warn "ffmpeg wasn't running."; fi
-}
-
 start_node() {
   if server_running; then
     warn "Server already running (PID $(server_pid))."
@@ -390,26 +306,19 @@ stop_panel() {
 # ─── Start / stop — everything ──────────────────────────────────────────────
 do_start() {
   [ -n "$SUDO" ] && $SUDO -v
-  start_icecast
-  start_ffmpeg
   start_node
 }
 
 do_stop() {
   stop_node
-  stop_ffmpeg
-  stop_icecast
 }
 
 status_json() {
-  local icecast_run=false ffmpeg_run=false node_run=false panel_run=false audio_conf=false audio_src=""
-  pgrep icecast2 >/dev/null 2>&1 && icecast_run=true
-  pgrep -f "ffmpeg.*icecast" >/dev/null 2>&1 && ffmpeg_run=true
+  local node_run=false panel_run=false
   server_running && node_run=true
   panel_running && panel_run=true
-  if [ -f audio-source.conf ]; then audio_conf=true; audio_src=$(tr -d '\r' < audio-source.conf); fi
-  printf '{"icecast":%s,"ffmpeg":%s,"node":%s,"panel":%s,"audioConfigured":%s,"audioSource":"%s","url":"%s"}\n' \
-    "$icecast_run" "$ffmpeg_run" "$node_run" "$panel_run" "$audio_conf" "$audio_src" "$(base_url)"
+  printf '{"node":%s,"panel":%s,"url":"%s"}\n' \
+    "$node_run" "$panel_run" "$(base_url)"
 }
 
 do_open_browser() {
@@ -496,11 +405,11 @@ do_view_logs() {
   echo "  ${C_DIM}Ctrl+C to return to the menu.${C_RESET}"
   sleep 1
   touch logs/server.log
-  tail -n 40 -f logs/server.log /tmp/speaker-ffmpeg.log 2>/dev/null
+  tail -n 40 -f logs/server.log
 }
 
 # ─── Non-interactive CLI dispatch (used by control-panel.js) ────────────────
-# install.sh start|stop {icecast|ffmpeg|node|all}
+# install.sh start|stop {node|all}
 # install.sh status
 if [ "${1:-}" = "enroll" ]; then
   setup_usb_key
@@ -508,16 +417,12 @@ if [ "${1:-}" = "enroll" ]; then
 fi
 if [ "${1:-}" = "start" ] || [ "${1:-}" = "stop" ]; then
   case "${2:-}" in
-    icecast|ffmpeg|node|all) ;;
-    *) err "Usage: install.sh {start|stop} {icecast|ffmpeg|node|all}"; exit 1 ;;
+    node|all) ;;
+    *) err "Usage: install.sh {start|stop} {node|all}"; exit 1 ;;
   esac
   case "$1-$2" in
-    start-icecast) start_icecast ;;
-    start-ffmpeg)  start_ffmpeg ;;
     start-node)    start_node ;;
     start-all)     do_start ;;
-    stop-icecast)  stop_icecast ;;
-    stop-ffmpeg)   stop_ffmpeg ;;
     stop-node)     stop_node ;;
     stop-all)      do_stop ;;
   esac
@@ -532,8 +437,7 @@ fi
 # Deliberately never prompts (not even if stdin happens to be a real TTY,
 # e.g. when a parent script invokes this live from an interactive terminal
 # and it inherits that TTY) — a blocked `read` here would hang the parent
-# indefinitely with no indication why. Configure audio interactively later
-# via `install.sh` (option 5) instead.
+# indefinitely with no indication why.
 if [ "${1:-}" = "setup" ]; then
   echo ""
   echo "  ${C_BOLD}TemuTalk Speaker — Setup${C_RESET}"
@@ -541,11 +445,6 @@ if [ "${1:-}" = "setup" ]; then
   install_system_deps
   ensure_portable_bins
   ensure_piper
-  if [ -f audio-source.conf ]; then
-    ok "Audio source already configured."
-  else
-    warn "Audio source not configured — run 'install.sh' interactively later (option 5) to set it up."
-  fi
   setup_usb_key
   echo ""
   ok "Setup complete."
@@ -559,7 +458,6 @@ echo ""
 install_system_deps
 ensure_portable_bins
 ensure_piper
-[ -f audio-source.conf ] || configure_audio_source
 setup_usb_key
 echo ""
 ok "Setup complete."
@@ -584,22 +482,16 @@ menu() {
     else
       echo "  Panel  : ${C_DIM}stopped${C_RESET}"
     fi
-    if [ -f audio-source.conf ]; then
-      echo "  Audio  : $(cat audio-source.conf)"
-    else
-      echo "  Audio  : ${C_YELLOW}not configured${C_RESET}"
-    fi
     echo "  URL    : $(base_url)"
     echo ""
     echo "   1) Start server"
     echo "   2) Stop server  ${C_DIM}(kills everything including panel)${C_RESET}"
     echo "   3) Restart server  ${C_DIM}(picks up .env changes, panel stays connected)${C_RESET}"
     echo "   4) Open app in browser"
-    echo "   5) Configure audio source"
-    echo "   6) Check for updates"
-    echo "   7) View logs"
-    echo "   8) Toggle control panel"
-    echo "   9) Exit"
+    echo "   5) Check for updates"
+    echo "   6) View logs"
+    echo "   7) Toggle control panel"
+    echo "   8) Exit"
     echo ""
     read -rp "  Select an option: " choice
     echo ""
@@ -608,11 +500,10 @@ menu() {
       2) do_stop ;;
       3) do_restart_server ;;
       4) do_open_browser ;;
-      5) configure_audio_source ;;
-      6) do_check_updates ;;
-      7) do_view_logs ;;
-      8) if panel_running; then stop_panel; else start_panel; fi ;;
-      9)
+      5) do_check_updates ;;
+      6) do_view_logs ;;
+      7) if panel_running; then stop_panel; else start_panel; fi ;;
+      8)
         if server_running; then
           read -rp "  Server is still running — leave it running? [Y/n] " yn
           [[ "$yn" =~ ^[Nn]$ ]] && do_stop

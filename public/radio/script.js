@@ -278,20 +278,14 @@ function playStation(s) {
   radioStation = s;
   if (ws.readyState === WebSocket.OPEN)
     ws.send(JSON.stringify({ type: 'radio-now-playing', name: s.name, url: s.url_resolved }));
-  if (castMode) {
-    // Send to host broadcaster — audio comes back via WebRTC stream
-    if (ws.readyState === WebSocket.OPEN)
-      ws.send(JSON.stringify({ type: 'host-play-radio', url: s.url_resolved, name: s.name }));
-  } else {
-    let streamUrl = s.url_resolved || '';
-    // Proxy HTTP streams through server to avoid mixed-content block on HTTPS
-    if (streamUrl.startsWith('http:') && location.protocol === 'https:')
-      streamUrl = '/api/radio/proxy?url=' + encodeURIComponent(streamUrl);
-    radioAudio = new Audio(streamUrl);
-    const vol = document.getElementById('rmap-vol');
-    radioAudio.volume = vol ? vol.value / 100 : 0.8;
-    radioAudio.play().catch(() => {});
-  }
+  let streamUrl = s.url_resolved || '';
+  // Proxy HTTP streams through server to avoid mixed-content block on HTTPS
+  if (streamUrl.startsWith('http:') && location.protocol === 'https:')
+    streamUrl = '/api/radio/proxy?url=' + encodeURIComponent(streamUrl);
+  radioAudio = new Audio(streamUrl);
+  const vol = document.getElementById('rmap-vol');
+  radioAudio.volume = vol ? vol.value / 100 : 0.8;
+  radioAudio.play().catch(() => {});
   const np = document.getElementById('rmap-np');
   if (np) {
     np.classList.add('vis');
@@ -309,8 +303,6 @@ function stopRadio() {
   if (radioAudio) { radioAudio.pause(); radioAudio = null; }
   if (ws.readyState === WebSocket.OPEN)
     ws.send(JSON.stringify({ type: 'radio-stopped' }));
-  if (castMode && radioStation && ws.readyState === WebSocket.OPEN)
-    ws.send(JSON.stringify({ type: 'host-stop-radio' }));
   radioStation = null;
   document.getElementById('rmap-np')?.classList.remove('vis');
   updateHomeRadio();
