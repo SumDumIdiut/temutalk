@@ -168,14 +168,39 @@ ensure_piper() {
 }
 
 # ─── USB key setup ──────────────────────────────────────────────────────────
-USB_LABEL="${USB_LABEL:-C98E-49E1}"
+# USB_LABEL is opt-in pinning to one specific drive (by volume label/UUID),
+# for anyone who wants that. Left unset (the default), find_usb_mount()
+# instead accepts whichever removable drive is actually mounted -- pinning
+# to a specific pre-known volume ID doesn't add real security here (the key
+# file's own secrecy is what matters, not which physical drive holds it),
+# and it silently breaks the moment a drive gets reformatted or replaced.
+USB_LABEL="${USB_LABEL:-}"
 KEY_HASH_FILE=".run/panel-key-hash"
 
 find_usb_mount() {
   local user; user=$(whoami)
-  for p in "/media/$user/$USB_LABEL" "/run/media/$user/$USB_LABEL" "/mnt/$USB_LABEL" "/media/$USB_LABEL"; do
-    [ -d "$p" ] && { echo "$p"; return; }
+  if [ -n "$USB_LABEL" ]; then
+    local p
+    for p in "/media/$user/$USB_LABEL" "/run/media/$user/$USB_LABEL" "/mnt/$USB_LABEL" "/media/$USB_LABEL"; do
+      [ -d "$p" ] && { echo "$p"; return; }
+    done
+    return
+  fi
+  # Prefer a mounted drive that already carries a key.key, so the same
+  # logical key drive keeps being found even if the OS assigns it a
+  # different mount name after a replug/reboot; otherwise fall back to
+  # whichever removable drive is present, for first-time key generation.
+  local root d candidate=""
+  for root in "/media/$user" "/run/media/$user" "/media" "/mnt"; do
+    [ -d "$root" ] || continue
+    for d in "$root"/*/; do
+      [ -d "$d" ] || continue
+      d="${d%/}"
+      if [ -f "$d/key.key" ]; then echo "$d"; return; fi
+      [ -z "$candidate" ] && candidate="$d"
+    done
   done
+  [ -n "$candidate" ] && echo "$candidate"
 }
 
 setup_usb_key() {
@@ -188,7 +213,7 @@ setup_usb_key() {
     warn "USB drive not found — plug in the TemuTalk USB and re-run install.sh to enroll the key."
     return
   fi
-  local key_file="$usb/temutalk.key"
+  local key_file="$usb/key.key"
   if [ -f "$key_file" ]; then
     info "Existing key found on USB — enrolling..."
   else
