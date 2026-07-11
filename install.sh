@@ -122,6 +122,31 @@ ensure_portable_bins() {
   fi
 }
 
+# ─── npm dependencies (axios, express, ws, etc. -- server.js needs these) ───
+# The portable download above only extracts the bare `node` binary (not the
+# bundled npm that normally ships alongside it), so this relies on a system
+# npm same as webdev/install.sh does for portal/git-forge/tag-relay.
+ensure_npm_deps() {
+  if [ -d node_modules ]; then
+    ok "npm dependencies already installed."
+    return
+  fi
+  if ! command -v npm >/dev/null 2>&1; then
+    warn "npm not found on PATH — install Node.js/npm, then re-run install.sh to install temutalk's dependencies."
+    return
+  fi
+  info "Installing npm dependencies..."
+  # --no-bin-links: this can run from a portable USB drive, usually exFAT/
+  # FAT32 for cross-OS compatibility, which can't hold symlinks -- npm's
+  # node_modules/.bin wrapper scripts are symlinks. server.js/launcher.js/
+  # control-panel.js are all launched directly, never via a bin script.
+  if npm install --no-audit --no-fund --no-bin-links --loglevel=error; then
+    ok "npm dependencies installed."
+  else
+    err "npm install failed — see output above."
+  fi
+}
+
 find_node_bin() {
   if [ -x bin/linux/node ]; then echo "bin/linux/node"; return; fi
   command -v node 2>/dev/null
@@ -469,6 +494,7 @@ if [ "${1:-}" = "setup" ]; then
   echo ""
   install_system_deps
   ensure_portable_bins
+  ensure_npm_deps
   ensure_piper
   setup_usb_key
   echo ""
@@ -482,6 +508,7 @@ echo "  ${C_BOLD}TemuTalk Speaker — Setup${C_RESET}"
 echo ""
 install_system_deps
 ensure_portable_bins
+ensure_npm_deps
 ensure_piper
 setup_usb_key
 echo ""
