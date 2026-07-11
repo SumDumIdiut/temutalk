@@ -100,6 +100,7 @@ function chatHideLogin() {
   const el = chatEl('chat-login-overlay');
   if (el) el.style.display = 'none';
 }
+window.chatHideLogin = chatHideLogin;
 
 function chatUpdateAccountRow() {
   const row = chatEl('chat-account-row');
