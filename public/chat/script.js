@@ -46,14 +46,27 @@ function avatarHtml(name, url, size = 32, clickData = null) {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 function chatInit() {
-  if (_chatReady) return;
+  if (_chatReady) {
+    // Already set up (e.g. revisiting the tab after clicking through to Music
+    // to link Spotify) -- recheck auth so the overlay correctly reappears if
+    // they still haven't linked, instead of staying dismissed forever.
+    chatCheckAuth();
+    return;
+  }
   _chatReady = true;
 
   // Move login overlay to body so parent stacking context doesn't clip it
   const _ov = chatEl('chat-login-overlay');
   if (_ov && _ov.parentElement !== document.body) document.body.appendChild(_ov);
 
-  // Check Spotify link; show overlay if not linked
+  chatCheckAuth();
+  chatRenderSidebar();
+}
+window.chatInit = chatInit;
+
+// Check Spotify link; show overlay if not linked. Runs on first chat load and
+// every time the chat tab is revisited (see chatInit above).
+function chatCheckAuth() {
   fetch(BASE_PATH + '/api/chat/me?device=' + deviceId).then(r => r.json()).then(profile => {
     if (profile.authenticated) {
       chatMyName         = profile.name;
@@ -76,10 +89,7 @@ function chatInit() {
       chatShowLogin();
     }
   });
-
-  chatRenderSidebar();
 }
-window.chatInit = chatInit;
 
 // ── Login ─────────────────────────────────────────────────────────────────────
 function chatShowLogin() {
