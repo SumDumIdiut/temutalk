@@ -308,7 +308,7 @@ function loadCrypto(force) {
   const el = document.getElementById('crypto-list'); if (!el) return;
   if (_cryptoList && !force) { _renderCryptoList(_cryptoList); return; }
   el.innerHTML = '<div class="fin-loading">Loading…</div>';
-  fetch('/api/crypto?device='+deviceId)
+  fetch(BASE_PATH + '/api/crypto?device='+deviceId)
     .then(r=>r.json()).then(d => {
       if (!Array.isArray(d)||!d.length) throw new Error('empty');
       _cryptoList = d; setLastUpdate(); _renderCryptoList(d);
@@ -491,7 +491,7 @@ async function _stockSearch() {
   drop.style.display = '';
   drop.innerHTML = '<div class="fin-drop-item" style="color:var(--text-muted)">Searching…</div>';
   try {
-    const r = await fetch('/api/stock/search?q='+encodeURIComponent(q)+'&device='+deviceId);
+    const r = await fetch(BASE_PATH + '/api/stock/search?q='+encodeURIComponent(q)+'&device='+deviceId);
     const d = await r.json();
     const quotes = (d.quotes||[]).filter(q => ['EQUITY','ETF','INDEX','MUTUALFUND'].includes(q.quoteType));
     if (!quotes.length) { drop.innerHTML='<div class="fin-drop-item" style="color:var(--text-muted)">No results</div>'; return; }
@@ -551,7 +551,7 @@ async function renderWatchlist() {
 async function refreshWatchlistPrices() {
   await Promise.all(stockWatchlist.map(async s => {
     try {
-      const r = await fetch('/api/stock?symbol='+encodeURIComponent(s.sym)+'&range=5d&device='+deviceId);
+      const r = await fetch(BASE_PATH + '/api/stock?symbol='+encodeURIComponent(s.sym)+'&range=5d&device='+deviceId);
       const d = await r.json();
       const res = d?.chart?.result?.[0]; if (!res) return;
       const meta   = res.meta;
@@ -621,7 +621,7 @@ function stockChartRange(range) {
 
 async function _loadStockDetail(sym, range) {
   try {
-    const r = await fetch('/api/stock?symbol='+encodeURIComponent(sym)+'&range='+range+'&device='+deviceId);
+    const r = await fetch(BASE_PATH + '/api/stock?symbol='+encodeURIComponent(sym)+'&range='+range+'&device='+deviceId);
     const d = await r.json();
     const res = d?.chart?.result?.[0]; if (!res) return;
     const meta   = res.meta;
@@ -714,7 +714,7 @@ async function loadRates(force) {
   if (_ratesList && _ratesList.base === _ratesBase && !force) { _renderRatesList(_ratesList); return; }
   el.innerHTML = '<div class="fin-loading">Loading…</div>';
   try {
-    const r = await fetch('/api/rates?base='+_ratesBase+'&device='+deviceId);
+    const r = await fetch(BASE_PATH + '/api/rates?base='+_ratesBase+'&device='+deviceId);
     _ratesList = await r.json();
     setLastUpdate(); _renderRatesList(_ratesList);
     _loadRatesSparklines();
@@ -762,7 +762,7 @@ async function _loadRatesSparklines() {
   for (let i = 0; i < currencies.length; i += 5) batches.push(currencies.slice(i, i + 5));
   await Promise.all(batches.map(async batch => {
     try {
-      const r = await fetch('/api/rates/history?base='+_ratesBase+'&to='+batch.join(',')+'&days=30&device='+deviceId);
+      const r = await fetch(BASE_PATH + '/api/rates/history?base='+_ratesBase+'&to='+batch.join(',')+'&days=30&device='+deviceId);
       const d = await r.json(); if (!d?.rates) return;
       const dates = Object.keys(d.rates).sort();
       if (!dates.length) return;
@@ -845,7 +845,7 @@ async function _loadRatesChart(pair, days) {
     ctx.fillText('Loading…', W / 2, H / 2);
   }
   try {
-    const r = await fetch('/api/rates/history?base='+_ratesBase+'&to='+pair+'&days='+days+'&device='+deviceId);
+    const r = await fetch(BASE_PATH + '/api/rates/history?base='+_ratesBase+'&to='+pair+'&days='+days+'&device='+deviceId);
     const d = await r.json(); if (!d?.rates) throw new Error('no data');
     const dates = Object.keys(d.rates).sort();
     const vals  = dates.map(dt => d.rates[dt]?.[pair]);

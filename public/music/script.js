@@ -35,7 +35,7 @@ function loadBrowserPlayer() {
   _setBrowserPlayerStatus('loading SDK…');
 
   // Use fetch + blob URL to bypass any script-tag blocking
-  fetch('/sp/spotify-player.js')
+  fetch(BASE_PATH + '/sp/spotify-player.js')
     .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
     .then(blob => {
       const url = URL.createObjectURL(blob);
@@ -48,7 +48,7 @@ function loadBrowserPlayer() {
     .catch(e => {
       _setBrowserPlayerStatus('fetch failed: ' + e.message);
       const tag = document.createElement('script');
-      tag.src = '/sp/spotify-player.js';
+      tag.src = BASE_PATH + '/sp/spotify-player.js';
       document.head.appendChild(tag);
     });
 
@@ -117,7 +117,7 @@ function _initBrowserPlayer() {
     name: 'TemuTalk',
     getOAuthToken: cb => {
       // /api/token refreshes server-side when the token is near expiry
-      fetch('/api/token?device=' + deviceId).then(r => r.json()).then(d => {
+      fetch(BASE_PATH + '/api/token?device=' + deviceId).then(r => r.json()).then(d => {
         cb(d.token || d.access_token || '');
       }).catch(e => { console.log('[player] getOAuthToken fetch error:', e); cb(''); });
     },
@@ -378,7 +378,7 @@ function seekTo(e) {
   progMs = Math.floor(Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)) * durMs);
   renderProg();
   if (browserPlayer && browserPlayerReady) browserPlayer.seek(progMs);
-  else fetch('/api/player/seek?device=' + deviceId + '&ms=' + progMs, { method: 'POST' });
+  else fetch(BASE_PATH + '/api/player/seek?device=' + deviceId + '&ms=' + progMs, { method: 'POST' });
 }
 function setVolume(val) {
   if (_serverVolume) return;
@@ -899,7 +899,7 @@ let liveWs = null; // reference to main WS (set by liveInit)
 function liveInit(ws) {
   liveWs = ws;
   // Fetch initial list
-  fetch('/api/live?' + 'device=' + deviceId).then(r => r.json()).then(list => {
+  fetch(BASE_PATH + '/api/live?' + 'device=' + deviceId).then(r => r.json()).then(list => {
     liveChannelList = list;
     if (libTab === 'live') liveRenderSidebar();
   }).catch(() => {});
@@ -1152,7 +1152,7 @@ function musicSwitchSvc(svc) {
 }
 
 function _spotifyCheck() {
-  fetch('/api/status?device=' + deviceId).then(r => r.json()).then(d => {
+  fetch(BASE_PATH + '/api/status?device=' + deviceId).then(r => r.json()).then(d => {
     if (d.authenticated) {
       showApp();
       loadMe().then(() => setLibTab(libTab || 'playlists'));
@@ -1162,14 +1162,14 @@ function _spotifyCheck() {
 }
 
 function _ytCheck() {
-  fetch('/api/yt/status?device=' + deviceId).then(r => r.json()).then(d => {
+  fetch(BASE_PATH + '/api/yt/status?device=' + deviceId).then(r => r.json()).then(d => {
     if (d.authenticated) { showApp(); ytLoadPlayer(); _ytSetLibTab(libTab || 'playlists'); }
     else { showAuth(); }
   }).catch(() => showAuth());
 }
 
 function _appleCheck() {
-  fetch('/api/apple/status').then(r => r.json()).then(d => {
+  fetch(BASE_PATH + '/api/apple/status').then(r => r.json()).then(d => {
     if (d.configured) { showApp(); appleLoadKit(); _appleSetLibTab(libTab || 'playlists'); }
     else { showAuth(); }
   }).catch(() => showAuth());
@@ -1302,7 +1302,7 @@ function seekTo(e) {
     appleMusic.seekToTime(progMs / 1000).catch(() => {}); return;
   }
   if (browserPlayer && browserPlayerReady) browserPlayer.seek(progMs);
-  else fetch('/api/player/seek?device=' + deviceId + '&ms=' + progMs, { method: 'POST' });
+  else fetch(BASE_PATH + '/api/player/seek?device=' + deviceId + '&ms=' + progMs, { method: 'POST' });
 }
 
 // ── Override setVolume ────────────────────────────────────────────────────────
@@ -1435,12 +1435,12 @@ function ytSaveCreds() {
   const status = document.getElementById('yt-auth-status');
   if (!cid) { if (status) status.textContent = 'Client ID is required.'; return; }
   if (status) status.textContent = 'Saving…';
-  fetch('/api/yt/save-creds?device=' + deviceId, {
+  fetch(BASE_PATH + '/api/yt/save-creds?device=' + deviceId, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ clientId: cid, clientSecret: sec || '' }),
   }).then(r => r.json()).then(() => {
     if (status) status.textContent = 'Opening Google sign-in…';
-    const popup = window.open('/auth/google?device=' + deviceId, 'yt-auth', 'width=520,height=620');
+    const popup = window.open(BASE_PATH + '/auth/google?device=' + deviceId, 'yt-auth', 'width=520,height=620');
     const handler = e => {
       if (e.data?.type === 'yt-auth-done') {
         window.removeEventListener('message', handler);
@@ -1460,7 +1460,7 @@ function ytLoadPlayer() {
   if (window.YT?.Player) { _ytCreatePlayer(); return; }
   window.onYouTubeIframeAPIReady = _ytCreatePlayer;
   const s = document.createElement('script');
-  s.src = '/yt/iframe-api.js';
+  s.src = BASE_PATH + '/yt/iframe-api.js';
   document.head.appendChild(s);
 }
 
@@ -1548,7 +1548,7 @@ function ytAction(name) {
 function ytSearch(q) {
   const el = document.getElementById('search-results'); if (!el) return;
   el.innerHTML = '<div style="color:var(--text-muted);padding:16px 0;font-size:14px;">Searching…</div>';
-  fetch('/api/yt/search?q=' + encodeURIComponent(q) + '&device=' + deviceId)
+  fetch(BASE_PATH + '/api/yt/search?q=' + encodeURIComponent(q) + '&device=' + deviceId)
     .then(r => r.json()).then(d => {
       const items = d.items || [];
       if (!items.length) {
@@ -1579,7 +1579,7 @@ function _ytSetLibTab(tab) {
   const el = document.getElementById('sidebar-list'); if (!el) return;
   if (tab === 'playlists') {
     el.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:8px;">Loading…</div>';
-    fetch('/api/yt/playlists?device=' + deviceId).then(r => r.json()).then(d => {
+    fetch(BASE_PATH + '/api/yt/playlists?device=' + deviceId).then(r => r.json()).then(d => {
       const items = d.items || [];
       if (!items.length) { el.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:8px;">No playlists</div>'; return; }
       el.innerHTML = items.map(p => {
@@ -1595,7 +1595,7 @@ function _ytSetLibTab(tab) {
     }).catch(() => { el.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:8px;">Failed to load</div>'; });
   } else if (tab === 'recent' || tab === 'artists') {
     el.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:8px;">Loading liked videos…</div>';
-    fetch('/api/yt/liked?device=' + deviceId).then(r => r.json()).then(d => {
+    fetch(BASE_PATH + '/api/yt/liked?device=' + deviceId).then(r => r.json()).then(d => {
       const items = d.items || [];
       window._ytLikedQueue = items.map(v => ({
         videoId: v.id || '',
@@ -1628,7 +1628,7 @@ function ytOpenPlaylist(id, title) {
     ytPlayQueue(q, 0);
   };
   openDetail('view-playlist');
-  fetch('/api/yt/playlist-items?id=' + encodeURIComponent(id) + '&device=' + deviceId)
+  fetch(BASE_PATH + '/api/yt/playlist-items?id=' + encodeURIComponent(id) + '&device=' + deviceId)
     .then(r => r.json()).then(d => {
       const items = (d.items || []).filter(i => i.snippet?.resourceId?.videoId);
       window._ytPlaylistQueue = items.map(i => ({
@@ -1653,7 +1653,7 @@ function ytOpenPlaylist(id, title) {
 }
 
 function ytDisconnect() {
-  fetch('/api/yt/disconnect?device=' + deviceId, { method: 'POST' }).catch(() => {});
+  fetch(BASE_PATH + '/api/yt/disconnect?device=' + deviceId, { method: 'POST' }).catch(() => {});
   ytPlayer = null; ytPlayerReady = false;
   showAuth();
 }
@@ -1669,7 +1669,7 @@ function appleSaveCreds() {
   const status = document.getElementById('apple-auth-status');
   if (!teamId || !keyId || !pk) { if (status) status.textContent = 'All fields are required.'; return; }
   if (status) status.textContent = 'Saving credentials…';
-  fetch('/api/apple/save-creds', {
+  fetch(BASE_PATH + '/api/apple/save-creds', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ teamId, keyId, privateKey: pk }),
   }).then(r => r.json()).then(d => {
@@ -1682,7 +1682,7 @@ function appleSaveCreds() {
 function appleLoadKit() {
   if (window.MusicKit) { _appleInit(); return; }
   const s = document.createElement('script');
-  s.src = '/mk/musickitjs';
+  s.src = BASE_PATH + '/mk/musickitjs';
   s.onload  = _appleInit;
   s.onerror = () => console.error('[Apple Music] failed to load MusicKit.js');
   document.head.appendChild(s);
@@ -1690,7 +1690,7 @@ function appleLoadKit() {
 
 async function _appleInit() {
   try {
-    const r = await fetch('/api/apple/dev-token');
+    const r = await fetch(BASE_PATH + '/api/apple/dev-token');
     const d = await r.json();
     if (d.error) { console.error('[Apple Music] dev-token error:', d.error); return; }
     await MusicKit.configure({
@@ -1756,7 +1756,7 @@ async function appleSearch(q) {
   el.innerHTML = '<div style="color:var(--text-muted);padding:16px 0;font-size:14px;">Searching…</div>';
   try {
     const sf = (appleMusic?.storefrontId || appleMusic?.storefrontCountryCode || 'us').toLowerCase();
-    const r  = await fetch('/api/apple/search?q=' + encodeURIComponent(q) + '&storefront=' + sf);
+    const r  = await fetch(BASE_PATH + '/api/apple/search?q=' + encodeURIComponent(q) + '&storefront=' + sf);
     const d  = await r.json();
     let html = '';
     const songs = d.results?.songs?.data || [];
@@ -1879,6 +1879,6 @@ async function appleOpenPlaylist(id, title) {
 function appleDisconnect() {
   if (appleMusic) { try { appleMusic.unauthorize(); } catch {} appleMusic = null; }
   clearInterval(appleTicker);
-  fetch('/api/apple/disconnect', { method: 'POST' }).catch(() => {});
+  fetch(BASE_PATH + '/api/apple/disconnect', { method: 'POST' }).catch(() => {});
   showAuth();
 }

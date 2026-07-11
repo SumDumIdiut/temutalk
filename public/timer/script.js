@@ -125,7 +125,7 @@ function tickTimers() {
 function notifyTimer(t) {
   try {
     if ('Notification' in window && Notification.permission === 'granted')
-      new Notification('Timer done!', { body: t.label || 'Timer', icon: '/favicon.ico' });
+      new Notification('Timer done!', { body: t.label || 'Timer', icon: BASE_PATH + '/favicon.ico' });
   } catch(e) {}
   const ctx = _getAudioCtx();
   if (!ctx) return;

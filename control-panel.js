@@ -5,15 +5,10 @@ const crypto = require('crypto');
 const fs     = require('fs');
 const path   = require('path');
 const os     = require('os');
-const { WebSocketServer } = require('ws');
 
 const PORT        = parseInt(process.env.PANEL_PORT || '9090', 10);
-const INSTALL_SH  = process.env.INSTALL_SH || path.join(__dirname, 'install.sh');
 const RUN_DIR     = path.join(__dirname, '.run');
 const SERVER_PORT = parseInt(process.env.PORT || '3001', 10);
-
-let pty = null;
-try { pty = require('node-pty'); } catch {}
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 const KEY_HASH_FILE    = path.join(RUN_DIR, 'panel-key-hash');
@@ -196,7 +191,6 @@ function page(base) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TemuTalk Panel</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -326,14 +320,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .prog{height:3px;background:var(--sur2);border-radius:2px;margin:8px 0}
 .prog-f{height:100%;background:var(--acc);border-radius:2px}
 
-/* Terminal */
-.term-wrap{flex:1;display:flex;flex-direction:column;background:#000;overflow:hidden}
-.term-bar{display:flex;align-items:center;gap:8px;padding:7px 12px;background:var(--sur);border-bottom:1px solid var(--bor);flex-shrink:0}
-.tdot{width:8px;height:8px;border-radius:50%;background:var(--bor);transition:.2s;flex-shrink:0}
-.tdot.on{background:var(--grn)}
-.tstat{font-size:12px;color:var(--sec)}
-#terminal-wrap{flex:1;overflow:hidden}
-
 /* Accounts */
 .accs-body{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:16px}
 .accs-sec{display:flex;flex-direction:column;gap:8px}
@@ -401,7 +387,6 @@ details summary:hover{color:var(--tx)}
 <nav class="tabbar">
   <button class="tab on" data-tab="chat"     onclick="switchTab('chat')">&#128172; Chat <span class="tbadge" id="chat-badge" style="display:none">0</span></button>
   <button class="tab"    data-tab="devices"  onclick="switchTab('devices')">&#128241; Devices <span class="tbadge" id="dev-badge" style="display:none">0</span></button>
-  <button class="tab"    data-tab="terminal" onclick="switchTab('terminal')">&gt;_ Terminal</button>
   <button class="tab"    data-tab="accounts" onclick="switchTab('accounts')">&#9881; Accounts</button>
 </nav>
 
@@ -458,17 +443,6 @@ details summary:hover{color:var(--tx)}
   </div>
 </div>
 
-<!-- Terminal pane -->
-<div class="pane" id="pane-terminal">
-  <div class="term-wrap">
-    <div class="term-bar">
-      <div class="tdot" id="term-dot"></div>
-      <div class="tstat" id="term-status">Not connected</div>
-    </div>
-    <div id="terminal-wrap"><div id="terminal"></div></div>
-  </div>
-</div>
-
 <!-- Accounts pane -->
 <div class="pane" id="pane-accounts">
   <div class="accs-body">
@@ -499,8 +473,6 @@ details summary:hover{color:var(--tx)}
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
 <script>
 const P='${base}';
 const MAIN_PORT=${SERVER_PORT};
@@ -540,7 +512,6 @@ function switchTab(name){
   if(name==='chat'){renderRooms();if(curRoom)renderMsgs();}
   if(name==='devices'){renderDeviceList();if(curDevice)selectDevice(curDevice);}
   if(name==='accounts')loadAccounts();
-  if(name==='terminal'){initTerm();setTimeout(function(){if(fit)fit.fit();},40);}
 }
 
 // ── Room list ─────────────────────────────────────────────────────────────────
@@ -1001,41 +972,6 @@ function spyMsg(m){
   }
 }
 
-// ── Terminal ──────────────────────────────────────────────────────────────────
-var term=null,fit=null,termWs=null,termInited=false;
-function termConnect(){
-  if(!term){document.getElementById('term-status').textContent='xterm not loaded';return;}
-  if(termWs&&termWs.readyState<2)termWs.close();
-  var proto=location.protocol==='https:'?'wss:':'ws:';
-  termWs=new WebSocket(proto+'//'+location.host+P+'/terminal');
-  termWs.onopen=function(){
-    document.getElementById('term-dot').classList.add('on');
-    document.getElementById('term-status').textContent='Connected — running install.sh';
-    if(fit)fit.fit();
-    termWs.send(JSON.stringify({type:'resize',cols:term.cols,rows:term.rows}));
-  };
-  termWs.onmessage=function(e){try{var msg=JSON.parse(e.data);if(msg.type==='data')term.write(msg.data);}catch(err){term.write(e.data);}};
-  termWs.onclose=function(){
-    document.getElementById('term-dot').classList.remove('on');
-    document.getElementById('term-status').textContent='Disconnected — reconnecting…';
-    setTimeout(termConnect,3000);
-  };
-  termWs.onerror=function(){termWs.close();};
-  term.onData(function(d){if(termWs&&termWs.readyState===1)termWs.send(JSON.stringify({type:'data',data:d}));});
-  term.onResize(function(s){if(termWs&&termWs.readyState===1)termWs.send(JSON.stringify({type:'resize',cols:s.cols,rows:s.rows}));});
-}
-function initTerm(){
-  if(termInited)return;termInited=true;
-  try{
-    term=new Terminal({cursorBlink:true,scrollback:10000,theme:{background:'#0d1117',foreground:'#e6edf3',cursor:'#58a6ff',selectionBackground:'#264f78'},fontFamily:'ui-monospace,Menlo,monospace',fontSize:13,lineHeight:1.2});
-    fit=new FitAddon.FitAddon();
-    term.loadAddon(fit);term.open(document.getElementById('terminal'));fit.fit();
-    var tw=document.getElementById('terminal-wrap');
-    if(tw)new ResizeObserver(function(){if(fit)fit.fit();}).observe(tw);
-    termConnect();
-  }catch(e){console.error('xterm:',e);document.getElementById('term-status').textContent='xterm failed to load';}
-}
-
 // ── Boot ─────────────────────────────────────────────────────────────────────
 renderRooms();
 refreshAdmin();
@@ -1044,43 +980,6 @@ spyConnect();
 </script>
 </body>
 </html>`;
-}
-
-// ─── Terminal WebSocket ────────────────────────────────────────────────────────
-const wss = new WebSocketServer({ noServer: true });
-
-function handleTerminalWs(ws) {
-  if (!pty) {
-    ws.send(JSON.stringify({ type: 'data', data: '\r\n\x1b[31mnode-pty not installed — run: npm install node-pty\x1b[0m\r\n' }));
-    ws.close();
-    return;
-  }
-  let proc;
-  try {
-    proc = pty.spawn('bash', [INSTALL_SH], {
-      name: 'xterm-256color', cols: 80, rows: 24,
-      cwd: path.dirname(INSTALL_SH),
-      env: { ...process.env, TERM: 'xterm-256color' },
-    });
-  } catch (e) {
-    ws.send(JSON.stringify({ type: 'data', data: `\r\n\x1b[31mFailed to start install.sh: ${e.message}\x1b[0m\r\n` }));
-    ws.close();
-    return;
-  }
-  proc.onData(data => ws.readyState === 1 && ws.send(JSON.stringify({ type: 'data', data })));
-  proc.onExit(() => ws.readyState < 2 && ws.close());
-  ws.on('message', raw => {
-    try { const m = JSON.parse(raw); if (m.type === 'data') proc.write(m.data); else if (m.type === 'resize') proc.resize(Math.max(1, m.cols), Math.max(1, m.rows)); } catch {}
-  });
-  ws.on('close', () => { try { proc.kill(); } catch {} });
-}
-
-function handleUpgrade(req, socket, head) {
-  if (new URL(req.url, 'http://x').pathname === '/terminal' && isAuthed(req)) {
-    wss.handleUpgrade(req, socket, head, ws => handleTerminalWs(ws));
-  } else {
-    socket.destroy();
-  }
 }
 
 // ─── Request handler ──────────────────────────────────────────────────────────
@@ -1299,7 +1198,6 @@ async function handleRequest(req, res) {
 const tls = loadOrCreateCert();
 
 const server = https.createServer(tls, handleRequest);
-server.on('upgrade', handleUpgrade);
 server.on('error', err => {
   if (err.code === 'EADDRINUSE') console.error(`Port ${PORT} already in use`);
   else console.error('Server error:', err);
@@ -1308,5 +1206,4 @@ server.on('error', err => {
 server.listen(PORT, '0.0.0.0', () => console.log(`Control panel on https://0.0.0.0:${PORT}`));
 
 const internalServer = http.createServer(handleRequest);
-internalServer.on('upgrade', handleUpgrade);
 internalServer.listen(PORT + 1, '127.0.0.1', () => console.log(`Control panel internal on http://127.0.0.1:${PORT + 1}`));

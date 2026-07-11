@@ -7,7 +7,7 @@ function toggleSysAuto(on) {
 }
 
 function loadSystem() {
-  fetch('/api/system?device=' + deviceId).then(r => r.json()).then(d => {
+  fetch(BASE_PATH + '/api/system?device=' + deviceId).then(r => r.json()).then(d => {
     const cardsEl = document.getElementById('sys-cards');
     const infoEl  = document.getElementById('sys-info-list');
     const procEl  = document.getElementById('sys-proc-list');

@@ -171,7 +171,7 @@
   }
 
   async function sttBlob(blob) {
-    const r = await fetch('/api/assistant/stt?device=' + encodeURIComponent(deviceId), {
+    const r = await fetch(BASE_PATH + '/api/assistant/stt?device=' + encodeURIComponent(deviceId), {
       method: 'POST',
       headers: { 'Content-Type': blob.type || 'application/octet-stream' },
       body: blob,
@@ -433,7 +433,7 @@
     let ducked = false;
     try {
       const rate = parseFloat(localStorage.getItem('vaTtsRate')) || 1.05;
-      const r = await fetch('/api/assistant/tts?device=' + encodeURIComponent(deviceId), {
+      const r = await fetch(BASE_PATH + '/api/assistant/tts?device=' + encodeURIComponent(deviceId), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, rate }),
@@ -528,7 +528,7 @@
     busy = true;
     setStatus('Thinking…');
     try {
-      const r = await fetch('/api/assistant?device=' + encodeURIComponent(deviceId), {
+      const r = await fetch(BASE_PATH + '/api/assistant?device=' + encodeURIComponent(deviceId), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

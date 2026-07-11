@@ -47,11 +47,11 @@ function setupRadioMap() {
     maxBoundsViscosity: 1.0,
     zoomSnap: 0.25, zoomDelta: 0.5,
   });
-  L.tileLayer('/api/tiles/dark_nolabels/{z}/{x}/{y}', {
+  L.tileLayer(BASE_PATH + '/api/tiles/dark_nolabels/{z}/{x}/{y}', {
     attribution: '© OpenStreetMap © CARTO',
     maxZoom: 19, noWrap: true, opacity: 0.35,
   }).addTo(radioMap);
-  L.tileLayer('/api/tiles/dark_only_labels/{z}/{x}/{y}', {
+  L.tileLayer(BASE_PATH + '/api/tiles/dark_only_labels/{z}/{x}/{y}', {
     maxZoom: 19, noWrap: true, opacity: 0.5,
   }).addTo(radioMap);
   radioCluster = L.markerClusterGroup({
@@ -106,7 +106,7 @@ function loadRadioStations() {
   setRadioLoading(true);
 
   // Fast map population: single JSON request for geolocated stations only
-  fetch('/api/radio/geo')
+  fetch(BASE_PATH + '/api/radio/geo')
     .then(r => r.json())
     .then(geo => {
       if (Array.isArray(geo) && geo.length) {
@@ -119,7 +119,7 @@ function loadRadioStations() {
 
   // Full list: stream via SSE, deduplicate against already-loaded stations
   const seenIds = new Set();
-  const src = new EventSource('/api/radio?device=' + deviceId);
+  const src = new EventSource(BASE_PATH + '/api/radio?device=' + deviceId);
   radioSSE = src;
   src.onmessage = e => {
     let batch;

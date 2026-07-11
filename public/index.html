@@ -252,6 +252,9 @@
 </nav>
 
 <script>
+// ── Base path (set when reverse-proxied under a prefix, e.g. /temutalk) ────
+const BASE_PATH = window.__BASE_PATH__ || '';
+
 // ── Device identity ───────────────────────────────────────────────────────
 if (!localStorage.getItem('deviceId'))
   localStorage.setItem('deviceId', ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g,c=>(c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4).toString(16)));
@@ -271,7 +274,7 @@ function updateAuthScreen() {
   document.getElementById('connect-form').style.display = hasCreds ? ''     : 'none';
   if (hasCreds) {
     document.getElementById('auth-link').href =
-      '/auth/spotify?device=' + encodeURIComponent(deviceId) +
+      BASE_PATH + '/auth/spotify?device=' + encodeURIComponent(deviceId) +
       '&cid='  + encodeURIComponent(cid) +
       '&csec=' + encodeURIComponent(csec);
   }
@@ -304,7 +307,7 @@ async function ensureTab(tab) {
   if (_tabLoaded[tab]) return;
   // ?v= busts any cache (browser or the Cloudflare tunnel's edge) sitting
   // between here and the server, same as the versioned <script>/<link> tags.
-  const r = await fetch('/' + tab + '/view.html' + (window.__ASSET_V ? '?v=' + window.__ASSET_V : ''));
+  const r = await fetch(BASE_PATH + '/' + tab + '/view.html' + (window.__ASSET_V ? '?v=' + window.__ASSET_V : ''));
   document.getElementById('view-' + tab).innerHTML = await r.text();
   _tabLoaded[tab] = true;
 }
@@ -359,7 +362,7 @@ async function navigate(tab) {
     wxLoaded = true;
     const q = wxLocQuery || wxCity; // device location first, then last manual search
     if (q) loadWx(q);
-    else fetch('/api/config?device=' + deviceId).then(r => r.json()).then(c => { if (c.weatherCity) loadWx(c.weatherCity); else showWxError('No city set (WEATHER_CITY in .env)'); }).catch(() => showWxError('Could not load config'));
+    else fetch(BASE_PATH + '/api/config?device=' + deviceId).then(r => r.json()).then(c => { if (c.weatherCity) loadWx(c.weatherCity); else showWxError('No city set (WEATHER_CITY in .env)'); }).catch(() => showWxError('Could not load config'));
   }
   if (tab === 'music')   { if (typeof loadMusicHome === 'function') loadMusicHome(); }
   if (tab === 'timer')   initTimerView();
@@ -821,7 +824,7 @@ let wxLoadedQuery = '';
 function homeWxLoad(query, displayFallback) {
   if (!query || query === wxLoadedQuery) return;
   wxLoadedQuery = query;
-  fetch('/api/weather?city=' + encodeURIComponent(query))
+  fetch(BASE_PATH + '/api/weather?city=' + encodeURIComponent(query))
     .then(r => r.json()).then(d => {
       if (!d.current_condition) return;
       const c = d.current_condition[0];
@@ -852,7 +855,7 @@ function wxRequestLocation() {
   }, () => {}, { timeout: 10000, maximumAge: 10 * 60 * 1000 });
 }
 
-fetch('/api/config?device=' + deviceId)
+fetch(BASE_PATH + '/api/config?device=' + deviceId)
   .then(r => r.json())
   .then(cfg => {
     // Paint immediately from cached coords or the server's default city,
@@ -866,7 +869,7 @@ fetch('/api/config?device=' + deviceId)
 
 // ── Shared helpers ────────────────────────────────────────────────────────
 function api(path, opts = {}) {
-  return fetch(path + (path.includes('?') ? '&' : '?') + 'device=' + deviceId, opts).then(r => r.json());
+  return fetch(BASE_PATH + path + (path.includes('?') ? '&' : '?') + 'device=' + deviceId, opts).then(r => r.json());
 }
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function fmt(ms) { const s = Math.floor(ms / 1000); return Math.floor(s / 60) + ':' + (s % 60).toString().padStart(2, '0'); }
@@ -883,7 +886,7 @@ let viewStack = [], vplUri = '', varUri = '', valbUri = '', allPlaylists = [];
 // ── Home snippets ─────────────────────────────────────────────────────────
 function loadHomeSnippets() {
   // Markets — 6 coins
-  fetch('/api/crypto?ids=bitcoin,ethereum,solana,binancecoin,ripple,cardano&device=' + deviceId)
+  fetch(BASE_PATH + '/api/crypto?ids=bitcoin,ethereum,solana,binancecoin,ripple,cardano&device=' + deviceId)
     .then(r => r.json()).then(data => {
       const el = document.getElementById('home-coins');
       if (!el || !Array.isArray(data)) return;
@@ -909,7 +912,7 @@ function loadHomeSnippets() {
     }).catch(() => { const el = document.getElementById('home-coins'); if (el) el.innerHTML = '<div class="home-snip-dim">Unavailable</div>'; });
 
   // Recently played music
-  fetch('/api/recently-played?device=' + deviceId)
+  fetch(BASE_PATH + '/api/recently-played?device=' + deviceId)
     .then(r => r.json()).then(data => {
       const el = document.getElementById('home-recent-tracks');
       if (!el) return;
@@ -983,7 +986,7 @@ function setChip(ok) {
 const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
 let ws, wsReady = false;
 function wsConnect() {
-  ws = new WebSocket(wsProto + '//' + location.host);
+  ws = new WebSocket(wsProto + '//' + location.host + BASE_PATH + '/');
   ws.onopen = () => {
     wsReady = true;
     ws.send(JSON.stringify({ type: 'join', deviceId }));
@@ -1036,7 +1039,7 @@ let castMode  = false;
 
 function castConnect() {
   if (castAudio) { castAudio.pause(); castAudio.src = ''; }
-  castAudio = new Audio('/stream?t=' + Date.now());
+  castAudio = new Audio(BASE_PATH + '/stream?t=' + Date.now());
   castAudio.volume = (document.getElementById('home-np-vol')?.value ?? 80) / 100;
   castAudio.addEventListener('error',   () => { if (castMode) setTimeout(castConnect, 2000); });
   castAudio.addEventListener('stalled', () => { if (castMode) setTimeout(castConnect, 2000); });
@@ -1118,7 +1121,7 @@ ensureTab('music').then(() => {
     if (cid && csec) navigate('music');
   }
   // Clean the URL so the error doesn't persist on reload
-  if (_oauthErr) history.replaceState(null, '', '/');
+  if (_oauthErr) history.replaceState(null, '', BASE_PATH + '/');
 });
 </script>
 </body>

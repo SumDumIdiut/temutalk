@@ -15,7 +15,7 @@ async function loadNews() {
   const list = document.getElementById('news-list');
   list.innerHTML = '<div style="padding:24px 0;color:var(--text-muted);font-size:14px;text-align:center;">Loading…</div>';
   try {
-    const r = await fetch('/api/news?cat=' + encodeURIComponent(newsFeed) + '&device=' + deviceId);
+    const r = await fetch(BASE_PATH + '/api/news?cat=' + encodeURIComponent(newsFeed) + '&device=' + deviceId);
     const items = await r.json();
     if (!Array.isArray(items)) throw new Error(items.error || 'bad response');
     newsLoaded = true;

@@ -527,6 +527,30 @@ if [ "${1:-}" = "status" ]; then
   status_json
   exit 0
 fi
+# install.sh setup — runs just the first-run setup steps, non-interactively,
+# then exits (no TUI). Used by the master webdev/install.sh orchestrator.
+# Deliberately never prompts (not even if stdin happens to be a real TTY,
+# e.g. when a parent script invokes this live from an interactive terminal
+# and it inherits that TTY) — a blocked `read` here would hang the parent
+# indefinitely with no indication why. Configure audio interactively later
+# via `install.sh` (option 5) instead.
+if [ "${1:-}" = "setup" ]; then
+  echo ""
+  echo "  ${C_BOLD}TemuTalk Speaker — Setup${C_RESET}"
+  echo ""
+  install_system_deps
+  ensure_portable_bins
+  ensure_piper
+  if [ -f audio-source.conf ]; then
+    ok "Audio source already configured."
+  else
+    warn "Audio source not configured — run 'install.sh' interactively later (option 5) to set it up."
+  fi
+  setup_usb_key
+  echo ""
+  ok "Setup complete."
+  exit 0
+fi
 
 # ─── First-run setup (idempotent) ───────────────────────────────────────────
 echo ""
