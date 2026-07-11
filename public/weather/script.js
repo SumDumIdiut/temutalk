@@ -26,7 +26,7 @@ function showWxError(msg) {
 }
 
 function loadWx(city) {
-  fetch('/api/weather?city=' + encodeURIComponent(city))
+  fetch(BASE_PATH + '/api/weather?city=' + encodeURIComponent(city))
     .then(r => r.json()).then(renderWx).catch(() => showWxError('Weather unavailable.'));
 }
 function changeWxCity() {
@@ -145,7 +145,7 @@ async function upgradeTo7Day() {
   const coords = (localStorage.getItem('wxCoords') || '').split(',');
   if (coords.length !== 2) return;
   try {
-    const r = await fetch('/api/forecast?lat=' + coords[0] + '&lng=' + coords[1] + '&device=' + deviceId);
+    const r = await fetch(BASE_PATH + '/api/forecast?lat=' + coords[0] + '&lng=' + coords[1] + '&device=' + deviceId);
     const daily = await r.json();
     if (!daily?.time?.length) return;
     renderDailyList(daily.time.map((date, i) => ({

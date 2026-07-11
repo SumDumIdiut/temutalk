@@ -356,7 +356,7 @@ function ss3dSetSpeed(v) { _ssSimSpeed = parseFloat(v)||0; }
 // ══════════════════════════════════════════════════════════════════════════════
 async function astroLoadISS() {
   try {
-    const r = await fetch('/api/iss?device='+deviceId);
+    const r = await fetch(BASE_PATH + '/api/iss?device='+deviceId);
     const d = await r.json();
     _issData = d.iss||null; _cssData = d.css||null;
     _renderStation('iss', _issData); _renderStation('css', _cssData);
@@ -440,7 +440,7 @@ function _fmtKm(km){return km>=1000?(km/1000).toFixed(1)+'k km':Math.round(km)+'
 // ══════════════════════════════════════════════════════════════════════════════
 async function astroLoadSun() {
   try {
-    const r=await fetch('/api/sunrise?lat='+astroLat+'&lng='+astroLng+'&device='+deviceId);
+    const r=await fetch(BASE_PATH + '/api/sunrise?lat='+astroLat+'&lng='+astroLng+'&device='+deviceId);
     const d=(await r.json()).results; if(!d)return;
     const fmt=iso=>new Date(iso).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
     const fmtL=s=>Math.floor(s/3600)+'h '+Math.floor((s%3600)/60)+'m';

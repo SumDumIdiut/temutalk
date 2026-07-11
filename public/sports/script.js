@@ -114,7 +114,7 @@ async function sportsLoad() {
   if (sportsRefreshTimer) { clearTimeout(sportsRefreshTimer); sportsRefreshTimer=null; }
   try {
     const { sport, league } = sportsCurLeague;
-    const r = await fetch('/api/sports?sport='+encodeURIComponent(sport)+'&league='+encodeURIComponent(league)+'&device='+deviceId);
+    const r = await fetch(BASE_PATH + '/api/sports?sport='+encodeURIComponent(sport)+'&league='+encodeURIComponent(league)+'&device='+deviceId);
     const d = await r.json();
     _sportsEvents = d.events || [];
     const lu = document.getElementById('sports-last-update');

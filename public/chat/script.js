@@ -54,7 +54,7 @@ function chatInit() {
   if (_ov && _ov.parentElement !== document.body) document.body.appendChild(_ov);
 
   // Check Spotify link; show overlay if not linked
-  fetch('/api/chat/me?device=' + deviceId).then(r => r.json()).then(profile => {
+  fetch(BASE_PATH + '/api/chat/me?device=' + deviceId).then(r => r.json()).then(profile => {
     if (profile.authenticated) {
       chatMyName         = profile.name;
       chatMyAvatar       = profile.avatarUrl;
@@ -558,7 +558,7 @@ function chatHandleAvatarFile(input) {
     if (preview) preview.innerHTML = `<img src="${esc(raw)}" alt="">`;
     chatSetAvUploadState(true);
     chatResizeToDataUrl(raw, 400, 0.88, resized => {
-      fetch('/api/chat/upload-avatar?device=' + deviceId, {
+      fetch(BASE_PATH + '/api/chat/upload-avatar?device=' + deviceId, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ dataUrl: resized }),
@@ -765,7 +765,7 @@ function chatShowGroupMenu() {
     <button class="chat-modal-btn chat-modal-btn-cancel" onclick="this.closest('.chat-modal-overlay').remove()">Close</button>
   </div>`;
   document.body.appendChild(m);
-  fetch('/api/chat/groups?device=' + deviceId).then(r => r.json()).then(d => {
+  fetch(BASE_PATH + '/api/chat/groups?device=' + deviceId).then(r => r.json()).then(d => {
     const el = document.getElementById('group-list-area');
     if (!el) return;
     if (!d.groups?.length) { el.innerHTML = '<div style="font-size:.76rem;color:#556">No groups yet. Create one!</div>'; return; }

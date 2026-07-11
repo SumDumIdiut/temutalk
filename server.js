@@ -24,6 +24,10 @@ const crypto     = require('crypto');
 // ─── Config ───────────────────────────────────────────────────────────────────
 const MAIN_PORT    = parseInt(process.env.PORT || '3000', 10);
 const WEATHER_CITY = process.env.WEATHER_CITY || 'London';
+// Non-empty when reverse-proxied under a path prefix (e.g. behind the portal
+// at /temutalk) — every route, static asset and client-side reference gets
+// this prefix so the app works both standalone (BASE_PATH='') and mounted.
+const BASE_PATH     = (process.env.BASE_PATH || '').replace(/\/$/, '');
 
 // Changes on every restart — appended as ?v= to every local script/link/fetch
 // URL so a stale copy behind the browser or the Cloudflare tunnel's edge cache
@@ -41,7 +45,7 @@ function getLocalIP() {
 }
 const LOCAL_IP     = getLocalIP();
 const MAIN_BASE    = (process.env.BASE_URL || `https://${LOCAL_IP}:${MAIN_PORT}`).replace(/\/$/, '');
-const REDIRECT_URI = `${MAIN_BASE}/callback`;
+const REDIRECT_URI = `${MAIN_BASE}${BASE_PATH}/callback`;
 
 // ─── TLS cert ─────────────────────────────────────────────────────────────────
 const CERT_KEY_FILE  = path.join(__dirname, '.cert-key.pem');
@@ -88,14 +92,15 @@ const setupAssistantRoutes  = require('./lib/assistant');
 // EXPRESS + SERVER
 // ═══════════════════════════════════════════════════════════════════════════════
 const app        = express();
+const router     = express.Router();
 const mainServer = https.createServer(tlsOpts, app);
 const wss        = new WebSocket.Server({ noServer: true });
 
 // Route WebSocket upgrades: /panel/* → panel internal server; everything else → wss
 mainServer.on('upgrade', (req, socket, head) => {
-  if (req.url.startsWith('/panel/')) {
+  if (req.url.startsWith(`${BASE_PATH}/panel/`)) {
     const panelPort  = parseInt(process.env.PANEL_PORT || '9090', 10) + 1;
-    const targetPath = req.url.replace(/^\/panel/, '') || '/';
+    const targetPath = req.url.slice(`${BASE_PATH}/panel`.length) || '/';
     const upstream   = net.connect(panelPort, '127.0.0.1', () => {
       let hdrs = '';
       for (const [k, v] of Object.entries(req.headers)) hdrs += `${k}: ${v}\r\n`;
@@ -115,15 +120,15 @@ mainServer.on('upgrade', (req, socket, head) => {
 
 // Redirect broadcast subdomain to /broadcast page
 app.use((req, res, next) => {
-  if (req.hostname === 'broadcast.codecade.co.za' && req.path === '/') return res.redirect('/broadcast');
+  if (req.hostname === 'broadcast.codecade.co.za' && req.path === '/') return res.redirect(`${BASE_PATH}/broadcast`);
   next();
 });
 
-app.use(express.json({ limit: '4mb' }));
-app.use(express.urlencoded({ extended: true, limit: '4mb' }));
+router.use(express.json({ limit: '4mb' }));
+router.use(express.urlencoded({ extended: true, limit: '4mb' }));
 
 // ─── Control panel proxy (/panel → localhost:PORT+1) ─────────────────────────
-app.use('/panel', (req, res) => {
+router.use('/panel', (req, res) => {
   const panelPort = parseInt(process.env.PANEL_PORT || '9090', 10) + 1;
   const bodyBuf   = req.body && Object.keys(req.body).length ? Buffer.from(JSON.stringify(req.body)) : null;
   const headers   = { ...req.headers, 'x-panel-base': '/panel', host: 'localhost' };
@@ -141,21 +146,31 @@ app.use('/panel', (req, res) => {
 // ?v=ASSET_VERSION, and exposes that same version to client JS so ensureTab()
 // can stamp its own /<tab>/view.html fetches. Computed once and cached in
 // memory — ASSET_VERSION is fixed for the life of this process.
-let _indexHtmlVersioned = null;
-function getVersionedIndexHtml() {
-  if (_indexHtmlVersioned) return _indexHtmlVersioned;
-  let html = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
-  html = html.replace(/((?:src|href)=")(\/[^"]+\.(?:js|css))(")/g, (m, pre, url, post) => `${pre}${url}?v=${ASSET_VERSION}${post}`);
-  html = html.replace('</head>', `<script>window.__ASSET_V='${ASSET_VERSION}';</script></head>`);
-  _indexHtmlVersioned = html;
-  return _indexHtmlVersioned;
+const _versionedHtmlCache = new Map();
+function getVersionedHtml(relPath) {
+  if (_versionedHtmlCache.has(relPath)) return _versionedHtmlCache.get(relPath);
+  let html = fs.readFileSync(path.join(__dirname, 'public', relPath), 'utf8');
+  html = html.replace(/((?:src|href)=")(\/[^"]+)(")/g, (m, pre, url, post) => {
+    const v = /\.(?:js|css)$/.test(url) ? `?v=${ASSET_VERSION}` : '';
+    return `${pre}${BASE_PATH}${url}${v}${post}`;
+  });
+  html = html.replace('</head>', `<script>window.__ASSET_V='${ASSET_VERSION}';window.__BASE_PATH__=${JSON.stringify(BASE_PATH)};</script></head>`);
+  _versionedHtmlCache.set(relPath, html);
+  return html;
 }
-app.get('/', (req, res) => {
+router.get('/', (req, res) => {
   res.setHeader('Cache-Control', 'no-cache');
-  res.send(getVersionedIndexHtml());
+  res.send(getVersionedHtml('index.html'));
+});
+// /tw is a full duplicate mobile SPA shell (public/tw/index.html) — same
+// versioning/BASE_PATH treatment, served explicitly so express.static below
+// never hands it out unmodified.
+router.get(['/tw', '/tw/'], (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache');
+  res.send(getVersionedHtml('tw/index.html'));
 });
 
-app.use(express.static(path.join(__dirname, 'public'), {
+router.use(express.static(path.join(__dirname, 'public'), {
   maxAge: '1h',
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('.html') || filePath.endsWith('.css') || filePath.endsWith('.js'))
@@ -164,13 +179,13 @@ app.use(express.static(path.join(__dirname, 'public'), {
 }));
 
 // ─── Self-signed cert download ────────────────────────────────────────────────
-app.get('/cert.pem', (req, res) => {
+router.get('/cert.pem', (req, res) => {
   if (!fs.existsSync(CERT_CERT_FILE)) return res.status(404).send('No cert');
   res.setHeader('Content-Type', 'application/x-pem-file');
   res.setHeader('Content-Disposition', 'attachment; filename="temutalk-ca.pem"');
   res.sendFile(CERT_CERT_FILE);
 });
-app.get('/cert.crt', (req, res) => {
+router.get('/cert.crt', (req, res) => {
   if (!fs.existsSync(CERT_CERT_FILE)) return res.status(404).send('No cert');
   res.setHeader('Content-Type', 'application/x-x509-ca-cert');
   res.setHeader('Content-Disposition', 'attachment; filename="temutalk-ca.crt"');
@@ -178,34 +193,34 @@ app.get('/cert.crt', (req, res) => {
 });
 
 // ─── App config ───────────────────────────────────────────────────────────────
-app.get('/api/auth-info', (req, res) => { res.json({ redirectUri: REDIRECT_URI }); });
+router.get('/api/auth-info', (req, res) => { res.json({ redirectUri: REDIRECT_URI }); });
 
-app.get('/api/config', (req, res) => {
+router.get('/api/config', (req, res) => {
   const deviceId = resolveDevice(req);
   const dev      = deviceId ? devices.get(deviceId) : null;
   res.json({ weatherCity: WEATHER_CITY, authenticated: !!(dev?.tokens?.access_token) });
 });
 
-app.get('/api/status', (req, res) => {
+router.get('/api/status', (req, res) => {
   const deviceId = resolveDevice(req);
   const dev      = deviceId ? devices.get(deviceId) : null;
   res.json({ authenticated: !!(dev?.tokens?.access_token) });
 });
 
 // ─── Feature routes ───────────────────────────────────────────────────────────
-setupSpotifyRoutes(app, REDIRECT_URI, MAIN_BASE);
-setupDataRoutes(app, WEATHER_CITY);
-const { broadcastLiveList, ffmpegRunning } = setupStreamRoutes(app, MAIN_BASE);
-chat.setupChatRoutes(app, resolveDevice);
-setupYtMusicRoutes(app, MAIN_BASE);
-setupAppleMusicRoutes(app);
-setupAssistantRoutes(app, resolveDevice, WEATHER_CITY);
+setupSpotifyRoutes(router, REDIRECT_URI, MAIN_BASE);
+setupDataRoutes(router, WEATHER_CITY);
+const { broadcastLiveList, ffmpegRunning } = setupStreamRoutes(router, MAIN_BASE, BASE_PATH);
+chat.setupChatRoutes(router, resolveDevice, BASE_PATH);
+setupYtMusicRoutes(router, MAIN_BASE);
+setupAppleMusicRoutes(router);
+setupAssistantRoutes(router, resolveDevice, WEATHER_CITY);
 
 // ─── WebSocket ────────────────────────────────────────────────────────────────
 setupWebSocket(wss, broadcastLiveList);
 
 // ─── Admin overview (localhost only) ─────────────────────────────────────────
-app.get('/api/admin/overview', (req, res) => {
+router.get('/api/admin/overview', (req, res) => {
   const remoteIp = req.socket.remoteAddress || '';
   if (!remoteIp.includes('127.0.0.1') && !remoteIp.includes('::1') && remoteIp !== '::ffff:127.0.0.1')
     return res.status(403).json({ error: 'forbidden' });
@@ -265,6 +280,8 @@ app.get('/api/admin/overview', (req, res) => {
   });
 });
 
+app.use(BASE_PATH || '/', router);
+
 // ─── Start ────────────────────────────────────────────────────────────────────
 mainServer.on('error', err => {
   if (err.code === 'EADDRINUSE') {
@@ -275,7 +292,7 @@ mainServer.on('error', err => {
 });
 
 mainServer.listen(MAIN_PORT, '0.0.0.0', () => {
-  console.log(`\n  TemuTalk: ${MAIN_BASE}`);
+  console.log(`\n  TemuTalk: ${MAIN_BASE}${BASE_PATH}`);
   console.log(`  Redirect URI (add to Spotify app): ${REDIRECT_URI}\n`);
   console.log(`  ${devices.size} device(s) with stored tokens.\n`);
 });

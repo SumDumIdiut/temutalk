@@ -176,7 +176,11 @@ const LOGS_DIR = usbMount ? (() => {
   return d;
 })() : path.join(DIR, 'logs');
 
-const cfCfg = writeCfConfig();
+// When run under the master webdev/install.sh orchestrator, the shared
+// Cloudflare Tunnel is owned externally (pointed at the portal, not at this
+// server directly) — skip self-managing a tunnel entirely in that case.
+const EXTERNAL_TUNNEL = !!process.env.EXTERNAL_TUNNEL;
+const cfCfg = EXTERNAL_TUNNEL ? null : writeCfConfig();
 
 // ── Start server ──────────────────────────────────────────────────────────────
 inf('starting server...');
@@ -215,6 +219,10 @@ setTimeout(() => {
     }, 1500);
   }
 
+  if (EXTERNAL_TUNNEL) {
+    log('tunnel managed externally — skipping self-managed tunnel');
+    return;
+  }
   if (!cfCfg) {
     log('no tunnel credentials — running local only');
     return;
