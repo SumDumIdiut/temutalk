@@ -210,7 +210,7 @@ router.get('/api/status', (req, res) => {
 // ─── Feature routes ───────────────────────────────────────────────────────────
 setupSpotifyRoutes(router, REDIRECT_URI, MAIN_BASE);
 setupDataRoutes(router, WEATHER_CITY);
-const { broadcastLiveList, ffmpegRunning } = setupStreamRoutes(router, MAIN_BASE, BASE_PATH);
+const { broadcastLiveList } = setupStreamRoutes(router, MAIN_BASE, BASE_PATH);
 chat.setupChatRoutes(router, resolveDevice, BASE_PATH);
 setupYtMusicRoutes(router, MAIN_BASE);
 setupAppleMusicRoutes(router);
@@ -267,9 +267,7 @@ router.get('/api/admin/overview', (req, res) => {
   const freeMem  = os.freemem();
   res.json({
     connectedDevices, offlineDevices,
-    streamListeners: [...state.streamListeners.values()].map(e => ({ ...e, durationMs: Date.now() - e.connectedAt })),
     mse: { broadcasting: !!(state.mseBroadcaster?.readyState === WebSocket.OPEN), listenerCount: state.mseListeners.size },
-    ffmpegRunning: ffmpegRunning(),
     system: {
       hostname: os.hostname(), uptime: Math.floor(os.uptime()),
       loadAvg: os.loadavg().map(l => +l.toFixed(2)),

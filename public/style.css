@@ -446,10 +446,6 @@ body[data-tab="weather"] .b3 { background: radial-gradient(circle, rgba(62,245,1
 .hub-bar-btn { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 12px; border: 2px solid var(--glass-border); background: var(--surface-hi); color: var(--text-muted); cursor: pointer; box-shadow: 0 2px 0 rgba(0,0,0,.4); transition: background .15s, color .15s, transform .1s; -webkit-tap-highlight-color: transparent; }
 .hub-bar-btn:hover { background: var(--surface-highest); color: var(--text); }
 .hub-bar-btn:active { transform: translateY(2px); box-shadow: none; }
-.cast-btn.cast-available, .hub-bar-btn.cast-btn.cast-available { border-color: rgba(255,200,80,.5); color: #ffc850; box-shadow: 0 0 10px rgba(255,200,80,.18); }
-.cast-btn.cast-active, .hub-bar-btn.cast-btn.cast-active { background: rgba(62,245,168,.18); color: #3ef5a8; border-color: rgba(62,245,168,.4); box-shadow: 0 0 14px rgba(62,245,168,.25); }
-.cast-btn.cast-active svg { animation: cast-pulse 1.8s ease-in-out infinite; }
-@keyframes cast-pulse { 0%,100% { opacity:1; } 50% { opacity:.5; } }
 
 /* Toast */
 .toast { position: fixed; bottom: 24px; left: calc(var(--nav-w) + (100vw - var(--nav-w)) / 2); transform: translateX(-50%) translateY(80px); background: rgba(14,16,28,.98); backdrop-filter: blur(20px); border: 2px solid var(--glass-border); color: var(--text); padding: 11px 22px; border-radius: 999px; font-size: 14px; font-weight: 800; white-space: nowrap; transition: transform .35s cubic-bezier(.34,1.56,.64,1); z-index: 999; pointer-events: none; box-shadow: 0 4px 0 rgba(0,0,0,.55), 0 8px 32px rgba(0,0,0,.5); }
