@@ -15,36 +15,24 @@ A self-hosted smart-hub web app — Spotify control, weather, crypto, news, a ra
 
 ## Quick start
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/SumDumIdiut/temutalk/main/install.sh | bash
-```
-
-Or, if you already have a copy of the repo:
+TemuTalk no longer has its own standalone installer — setup, start/stop, and
+the terminal menu all now live in one consolidated `install.sh` shared
+across the whole codecade stack:
 
 ```bash
-./install.sh
+curl -fsSL https://raw.githubusercontent.com/SumDumIdiut/codecade-install/main/install.sh | bash
 ```
 
-`install.sh` is a one-stop installer + control panel. On first run it:
+It clones (or updates) this repo alongside the other apps, installs
+`ffmpeg` via `apt` if missing (used server-side to convert browser mic audio
+to WAV for local speech-to-text), downloads portable Node.js + `cloudflared`
+binaries (no system Node install required), sets up Piper TTS, and handles
+the physical-USB-key enrollment that gates the dev panel — then drops you
+into a tabbed terminal menu (CONTROL / SERVICES / DIAGNOSTICS) covering
+every app, TemuTalk included, not just this one.
 
-1. Clones (or updates) this repo
-2. Installs `ffmpeg` via `apt` if missing (used server-side to convert browser mic audio to WAV for local speech-to-text)
-3. Downloads portable Node.js + `cloudflared` binaries (no system Node install required)
-
-...then drops you into a terminal menu:
-
-```
- 1) Start server      — Node server + Cloudflare tunnel
- 2) Stop server        (kills everything including the panel)
- 3) Restart server     (picks up .env changes, panel stays connected)
- 4) Open app in browser — where you finish Spotify setup in-browser
- 5) Check for updates
- 6) View logs
- 7) Toggle control panel
- 8) Exit
-```
-
-Starting the server backgrounds everything (PIDs tracked in `.run/`), so you can keep using the menu while it runs.
+Starting the server backgrounds everything (PIDs tracked in `.run/`), so you
+can keep using the menu while it runs.
 
 ### Web control panel
 
@@ -105,8 +93,7 @@ See [CLAUDE.md](CLAUDE.md) for the full internals reference (file-by-file breakd
 
 | Path | Purpose |
 |---|---|
-| `install.sh` | One-stop installer + TUI control panel (recommended entry point) |
-| `control-panel.js` | HTTPS web control panel (token auth), started by `install.sh` |
+| `control-panel.js` | HTTPS web control panel (token auth), started by the shared `install.sh` (see [codecade-install](https://github.com/SumDumIdiut/codecade-install)) |
 | `server.js` | Entire backend |
 | `launcher.js` | Production wrapper: process supervision, tunnel, auto-update |
 | `public/` | The SPA — shell, per-tab views/scripts/styles |
@@ -117,7 +104,7 @@ See [CLAUDE.md](CLAUDE.md) for the full internals reference (file-by-file breakd
 
 ## Troubleshooting
 
-**Site shows a Cloudflare error page / nothing loads** — the tunnel isn't connected. Error `1033` specifically means no `cloudflared` process is running for the hostname. Run `install.sh` → option 1 (Start server), or check the host machine to see why the process died.
+**Site shows a Cloudflare error page / nothing loads** — the tunnel isn't connected. Error `1033` specifically means no `cloudflared` process is running for the hostname. Run the shared `install.sh` → SERVICES → Toggle Tunnel, or check the host machine to see why the process died.
 
 **Styling looks broken / unstyled page** — almost always the same root cause as above (you're looking at a Cloudflare error page, not your actual unstyled HTML). Check `curl -I https://<your-domain>/style.css`.
 
