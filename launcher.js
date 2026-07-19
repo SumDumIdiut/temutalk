@@ -188,7 +188,18 @@ let server = startServer();
 let tunnel = null;
 let panel  = null;
 
+// Admin panel is owned externally (the consolidated portal/dev-panel.js,
+// which ported in everything control-panel.js used to do) -- skip
+// self-managing this legacy standalone panel entirely in that case, same
+// pattern as EXTERNAL_TUNNEL above. Without this, control-panel.js's
+// internal companion server binds PORT+1 (9090+1 = 9091), which collides
+// with dev-panel.js's own default port -- confirmed live: this fought
+// dev-panel.js for port 9091 indefinitely, with launcher.js's own crash
+// monitor immediately respawning it every few seconds after being killed.
+const EXTERNAL_PANEL = !!process.env.EXTERNAL_PANEL;
+
 function startPanel() {
+  if (EXTERNAL_PANEL) return null;
   if (!fs.existsSync(path.join(DIR, 'control-panel.js'))) return null;
   const port = process.env.PANEL_PORT || '9090';
   const logFile = fs.openSync(path.join(LOGS_DIR, 'panel.log'), 'a');
@@ -210,7 +221,11 @@ setTimeout(() => {
     die('server.js exited immediately — check the output above');
   log(`server running  PID ${server.pid}`);
 
-  inf('starting control panel...');
+  if (EXTERNAL_PANEL) {
+    log('admin panel managed externally — skipping self-managed control panel');
+  } else {
+    inf('starting control panel...');
+  }
   panel = startPanel();
   if (panel) {
     setTimeout(() => {
