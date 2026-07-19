@@ -243,26 +243,38 @@ setTimeout(() => {
 const START_TIME_S = Math.floor(Date.now() / 1000);
 let lastAppliedCommit = null;
 
+// exFAT/FAT32 (this whole tree is designed to run from a portable USB drive)
+// doesn't record file ownership, so plain `git` here refuses every single
+// call with "detected dubious ownership" -- confirmed live: this spammed
+// that error to the log every 60s indefinitely, silently swallowed by the
+// bare `catch {}` below, so the update check never actually worked and the
+// log filled with noise. `-c safe.directory=*` is scoped to just this one
+// invocation, never written to any persisted git config (matches the same
+// workaround install.sh's own git_safe() already uses for the same reason).
+function gitExec(args, opts) {
+  return execFileSync('git', ['-c', 'safe.directory=*', ...args], opts);
+}
+
 function checkForUpdate() {
   try {
-    const local  = execFileSync('git', ['rev-parse', 'HEAD'],                        { cwd: DIR, encoding: 'utf8' }).trim();
-    const remote = execFileSync('git', ['ls-remote', 'origin', 'refs/heads/main'],   { cwd: DIR, encoding: 'utf8' }).trim().split(/\s+/)[0];
+    const local  = gitExec(['rev-parse', 'HEAD'],                        { cwd: DIR, encoding: 'utf8' }).trim();
+    const remote = gitExec(['ls-remote', 'origin', 'refs/heads/main'],   { cwd: DIR, encoding: 'utf8' }).trim().split(/\s+/)[0];
 
     if (!remote) return;
 
     const needPull = local !== remote;
     if (needPull) {
       log(`update detected (${local.slice(0,7)} → ${remote.slice(0,7)}) — pulling...`);
-      execFileSync('git', ['fetch', 'origin', 'main'], { cwd: DIR });
-      const pullOut = execFileSync('git', ['reset', '--hard', 'origin/main'], { cwd: DIR, encoding: 'utf8' });
+      gitExec(['fetch', 'origin', 'main'], { cwd: DIR });
+      const pullOut = gitExec(['reset', '--hard', 'origin/main'], { cwd: DIR, encoding: 'utf8' });
       if (pullOut.trim()) pullOut.trim().split('\n').forEach(l => log(l));
     }
 
     // Also restart if the HEAD commit is newer than when this process started
     // (covers the case where we develop in-place and commit without a remote delta)
-    const headCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: DIR, encoding: 'utf8' }).trim();
+    const headCommit = gitExec(['rev-parse', 'HEAD'], { cwd: DIR, encoding: 'utf8' }).trim();
     const commitTimeS = parseInt(
-      execFileSync('git', ['log', '-1', '--format=%ct', headCommit], { cwd: DIR, encoding: 'utf8' }).trim(), 10
+      gitExec(['log', '-1', '--format=%ct', headCommit], { cwd: DIR, encoding: 'utf8' }).trim(), 10
     );
     const isNewCommit = headCommit !== lastAppliedCommit && commitTimeS > START_TIME_S;
 
