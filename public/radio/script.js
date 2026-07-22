@@ -3,6 +3,16 @@ const RADIO_FALLBACK_IMG = 'data:image/svg+xml,' + encodeURIComponent('<svg xmln
 let radioMap = null, radioCluster = null, radioMarkers = [], radioAudio = null, radioStation = null;
 let radioStations = [], radioMapInited = false;
 
+// Live internet radio streams routinely have brief network hiccups (an
+// upstream gap, a dropped packet on a low-bitrate/overseas station) that
+// used to just silently kill playback with no recovery -- new Audio()
+// had zero error/stall handling. This reconnects automatically instead,
+// with backoff so a genuinely dead stream doesn't spin-retry forever.
+let radioReconnectTimer = null;
+let radioReconnectAttempts = 0;
+const RADIO_RECONNECT_BASE_DELAY_MS = 2000;
+const RADIO_RECONNECT_MAX_DELAY_MS = 15000;
+
 function toggleRadioPanel() {
   document.getElementById('rmap-panel').classList.toggle('open');
 }
@@ -273,19 +283,14 @@ function wirePopupBtn(s) {
 }
 
 function playStation(s) {
+  _stopRadioReconnect();
   if (radioAudio) { radioAudio.pause(); radioAudio = null; }
   if (playing) action('pause');
   radioStation = s;
+  radioReconnectAttempts = 0;
   if (ws.readyState === WebSocket.OPEN)
     ws.send(JSON.stringify({ type: 'radio-now-playing', name: s.name, url: s.url_resolved }));
-  let streamUrl = s.url_resolved || '';
-  // Proxy HTTP streams through server to avoid mixed-content block on HTTPS
-  if (streamUrl.startsWith('http:') && location.protocol === 'https:')
-    streamUrl = '/api/radio/proxy?url=' + encodeURIComponent(streamUrl);
-  radioAudio = new Audio(streamUrl);
-  const vol = document.getElementById('rmap-vol');
-  radioAudio.volume = vol ? vol.value / 100 : 0.8;
-  radioAudio.play().catch(() => {});
+  _startRadioAudio(s);
   const np = document.getElementById('rmap-np');
   if (np) {
     np.classList.add('vis');
@@ -299,7 +304,53 @@ function playStation(s) {
   renderRadioList(radioListFilter);
 }
 
+// Builds and plays the actual Audio element -- split out from playStation()
+// so a dropped-connection reconnect can recreate it against the same
+// station without repeating the "new station" bookkeeping (WS notify,
+// now-playing panel, map/list re-render).
+function _startRadioAudio(s) {
+  let streamUrl = s.url_resolved || '';
+  // Proxy HTTP streams through server to avoid mixed-content block on HTTPS
+  if (streamUrl.startsWith('http:') && location.protocol === 'https:')
+    streamUrl = '/api/radio/proxy?url=' + encodeURIComponent(streamUrl);
+  radioAudio = new Audio(streamUrl);
+  const vol = document.getElementById('rmap-vol');
+  radioAudio.volume = vol ? vol.value / 100 : 0.8;
+  // Real data flowing again means the stream recovered on its own --
+  // reset the backoff so a *later* drop doesn't inherit a long delay from
+  // an earlier, unrelated one.
+  radioAudio.addEventListener('playing', () => { radioReconnectAttempts = 0; });
+  radioAudio.addEventListener('error', _onRadioStreamDrop);
+  radioAudio.addEventListener('stalled', _onRadioStreamDrop);
+  radioAudio.play().catch(() => {});
+}
+
+// A live stream dropping mid-play used to just go silent forever -- no
+// error/stall handling at all. Reconnects by tearing down and recreating
+// the Audio element against the same URL (the only real option for a
+// plain HTTP audio stream; there's no partial-connection to resume), with
+// exponential backoff so a genuinely dead station doesn't spin-retry.
+function _onRadioStreamDrop() {
+  if (!radioStation) return; // user already stopped, or switched stations
+  if (radioReconnectTimer) return; // a reconnect is already scheduled
+  radioReconnectAttempts++;
+  const delay = Math.min(RADIO_RECONNECT_BASE_DELAY_MS * radioReconnectAttempts, RADIO_RECONNECT_MAX_DELAY_MS);
+  console.warn('[radio] stream dropped for "' + radioStation.name + '", reconnecting in ' + delay + 'ms (attempt ' + radioReconnectAttempts + ')');
+  const stationAtDropTime = radioStation;
+  radioReconnectTimer = setTimeout(() => {
+    radioReconnectTimer = null;
+    if (radioStation !== stationAtDropTime) return; // user switched away while we waited
+    if (radioAudio) { radioAudio.pause(); radioAudio = null; }
+    _startRadioAudio(stationAtDropTime);
+  }, delay);
+}
+
+function _stopRadioReconnect() {
+  if (radioReconnectTimer) { clearTimeout(radioReconnectTimer); radioReconnectTimer = null; }
+}
+
 function stopRadio() {
+  _stopRadioReconnect();
   if (radioAudio) { radioAudio.pause(); radioAudio = null; }
   if (ws.readyState === WebSocket.OPEN)
     ws.send(JSON.stringify({ type: 'radio-stopped' }));
