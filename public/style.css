@@ -556,3 +556,60 @@ body.no-blob-motion .blob { animation-play-state: paused; }
   .nav-label { font-size: 8px; }
 }
 
+/* ── Mobile landscape ───────────────────────────────────────────────────── */
+/* A phone rotated sideways has the opposite problem from portrait: plenty
+   of width, very little height (as low as ~320px on a lot of phones once
+   the browser chrome takes its share) -- the portrait rules above would
+   spend a chunk of that scarce height on a bottom bar. Comes *after* the
+   portrait block on purpose: most phones are well over 720px wide in
+   landscape and never hit that rule at all, but a few smaller ones are
+   still under it at both max-width and max-height simultaneously, and
+   when that happens this is the one that should actually win -- it
+   redefines the same --nav-w/--nav-h/--safe-b pair the portrait block
+   does, so .view/.toast/.rmap-np etc. all pick it up automatically with
+   no separate override needed, same mechanism, just different values.
+   (pointer: coarse) keeps this to actual touchscreens, not a short
+   desktop browser window. */
+@media (max-height: 480px) and (orientation: landscape) and (pointer: coarse) {
+  :root {
+    --nav-w: 60px;
+    --nav-h: 0px;
+    --safe-b: 0px;
+  }
+
+  .page { padding: 12px 16px 16px; }
+
+  .nav {
+    top: 0; left: 0; right: auto; bottom: 0;
+    width: calc(var(--nav-w) + env(safe-area-inset-left));
+    height: 100%;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    padding: 8px 4px 8px max(4px, env(safe-area-inset-left));
+    border-top: none;
+    border-right: 2px solid rgba(255,255,255,.1);
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: none;
+    gap: 2px;
+  }
+  .nav::-webkit-scrollbar { display: none; }
+
+  /* Icon-only -- a text label under every icon is what makes the desktop
+     rail 88px wide in the first place, and there's no width to spare
+     here the way portrait's bottom bar has. */
+  .nav-item  { width: 100%; flex-shrink: 0; }
+  .nav-label { display: none; }
+  .nav-pill  { width: 40px; height: 32px; }
+  .nav-icon  { width: 18px; height: 18px; }
+
+  .toast { left: calc(var(--nav-w) + (100vw - var(--nav-w)) / 2); }
+  html.is-mobile #fs-btn { display: none; }
+
+  /* Vertically-stacked hero content (home's clock, weather's big temp)
+     easily overflows a ~320-400px-tall landscape viewport -- shrink the
+     worst offenders rather than letting them force a scrollbar mid-hero. */
+  .temp-big { font-size: 40px; }
+}
+

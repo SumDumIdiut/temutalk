@@ -93,3 +93,15 @@
 .ev-icon { font-size:22px; flex-shrink:0; }
 .ev-title { font-size:13px; font-weight:600; color:var(--text); }
 .ev-desc  { font-size:12px; color:var(--text-muted); margin-top:2px; }
+
+/* ── Mobile ──────────────────────────────────────────────────────────────── */
+@media (max-width: 720px) {
+  /* A fixed 420px-tall 3D canvas is fine on a desktop card but eats a
+     phone viewport almost entirely on its own -- especially landscape,
+     where total height can be well under 420px to begin with. */
+  .ss3d-canvas { height: 260px; }
+  .astro-loc-chip { max-width: 130px; }
+}
+@media (max-height: 480px) and (orientation: landscape) and (pointer: coarse) {
+  .ss3d-canvas { height: 200px; }
+}
