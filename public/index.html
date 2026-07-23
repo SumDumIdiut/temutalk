@@ -66,7 +66,7 @@
        #view-home.v-on ID+class specificity as the rule above, and this
        file's own inline <style> loads after every <link>'d stylesheet, so
        only an override *here* actually wins the cascade. */
-    @media (max-width: 720px) {
+    @media (max-width: 720px), (max-height: 480px) and (orientation: landscape) and (pointer: coarse) {
       #view-home.v-on { overflow-y: auto; }
     }
 

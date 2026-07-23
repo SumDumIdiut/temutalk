@@ -35,4 +35,12 @@
     .timer-btn.active { color: var(--primary); }
     .timer-done { border-color: var(--green) !important; }
     .timer-done .timer-prog { stroke: var(--green); }
+
+    /* ── Mobile ──────────────────────────────────────────────────────────── */
+    @media (max-width: 720px) {
+      /* A stopwatch reading like 00:00:00.00 at 72px can run past 350px
+         wide -- tight against a phone's usable width once .page's own
+         padding is subtracted. */
+      #sw-display { font-size: 52px; letter-spacing: -2px; }
+    }
 
