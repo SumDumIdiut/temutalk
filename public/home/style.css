@@ -192,4 +192,21 @@
     .home-wx.wx-rain   { background: linear-gradient(140deg,#162030 0%,var(--surface) 65%); border-top-color: #38bdf8; }
     .home-wx.wx-storm  { background: linear-gradient(140deg,#1a0e2a 0%,var(--surface) 65%); border-top-color: #c084fc; }
     .home-wx.wx-snow   { background: linear-gradient(140deg,#1a2840 0%,var(--surface) 65%); border-top-color: #e0f2fe; }
+
+    /* ── Mobile ──────────────────────────────────────────────────────────── */
+    /* #view-home .page's own padding/width rules are more specific than
+       style.css's generic mobile .page override (id + class beats class
+       alone), so they win regardless of viewport -- needs its own mobile
+       pass here instead. Same for .home-grid's 2-column layout and the
+       widgets row's side-by-side cards, both sized for a wide dashboard
+       display, not a ~360-400px phone width. */
+    @media (max-width: 720px) {
+      #view-home .page { padding: 0 14px; }
+      .home-topbar { padding: 10px 6px 0; }
+      .home-hero   { padding: 0 6px; }
+      .home-widgets { flex-direction: column; padding: 14px 6px 18px; gap: 10px; }
+      .home-mini-wx { min-width: 0; }
+      .home-grid { grid-template-columns: 1fr; gap: 10px; padding-bottom: 10px; }
+      .home-np-art, .home-mini-art { width: 56px; height: 56px; }
+    }
 

@@ -281,3 +281,28 @@
     .live-card-badge { font-size: 10px; background: var(--primary); color: #fff; border-radius: 4px; padding: 2px 6px; flex-shrink: 0; }
     .live-empty { font-size: 13px; color: var(--text-muted); padding: 12px; text-align: center; }
 
+    /* ── Mobile ──────────────────────────────────────────────────────────── */
+    /* The desktop shell is a 3-pane browser (playlist sidebar / browse+
+       search / queue sidebar) at 200px+flex+220px -- there's no way that
+       fits a phone width, and no mobile music app actually tries (Spotify
+       mobile's browse view is one pane, playlist switching and queue are
+       each their own separate screen). Closest reasonable equivalent
+       without a JS-driven view router: keep the one pane people spend
+       most of their time in (search/browse, #center-panel) and drop the
+       other two -- library/playlist switching and the queue view aren't
+       reachable on mobile this way, a real (documented, not silent) gap
+       versus the desktop feature set. */
+    @media (max-width: 720px) {
+      #left-sidebar, #right-sidebar { display: none; }
+      #app-body { padding: 6px; gap: 6px; }
+
+      /* Volume is the device's hardware buttons on mobile, not a UI
+         slider -- freeing its 22% flex-basis gives the transport controls
+         (which people actually need mid-scroll) room to breathe instead. */
+      #bar-vol { display: none; }
+      #player-bar { height: 68px; padding: 0 12px; margin: 0 6px 6px; }
+      #bar-info { flex-basis: 38%; gap: 8px; }
+      #bar-art  { width: 44px; height: 44px; }
+      #bar-center { padding: 0 8px; }
+    }
+
