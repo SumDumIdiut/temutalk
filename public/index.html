@@ -35,7 +35,10 @@
     html, body { height: 100%; overflow: hidden; }
 
     .view {
-      position: fixed; top: 0; bottom: 0; right: 0; left: var(--nav-w); z-index: 1;
+      /* --nav-w/--nav-h swap roles at the mobile breakpoint (see
+         style.css) -- sidebar-on-the-left becomes bar-on-the-bottom, so
+         this reserves space on whichever side actually has the nav. */
+      position: fixed; top: 0; bottom: var(--nav-h); right: 0; left: var(--nav-w); z-index: 1;
       display: none; overflow: hidden;
       transition: opacity 260ms cubic-bezier(0.4,0,0.2,1),
                   transform 260ms cubic-bezier(0.4,0,0.2,1);
@@ -53,6 +56,18 @@
     /* weather needs extra scroll room */
     #view-weather .page {
       padding-bottom: 60px;
+    }
+
+    /* Home's no-scroll "everything fits in one dashboard view" design
+       (above) assumes a wide desktop viewport where the widgets row and
+       snippet grid lay out side by side -- home/style.css's mobile pass
+       stacks both vertically instead, which is taller than most phone
+       viewports have room for. Must live here, not home/style.css: same
+       #view-home.v-on ID+class specificity as the rule above, and this
+       file's own inline <style> loads after every <link>'d stylesheet, so
+       only an override *here* actually wins the cascade. */
+    @media (max-width: 720px) {
+      #view-home.v-on { overflow-y: auto; }
     }
 
     /* ── Nav buttons ─────────────────────────────────────────────────────── */
@@ -254,6 +269,34 @@
 <script>
 // ── Base path (set when reverse-proxied under a prefix, e.g. /temutalk) ────
 const BASE_PATH = window.__BASE_PATH__ || '';
+
+// ── Device type detection (mobile vs. desktop/tablet) ───────────────────────
+// Two signals combined rather than either alone: a coarse/no-hover pointer
+// means an actual touchscreen (not just a touch-capable hybrid laptop that
+// also has a mouse), and the same max-width breakpoint style.css's mobile
+// layout switches on means the *layout* itself agrees it's phone-sized --
+// together that's a much more reliable "should this behave like a phone"
+// signal than user-agent sniffing (fragile, spoofable, and notoriously
+// wrong for e.g. iPadOS reporting as desktop Safari). CSS's own @media
+// query is what actually drives the responsive layout; this just exposes
+// the same determination to JS for the few things that need to branch
+// behavior rather than pure styling (e.g. hiding the desktop-only
+// fullscreen button below).
+const MOBILE_BREAKPOINT_QUERY = '(max-width: 720px)';
+function isMobileDevice() {
+  return matchMedia('(hover: none) and (pointer: coarse)').matches
+      && matchMedia(MOBILE_BREAKPOINT_QUERY).matches;
+}
+function _syncDeviceClass() {
+  const mobile = isMobileDevice();
+  document.documentElement.classList.toggle('is-mobile', mobile);
+  document.documentElement.dataset.device = mobile ? 'mobile' : 'desktop';
+}
+_syncDeviceClass();
+// Layout-affecting signals can change live -- rotating a tablet, resizing
+// a desktop window past the breakpoint -- so this stays in sync rather
+// than only ever detecting once at load.
+matchMedia(MOBILE_BREAKPOINT_QUERY).addEventListener('change', _syncDeviceClass);
 
 // ── Device identity ───────────────────────────────────────────────────────
 if (!localStorage.getItem('deviceId'))

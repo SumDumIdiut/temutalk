@@ -50,4 +50,13 @@
     .wx-day-rain  { font-size: 11px; color: #38bdf8; flex-shrink: 0; width: 42px; text-align: right; font-variant-numeric: tabular-nums; }
     .wx-skeleton  { height: 180px; border-radius: var(--radius); margin-bottom: 10px; }
     .wx-stat-skeleton { height: 82px; border-radius: var(--radius-sm); }
+
+    /* ── Mobile ──────────────────────────────────────────────────────────── */
+    @media (max-width: 720px) {
+      .wx-temp      { font-size: 64px; letter-spacing: -3px; }
+      .wx-temp sup  { font-size: 26px; vertical-align: 12px; }
+      .wx-icon-big  { font-size: 52px; }
+      .wx-hero      { padding: 20px 18px 18px; }
+      .wx-day-bar-wrap { max-width: none; }
+    }
 

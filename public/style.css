@@ -482,3 +482,77 @@ body[data-tab="weather"] .b3 { background: radial-gradient(circle, rgba(62,245,1
 /* User-toggled blob motion (System tab) */
 body.no-blob-motion .blob { animation-play-state: paused; }
 
+/* ── Mobile layout ──────────────────────────────────────────────────────── */
+/* The desktop/tablet shell is a fixed 88px left sidebar with every .view
+   offset by --nav-w (see index.html's inline <style> block) -- far too
+   wide a bite out of a phone-width screen, and a vertical icon rail
+   doesn't read as a mobile nav pattern anyone expects. Below this
+   breakpoint the same --nav-w/--nav-h/--safe-b custom properties (already
+   plumbed through .view and .toast, previously unused placeholders) get
+   redefined instead of touching every consumer individually: nav becomes
+   a horizontally-scrollable bottom bar, .view reserves space at the
+   bottom instead of the left. */
+@media (max-width: 720px) {
+  :root {
+    --nav-w: 0px;
+    --nav-h: 64px;
+    --safe-b: env(safe-area-inset-bottom, 0px);
+  }
+
+  .page { padding: 18px 16px 24px; }
+
+  .nav {
+    top: auto; left: 0; right: 0; bottom: 0;
+    width: 100%; height: calc(var(--nav-h) + var(--safe-b));
+    flex-direction: row;
+    align-items: stretch;
+    padding: 6px max(6px, env(safe-area-inset-left)) calc(6px + var(--safe-b)) max(6px, env(safe-area-inset-right));
+    border-right: none;
+    border-top: 2px solid rgba(255,255,255,.1);
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    justify-content: flex-start;
+    gap: 2px;
+  }
+  .nav::-webkit-scrollbar { display: none; }
+
+  .nav-item {
+    flex: 0 0 auto;
+    width: 62px;
+    justify-content: center;
+  }
+  .nav-pill { width: 44px; height: 34px; }
+  .nav-icon { width: 19px; height: 19px; }
+  .nav-label { font-size: 8.5px; }
+
+  /* Oversized desktop-scale numerals/art that would otherwise force
+     horizontal scroll or crowd a phone-width card. */
+  .temp-big   { font-size: 56px; letter-spacing: -2px; }
+  .album-art  { max-width: 220px; }
+  .controls   { gap: 14px; margin: 14px 0; }
+  .ibtn-lg    { width: 60px; height: 60px; }
+  .ibtn-md    { width: 46px; height: 46px; }
+  .stats-grid { gap: 8px; }
+  .page-header { font-size: 21px; margin-bottom: 16px; }
+
+  /* Was centered against the sidebar's own width via --nav-w in the
+     offset calc -- on mobile there's no sidebar to offset for. */
+  .toast { left: 50%; }
+
+  /* The Fullscreen API reads as a desktop-browser affordance -- mobile
+     Safari/Chrome don't expose it the same way, and the real mobile
+     equivalent (add to home screen) isn't something a button can trigger
+     anyway. See index.html's isMobileDevice()/.is-mobile. */
+  html.is-mobile #fs-btn { display: none; }
+}
+
+/* Very small phones (SE-class widths and below) -- the 720px pass above
+   still leaves a few things tight enough to wrap awkwardly. */
+@media (max-width: 380px) {
+  .temp-big { font-size: 46px; }
+  .nav-item { width: 54px; }
+  .nav-label { font-size: 8px; }
+}
+
