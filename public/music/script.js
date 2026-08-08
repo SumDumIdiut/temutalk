@@ -22,7 +22,10 @@ let browserPlayerReady = false;
 
 function _setBrowserPlayerStatus(s) {
   const el = document.getElementById('browser-player-status');
-  if (el) el.textContent = s;
+  if (el) {
+    el.textContent = s;
+    el.style.display = /^ready/.test(s) ? 'none' : '';
+  }
   console.log('[player]', s);
 }
 
@@ -823,7 +826,7 @@ function loadLyrics() {
   if (artEl)    artEl.textContent  = artist;
   if (statusEl) { statusEl.style.display = ''; statusEl.textContent = 'Loading lyrics…'; }
   if (bodyEl)   bodyEl.innerHTML   = '';
-  const url = '/api/lyrics?artist=' + encodeURIComponent(artist) +
+  const url = BASE_PATH + '/api/lyrics?artist=' + encodeURIComponent(artist) +
               '&track=' + encodeURIComponent(track) +
               (album ? '&album=' + encodeURIComponent(album) : '') +
               '&device=' + deviceId;

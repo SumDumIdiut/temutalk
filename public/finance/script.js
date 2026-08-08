@@ -439,7 +439,7 @@ async function _loadCryptoChart(id, days) {
   const daysNum = parseInt(days) || 30;
   _canvasMsg(canvas, 'Loading…');
   try {
-    const r = await fetch(`/api/crypto/history?id=${encodeURIComponent(id)}&days=${days}&device=${deviceId}`);
+    const r = await fetch(`${BASE_PATH}/api/crypto/history?id=${encodeURIComponent(id)}&days=${days}&device=${deviceId}`);
     const d = await r.json();
     if (d.error) throw new Error(d.error);
     if (!d.prices?.length) throw new Error('No price data');
