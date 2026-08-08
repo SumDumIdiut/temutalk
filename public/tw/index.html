@@ -444,6 +444,7 @@ let themeDotGrid      = localStorage.getItem('themeDotGrid')      || 'on';
 let themeGlass        = localStorage.getItem('themeGlass')        || 'mid';
 let themeRadius       = localStorage.getItem('themeRadius')       || 'rounded';
 let themeClockSize    = localStorage.getItem('themeClockSize')    || 'xl';
+let themeClockWeight  = localStorage.getItem('themeClockWeight')  || '200';
 let themeClock        = localStorage.getItem('themeClock')        || '24';
 let themeFont         = localStorage.getItem('themeFont')         || 'nunito';
 let themeGlow         = localStorage.getItem('themeGlow')         || 'on';
@@ -579,6 +580,7 @@ function applyTheme() {
   // Clock size
   const clk = document.querySelector('.home-time');
   if (clk) clk.style.fontSize = { xl:'clamp(80px,12vw,150px)', lg:'clamp(58px,9vw,110px)', md:'clamp(40px,6.5vw,78px)' }[themeClockSize] || 'clamp(80px,12vw,150px)';
+  if (clk) clk.style.fontWeight = themeClockWeight;
 
   // Font
   _applyFont(themeFont);
@@ -616,6 +618,7 @@ function _setThemeDotGrid(v)   { themeDotGrid=v;   localStorage.setItem('themeDo
 function _setThemeGlass(v)     { themeGlass=v;     localStorage.setItem('themeGlass',v);     applyTheme(); renderThemePanel(); }
 function _setThemeRadius(v)    { themeRadius=v;    localStorage.setItem('themeRadius',v);    applyTheme(); renderThemePanel(); }
 function _setThemeClockSize(v) { themeClockSize=v; localStorage.setItem('themeClockSize',v); applyTheme(); renderThemePanel(); }
+function _setThemeClockWeight(v) { themeClockWeight=v; localStorage.setItem('themeClockWeight',v); applyTheme(); renderThemePanel(); }
 function _setThemeClock(v)     { themeClock=v;     localStorage.setItem('themeClock',v);     tick(); renderThemePanel(); }
 function _setThemeFont(v)      { themeFont=v;      localStorage.setItem('themeFont',v);      applyTheme(); renderThemePanel(); }
 function _setThemeGlow(v)      { themeGlow=v;      localStorage.setItem('themeGlow',v);      applyTheme(); renderThemePanel(); }
@@ -657,7 +660,7 @@ function _setThemeBlobHex(i, hex) {
 function _resetTheme() {
   if (!confirm('Reset all appearance settings to defaults?')) return;
   ['themeAccent','themeAutoAccent','themeCustomHex','themeDark','themeBg','themeBlobs','themeDotGrid',
-   'themeGlass','themeRadius','themeClockSize','themeClock','themeFont','themeGlow','themeNavLabels',
+   'themeGlass','themeRadius','themeClockSize','themeClockWeight','themeClock','themeFont','themeGlow','themeNavLabels',
    'themeClockSec','themeBgHex','themeGlassTint','themeBorderStr','themeShadows','themeBlobMotion','themeBlobHexes',
   ].forEach(k => localStorage.removeItem(k));
   location.reload();
@@ -774,6 +777,13 @@ function renderThemePanel() {
           ${pill('XL',   'xl', themeClockSize, '_setThemeClockSize')}
           ${pill('Large','lg', themeClockSize, '_setThemeClockSize')}
           ${pill('Medium','md',themeClockSize, '_setThemeClockSize')}
+        </div>
+        <div class="th-sub-label">Thickness</div>
+        <div class="th-pills">
+          ${pill('Light',  '200', themeClockWeight, '_setThemeClockWeight')}
+          ${pill('Regular','400', themeClockWeight, '_setThemeClockWeight')}
+          ${pill('Bold',   '700', themeClockWeight, '_setThemeClockWeight')}
+          ${pill('Black',  '900', themeClockWeight, '_setThemeClockWeight')}
         </div>
         <div class="th-sub-label">Format</div>
         <div class="th-pills">
