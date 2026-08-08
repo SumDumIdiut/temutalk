@@ -193,9 +193,9 @@
           <div class="home-radio-pulse" style="flex-shrink:0;"></div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;margin-top:10px;">
-          <button class="home-radio-stop" onclick="stopRadio()" style="flex:1;">■ Stop</button>
+          <button class="home-radio-stop" onclick="radioCmdStop()" style="flex:1;">■ Stop</button>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="color:var(--text-muted);flex-shrink:0;"><path d="M7 9v6h4l5 5V4l-5 5H7z"/></svg>
-          <input type="range" class="home-np-vol" id="home-radio-vol" min="0" max="100" value="80" oninput="setRadioVolume(+this.value)" style="width:80px;">
+          <input type="range" class="home-np-vol" id="home-radio-vol" min="0" max="100" value="80" oninput="radioCmdVolume(+this.value)" style="width:80px;">
         </div>
       </div>
     </div>
@@ -1062,6 +1062,7 @@ function wsConnect() {
       if (m.type === 'mse-broadcaster-status') mseSetBroadcasterOnline(m.online, m.mimeType);
       if (m.type && m.type.startsWith('chat:') && typeof chatOnMessage === 'function') chatOnMessage(m);
       if ((m.type === 'live-list' || m.type === 'live-channel-ended') && typeof liveOnMessage === 'function') liveOnMessage(m);
+      if (m.type === 'radio-remote' && typeof radioOnRemote === 'function') radioOnRemote(m);
     } catch {}
   };
   ws.onclose = ws.onerror = () => {

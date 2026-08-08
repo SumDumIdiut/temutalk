@@ -389,6 +389,56 @@ function setVolume(val) {
   clearTimeout(volTimer);
   volTimer = setTimeout(() => api('/api/player/volume', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ volume: val }) }), 250);
 }
+// ── Output device picker ────────────────────────────────────────────────────
+// Unlike radio, Spotify already has a real cross-device output protocol
+// (Connect) — /api/devices and /api/transfer just wrap Spotify's own API,
+// so this is UI on top of existing plumbing, not a new mechanism.
+function toggleSpotifyDevicePicker(e) {
+  e?.stopPropagation();
+  const pop = document.getElementById('sp-device-pop');
+  if (!pop) return;
+  const open = pop.classList.toggle('open');
+  if (open) loadSpotifyDeviceList();
+}
+
+const SP_DEVICE_ICONS = {
+  computer:  '<path d="M4 4h16v11H4zM2 19h20v2H2zm7-2h6v2H9z"/>',
+  smartphone:'<path d="M7 2h10a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zm5 17a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/>',
+  speaker:   '<path d="M12 2a3 3 0 0 1 3 3 3 3 0 0 1-3 3 3 3 0 0 1-3-3 3 3 0 0 1 3-3zm0 9a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5zm0 3a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/>',
+  tv:        '<path d="M4 4h16v11H4zm4 13h8v2H8z"/>',
+};
+
+function loadSpotifyDeviceList() {
+  const pop = document.getElementById('sp-device-pop');
+  if (!pop) return;
+  pop.innerHTML = '<div class="sp-dev-loading">Loading…</div>';
+  api('/api/devices').then(d => {
+    const list = d?.devices || [];
+    if (!list.length) { pop.innerHTML = '<div class="sp-dev-loading">No Spotify devices found — open TemuTalk\'s Music tab on another device, or Spotify itself, to see it here</div>'; return; }
+    pop.innerHTML = list.map(dev => {
+      const icon = SP_DEVICE_ICONS[dev.type?.toLowerCase()] || SP_DEVICE_ICONS.speaker;
+      return `<div class="sp-dev-row${dev.is_active ? ' active' : ''}" data-id="${esc(dev.id)}" onclick="spotifySetDevice(this.dataset.id)">
+        <svg class="sp-dev-icon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">${icon}</svg>
+        <div class="sp-dev-info"><div class="sp-dev-name">${esc(dev.name)}</div><div class="sp-dev-sub">${dev.volume_percent != null ? dev.volume_percent + '% volume' : dev.type || ''}</div></div>
+        ${dev.is_active ? '<span class="sp-dev-check">✓</span>' : ''}
+      </div>`;
+    }).join('');
+  }).catch(() => { pop.innerHTML = '<div class="sp-dev-loading">Could not load devices</div>'; });
+}
+
+function spotifySetDevice(id) {
+  const pop = document.getElementById('sp-device-pop');
+  if (pop) pop.innerHTML = '<div class="sp-dev-loading">Switching…</div>';
+  api('/api/transfer', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ device_id: id }) })
+    .then(() => { if (pop) pop.classList.remove('open'); })
+    .catch(() => loadSpotifyDeviceList());
+}
+document.addEventListener('click', e => {
+  const pop = document.getElementById('sp-device-pop');
+  if (pop?.classList.contains('open') && !pop.contains(e.target) && !document.getElementById('sp-target-btn')?.contains(e.target))
+    pop.classList.remove('open');
+});
+
 function _playErr(e) {
   const msg = e?.error || 'Playback failed — make sure Spotify is open on a device';
   alert(msg);

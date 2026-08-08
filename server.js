@@ -207,6 +207,26 @@ router.get('/api/status', (req, res) => {
   res.json({ authenticated: !!(dev?.tokens?.access_token) });
 });
 
+// Other TemuTalk devices currently online — used by the radio "play on..."
+// picker (radio has no Connect-style protocol of its own, unlike Spotify,
+// so this is the roster of valid remote-command targets).
+router.get('/api/devices/online', (req, res) => {
+  const selfId = resolveDevice(req);
+  const list = [];
+  for (const [id, conns] of state.deviceClients) {
+    if (!conns.size || id.startsWith('ghost-')) continue;
+    list.push({
+      deviceId: id,
+      self: id === selfId,
+      name: chat.chatGetName(id),
+      avatarUrl: chat.chatGetAvatarUrl(id),
+      radio: state.radioNowPlaying.get(id) || null,
+    });
+  }
+  list.sort((a, b) => b.self - a.self);
+  res.json(list);
+});
+
 // ─── Feature routes ───────────────────────────────────────────────────────────
 setupSpotifyRoutes(router, REDIRECT_URI, MAIN_BASE);
 setupDataRoutes(router, WEATHER_CITY);
