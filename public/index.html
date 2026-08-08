@@ -474,6 +474,7 @@ let themeDotGrid      = localStorage.getItem('themeDotGrid')      || 'on';
 let themeGlassOpacity = localStorage.getItem('themeGlassOpacity') || '8';
 let themeRadiusPx     = localStorage.getItem('themeRadiusPx')     || '26';
 let themeClockPx      = localStorage.getItem('themeClockPx')      || '150';
+let themeClockWeight  = localStorage.getItem('themeClockWeight')  || '200';
 let themeClock        = localStorage.getItem('themeClock')        || '24';
 let themeFont         = localStorage.getItem('themeFont')         || 'nunito';
 let themeCustomFont   = localStorage.getItem('themeCustomFont')   || '';
@@ -620,6 +621,7 @@ function applyTheme() {
   const clk = document.querySelector('.home-time');
   const clockPx = Math.max(20, parseFloat(themeClockPx) || 150);
   if (clk) clk.style.fontSize = `clamp(${Math.round(clockPx*0.53)}px, ${(clockPx*0.08).toFixed(1)}vw, ${Math.round(clockPx)}px)`;
+  if (clk) clk.style.fontWeight = Math.max(100, Math.min(900, parseFloat(themeClockWeight) || 200));
 
   // Font
   _applyFont(themeFont, themeCustomFont);
@@ -671,6 +673,7 @@ function _setThemeBorderPct(v)    { themeBorderPct=v;    localStorage.setItem('t
 function _setThemeShadowPct(v)    { themeShadowPct=v;    localStorage.setItem('themeShadowPct',v);    applyTheme(); }
 function _setThemeRadiusPx(v)     { themeRadiusPx=v;     localStorage.setItem('themeRadiusPx',v);     applyTheme(); }
 function _setThemeClockPx(v)      { themeClockPx=v;      localStorage.setItem('themeClockPx',v);      applyTheme(); }
+function _setThemeClockWeight(v)  { themeClockWeight=v;  localStorage.setItem('themeClockWeight',v);  applyTheme(); }
 function _setThemeBgHex(hex)   { themeBgHex=hex; themeDark='custom'; localStorage.setItem('themeBgHex',hex); localStorage.setItem('themeDark','custom'); applyTheme(); renderThemePanel(); }
 function _setThemeGlassTint(v) { themeGlassTint=v; localStorage.setItem('themeGlassTint',v); applyTheme(); renderThemePanel(); }
 function _setThemeBlobMotion(v){ themeBlobMotion=v;localStorage.setItem('themeBlobMotion',v);applyTheme(); renderThemePanel(); }
@@ -683,7 +686,7 @@ function _setThemeBlobHex(i, hex) {
 function _resetTheme() {
   if (!confirm('Reset all appearance settings to defaults?')) return;
   ['themeAccent','themeAutoAccent','themeCustomHex','themeDark','themeBlobsShow','themeBlobs','themeDotGrid',
-   'themeGlassOpacity','themeRadiusPx','themeClockPx','themeClock','themeFont','themeCustomFont','themeGlow','themeNavLabels',
+   'themeGlassOpacity','themeRadiusPx','themeClockPx','themeClockWeight','themeClock','themeFont','themeCustomFont','themeGlow','themeNavLabels',
    'themeClockSec','themeBgHex','themeGlassTint','themeBorderPct','themeShadowPct','themeBlobMotion','themeBlobHexes',
    'vaTtsRate',
   ].forEach(k => localStorage.removeItem(k));
@@ -788,6 +791,7 @@ function renderThemePanel() {
       <div class="th-card">
         <div class="th-label">Clock</div>
         ${slider('Size', themeClockPx, 40, 180, 2, '_setThemeClockPx', 'px')}
+        ${slider('Thickness', themeClockWeight, 200, 900, 100, '_setThemeClockWeight')}
         <div class="th-sub-label">Format</div>
         <div class="th-pills">
           ${pill('12h',  '12', themeClock, '_setThemeClock')}
