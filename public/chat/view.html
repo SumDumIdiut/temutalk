@@ -3,10 +3,15 @@
   <!-- Login overlay — shown only when Spotify is not linked -->
   <div class="chat-login-overlay" id="chat-login-overlay">
     <div class="chat-login-box">
-      <div class="chat-login-title">Link Spotify to Chat</div>
-      <div class="chat-login-sub">Your chat name and avatar come from your Spotify account.</div>
-      <button class="chat-name-save-btn" onclick="chatHideLogin();navigate('music')">Go to Music tab →</button>
-      <div class="chat-login-note">Link Spotify there, then come back to chat.</div>
+      <div class="chat-login-title">Sign in to Chat</div>
+      <div class="chat-login-sub">Get a persistent name and avatar for chat.</div>
+      <button class="chat-name-save-btn chat-login-discord-btn" onclick="chatLoginDiscord()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M20.3 4.4A19.7 19.7 0 0 0 15.6 3c-.2.4-.5.9-.6 1.3a18.3 18.3 0 0 0-5.9 0A8.5 8.5 0 0 0 8.4 3a19.7 19.7 0 0 0-4.7 1.4C1 8.9.3 13.3.6 17.6a19.8 19.8 0 0 0 6 3c.5-.6.9-1.4 1.3-2.1-.7-.3-1.4-.6-2-1.1l.5-.4a14.2 14.2 0 0 0 12 0l.5.4c-.6.4-1.3.8-2 1.1.4.7.8 1.4 1.3 2.1a19.7 19.7 0 0 0 6-3c.4-5-.9-9.3-3.9-13.2zM9 15c-1 0-1.9-1-1.9-2.2S8 10.7 9 10.7s2 1 1.9 2.2C10.9 14 10 15 9 15zm6.9 0c-1 0-1.9-1-1.9-2.2s.9-2.2 1.9-2.2 2 1 1.9 2.2c0 1.2-.9 2.2-1.9 2.2z"/></svg>
+        Sign in with Discord
+      </button>
+      <div class="chat-login-divider"><span>or</span></div>
+      <button class="chat-name-save-btn chat-login-secondary-btn" onclick="chatHideLogin();navigate('music')">Link Spotify instead →</button>
+      <div id="chat-login-err" class="chat-modal-err"></div>
     </div>
   </div>
 

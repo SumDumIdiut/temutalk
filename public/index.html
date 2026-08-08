@@ -1120,7 +1120,17 @@ const _oauthErr = _qs.get('error');
 
 // Pre-warm music view in background so it's ready when user taps
 ensureTab('music').then(() => {
-  if (_oauthErr) {
+  if (_oauthErr && _oauthErr.startsWith('discord_')) {
+    ensureTab('chat').then(() => {
+      const msg = _oauthErr === 'discord_state_mismatch'    ? 'Auth session expired — please try again.' :
+                  _oauthErr === 'discord_not_configured'    ? 'Discord login isn\'t set up on this server yet.' :
+                  _oauthErr === 'discord_auth_failed'       ? 'Discord authorisation failed — please try again.' :
+                  'Discord auth error: ' + _oauthErr.slice(8).replace(/_/g, ' ');
+      const el = document.getElementById('chat-login-err');
+      if (el) el.textContent = msg;
+      navigate('chat');
+    });
+  } else if (_oauthErr) {
     const msg = _oauthErr === 'invalid_client'    ? 'Invalid Client ID or Redirect URI mismatch — check your Spotify app settings.' :
                 _oauthErr === 'state_mismatch'    ? 'Auth session expired — please try again.' :
                 _oauthErr === 'auth_failed'       ? 'Spotify authorisation failed — check your Client ID and Secret.' :

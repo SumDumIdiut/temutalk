@@ -72,7 +72,7 @@ function chatCheckAuth() {
       chatMyName         = profile.name;
       chatMyAvatar       = profile.avatarUrl;
       chatMyCustomAvatar = profile.customAvatarUrl || null;
-      chatMyProvider     = 'spotify';
+      chatMyProvider     = profile.provider;
       chatHideLogin();
       chatUpdateAccountRow();
       chatJoinRoom('global');
@@ -101,6 +101,11 @@ function chatHideLogin() {
   if (el) el.style.display = 'none';
 }
 window.chatHideLogin = chatHideLogin;
+
+function chatLoginDiscord() {
+  location.href = BASE_PATH + '/auth/discord?device=' + deviceId;
+}
+window.chatLoginDiscord = chatLoginDiscord;
 
 function chatUpdateAccountRow() {
   const row = chatEl('chat-account-row');
