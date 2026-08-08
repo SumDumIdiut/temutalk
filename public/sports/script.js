@@ -222,7 +222,7 @@ async function _loadEventDetail() {
   if (!sportsEventId) return;
   try {
     const { sport, league } = sportsCurLeague;
-    const r = await fetch(`/api/sports/event?sport=${encodeURIComponent(sport)}&league=${encodeURIComponent(league)}&event=${encodeURIComponent(sportsEventId)}&device=${deviceId}`);
+    const r = await fetch(`${BASE_PATH}/api/sports/event?sport=${encodeURIComponent(sport)}&league=${encodeURIComponent(league)}&event=${encodeURIComponent(sportsEventId)}&device=${deviceId}`);
     const d = await r.json();
     const comp = d.header?.competitions?.[0];
     if (comp) document.getElementById('sep-header').innerHTML = _renderSepHeader(comp, comp.status);

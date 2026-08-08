@@ -24,6 +24,9 @@
     .auth-textarea { width:100%; min-height:90px; background:var(--surface-hi); border:1px solid var(--glass-border); border-radius:8px; color:var(--text); font:12px/1.4 monospace; padding:10px 12px; resize:vertical; outline:none; box-sizing:border-box; transition:border-color .15s; }
     .auth-textarea:focus { border-color:var(--primary); }
     .auth-disconnect { background:none; border:none; color:var(--text-muted); font:inherit; font-size:12px; cursor:pointer; text-decoration:underline; padding:0; margin-top:10px; }
+
+    /* Web Playback SDK status — hidden while ready, surfaces the failure reason otherwise */
+    #browser-player-status { display:none; font-size:10px; color:var(--red); margin-left:10px; max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex-shrink:0; }
   </style>
 
   <!-- Service switcher — always visible when music tab is open -->
@@ -261,6 +264,7 @@
         <input type="range" class="vol-slider" id="fp-vol" min="0" max="100" value="50" oninput="setVolume(+this.value)">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
       </div>
+      <div id="browser-player-status" title="Web Playback SDK connection status"></div>
     </div>
   </div>
 

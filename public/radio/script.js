@@ -312,7 +312,7 @@ function _startRadioAudio(s) {
   let streamUrl = s.url_resolved || '';
   // Proxy HTTP streams through server to avoid mixed-content block on HTTPS
   if (streamUrl.startsWith('http:') && location.protocol === 'https:')
-    streamUrl = '/api/radio/proxy?url=' + encodeURIComponent(streamUrl);
+    streamUrl = BASE_PATH + '/api/radio/proxy?url=' + encodeURIComponent(streamUrl);
   radioAudio = new Audio(streamUrl);
   const vol = document.getElementById('rmap-vol');
   radioAudio.volume = vol ? vol.value / 100 : 0.8;
