@@ -231,7 +231,7 @@ router.get('/api/devices/online', (req, res) => {
 setupSpotifyRoutes(router, REDIRECT_URI, MAIN_BASE);
 setupDataRoutes(router, WEATHER_CITY);
 const { broadcastLiveList } = setupStreamRoutes(router, MAIN_BASE, BASE_PATH);
-chat.setupChatRoutes(router, resolveDevice, BASE_PATH);
+chat.setupChatRoutes(router, resolveDevice, BASE_PATH, MAIN_BASE);
 setupYtMusicRoutes(router, MAIN_BASE);
 setupAppleMusicRoutes(router);
 setupAssistantRoutes(router, resolveDevice, WEATHER_CITY);
