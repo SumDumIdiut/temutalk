@@ -7,7 +7,16 @@
       <span>Stations</span>
     </button>
     <div class="rmap-panel-hdr">
-      <span class="rmap-panel-title">Stations</span>
+      <div class="rmap-panel-hdr-top">
+        <span class="rmap-panel-title">Stations</span>
+        <div class="rmap-target-wrap">
+          <button class="rmap-target-btn" id="rmap-target-btn" onclick="toggleRadioDevicePicker(event)" title="Play on…">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            <span id="rmap-target-lbl">This device</span>
+          </button>
+          <div class="rmap-device-pop" id="rmap-device-pop"></div>
+        </div>
+      </div>
       <input class="rmap-panel-search" id="rmap-search" type="text" placeholder="Search…" oninput="filterRadioList(this.value)" autocomplete="off">
     </div>
     <div class="rmap-list" id="rmap-list"><div class="rmap-list-dim">Loading…</div></div>
@@ -24,10 +33,10 @@
     </div>
     <div class="rmap-np-vol-wrap">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="color:rgba(255,255,255,.4);flex-shrink:0;"><path d="M7 9v6h4l5 5V4l-5 5H7z"/></svg>
-      <input type="range" class="rmap-vol-slider" id="rmap-vol" min="0" max="100" value="80" oninput="setRadioVolume(+this.value)">
+      <input type="range" class="rmap-vol-slider" id="rmap-vol" min="0" max="100" value="80" oninput="radioCmdVolume(+this.value)">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="color:rgba(255,255,255,.4);flex-shrink:0;"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
     </div>
-    <button class="rmap-stop-btn" onclick="stopRadio()">
+    <button class="rmap-stop-btn" onclick="radioCmdStop()">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h12v12H6z"/></svg>
     </button>
   </div>

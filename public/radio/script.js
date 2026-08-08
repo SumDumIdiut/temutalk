@@ -13,11 +13,125 @@ let radioReconnectAttempts = 0;
 const RADIO_RECONNECT_BASE_DELAY_MS = 2000;
 const RADIO_RECONNECT_MAX_DELAY_MS = 15000;
 
+// ── Output device selection ─────────────────────────────────────────────────
+// Radio has no Connect-style protocol of its own (unlike Spotify — see
+// music/script.js's device picker, which just uses Spotify's real API).
+// "Playing on another device" here means: relay the command over the
+// existing WS to that device's own tab, which plays it locally through its
+// own <audio> element exactly as if someone tapped it there directly.
+let radioTargetId      = localStorage.getItem('radioTargetId')   || null; // null = this device
+let radioTargetName    = localStorage.getItem('radioTargetName') || '';
+let radioRemoteStation = null; // display-only mirror of what's playing on a remote target
+
+function _currentStation() { return radioTargetId ? radioRemoteStation : radioStation; }
+
+function _sendRadioRemoteCmd(targetId, action, payload) {
+  if (ws.readyState === WebSocket.OPEN)
+    ws.send(JSON.stringify({ type: 'radio-remote-cmd', targetDeviceId: targetId, action, payload: payload || {} }));
+}
+
+function radioSetTarget(id, name) {
+  if (id === deviceId) { id = null; name = ''; }
+  const prevTarget      = radioTargetId;
+  const carriedStation  = _currentStation();
+  if (prevTarget && prevTarget !== id) _sendRadioRemoteCmd(prevTarget, 'stop', {});
+  if (!prevTarget && id && radioStation) stopRadio(); // moving local playback out to a remote target
+
+  radioTargetId = id; radioTargetName = name;
+  radioRemoteStation = null;
+  if (id) { localStorage.setItem('radioTargetId', id); localStorage.setItem('radioTargetName', name); }
+  else     { localStorage.removeItem('radioTargetId'); localStorage.removeItem('radioTargetName'); }
+
+  if (id && carriedStation) radioCmdPlay(carriedStation); // carry the current station over
+  renderRadioTargetBtn();
+  document.getElementById('rmap-device-pop')?.classList.remove('open');
+}
+
+function radioCmdPlay(s) {
+  if (!radioTargetId) { playStation(s); return; }
+  radioRemoteStation = s;
+  _sendRadioRemoteCmd(radioTargetId, 'play', { station: s });
+  _renderNPBar(s, radioTargetName);
+  updateHomeRadio();
+  placeRadioMarkers();
+  renderRadioList(radioListFilter);
+}
+
+function radioCmdStop() {
+  if (!radioTargetId) { stopRadio(); return; }
+  _sendRadioRemoteCmd(radioTargetId, 'stop', {});
+  radioRemoteStation = null;
+  document.getElementById('rmap-np')?.classList.remove('vis');
+  updateHomeRadio();
+  placeRadioMarkers();
+  renderRadioList(radioListFilter);
+}
+
+function radioCmdVolume(val) {
+  if (!radioTargetId) { setRadioVolume(val); return; }
+  _sendRadioRemoteCmd(radioTargetId, 'volume', { value: val });
+  document.getElementById('rmap-vol')?.setAttribute('value', val);
+  const hv = document.getElementById('home-radio-vol');
+  if (hv) hv.value = val;
+}
+
+// This device was picked as someone else's output target — execute for real.
+function radioOnRemote(msg) {
+  if (msg.action === 'play' && msg.payload?.station) playStation(msg.payload.station);
+  else if (msg.action === 'stop') stopRadio();
+  else if (msg.action === 'volume' && typeof msg.payload?.value === 'number') setRadioVolume(msg.payload.value);
+}
+
+function renderRadioTargetBtn() {
+  const lbl = document.getElementById('rmap-target-lbl');
+  if (lbl) lbl.textContent = radioTargetId ? radioTargetName : 'This device';
+  document.getElementById('rmap-target-btn')?.classList.toggle('active', !!radioTargetId);
+}
+
+function toggleRadioDevicePicker(e) {
+  e?.stopPropagation();
+  const pop = document.getElementById('rmap-device-pop');
+  if (!pop) return;
+  const open = pop.classList.toggle('open');
+  if (open) loadRadioDeviceList();
+}
+
+function loadRadioDeviceList() {
+  const pop = document.getElementById('rmap-device-pop');
+  if (!pop) return;
+  pop.innerHTML = '<div class="rmap-dev-loading">Loading…</div>';
+  fetch(BASE_PATH + '/api/devices/online?device=' + deviceId).then(r => r.json()).then(list => {
+    const others = (Array.isArray(list) ? list : []).filter(d => d.deviceId !== deviceId);
+    const selfStation = _currentStation();
+    const rows = [
+      { deviceId, name: 'This device', avatarUrl: '', radio: selfStation ? { name: selfStation.name } : null },
+      ...others,
+    ];
+    pop.innerHTML = rows.map(d => {
+      const isSelf  = d.deviceId === deviceId;
+      const active  = isSelf ? !radioTargetId : radioTargetId === d.deviceId;
+      const label   = isSelf ? 'This device' : d.name;
+      const sub     = d.radio ? '♪ ' + esc(d.radio.name) : (isSelf ? '' : 'Idle');
+      return `<div class="rmap-dev-row${active ? ' active' : ''}" data-id="${esc(d.deviceId)}" data-name="${esc(label)}" onclick="radioSetTarget(this.dataset.id,this.dataset.name)">
+        ${d.avatarUrl ? `<img class="rmap-dev-av" src="${esc(d.avatarUrl)}" alt="">` : '<div class="rmap-dev-av rmap-dev-av-ph"></div>'}
+        <div class="rmap-dev-info"><div class="rmap-dev-name">${esc(label)}</div>${sub ? `<div class="rmap-dev-sub">${esc(sub)}</div>` : ''}</div>
+        ${active ? '<span class="rmap-dev-check">✓</span>' : ''}
+      </div>`;
+    }).join('');
+  }).catch(() => { pop.innerHTML = '<div class="rmap-dev-loading">Could not load devices</div>'; });
+}
+document.addEventListener('click', e => {
+  const pop = document.getElementById('rmap-device-pop');
+  if (pop?.classList.contains('open') && !pop.contains(e.target) && e.target.id !== 'rmap-target-btn' && !document.getElementById('rmap-target-btn')?.contains(e.target))
+    pop.classList.remove('open');
+});
+
 function toggleRadioPanel() {
   document.getElementById('rmap-panel').classList.toggle('open');
 }
 
 function initRadioMap() {
+  renderRadioTargetBtn();
   if (radioMapInited) {
     setTimeout(() => { if (radioMap) { radioMap.invalidateSize(); fitMapWidth(); } }, 60);
     setTimeout(() => { if (radioMap) fitMapWidth(); }, 400); // after the view slide-in
@@ -165,7 +279,7 @@ function addRadioMarkers(batch) {
   const layers = [];
   batch.forEach(s => {
     if (!s.geo_lat || !s.geo_long) return;
-    const playing = radioStation?.stationuuid === s.stationuuid;
+    const playing = _currentStation()?.stationuuid === s.stationuuid;
     const icon = L.divIcon({
       className: '',
       html: '<div class="rmap-dot' + (playing ? ' playing' : '') + '" style="width:9px;height:9px;"></div>',
@@ -195,7 +309,7 @@ function placeRadioMarkers() {
   const layers = [];
   radioStations.forEach(s => {
     if (!s.geo_lat || !s.geo_long) return;
-    const playing = radioStation?.stationuuid === s.stationuuid;
+    const playing = _currentStation()?.stationuuid === s.stationuuid;
     const icon = L.divIcon({
       className: '',
       html: '<div class="rmap-dot' + (playing ? ' playing' : '') + '" style="width:9px;height:9px;"></div>',
@@ -224,7 +338,7 @@ function renderRadioList(q) {
   if (!list.length) { el.innerHTML = '<div class="rmap-list-dim">No stations found</div>'; return; }
   const rows = list.slice(0, 500);
   el.innerHTML = rows.map((s, i) => {
-    const playing = radioStation?.stationuuid === s.stationuuid;
+    const playing = _currentStation()?.stationuuid === s.stationuuid;
     const meta = [s.country, s.bitrate ? s.bitrate + ' kbps' : ''].filter(Boolean).join(' · ');
     return '<div class="rmap-station-row' + (playing ? ' playing' : '') + '" data-idx="' + i + '" onclick="playStationByIdx(this)">' +
       '<img class="rmap-station-fav" src="' + esc(s.favicon || '') + '" alt="" onerror="this.onerror=null;this.src=RADIO_FALLBACK_IMG">' +
@@ -246,7 +360,7 @@ function renderRadioList(q) {
 function playStationByIdx(el) {
   const list = document.getElementById('rmap-list');
   const s = list?._rows?.[+el.dataset.idx];
-  if (s) playStation(s);
+  if (s) radioCmdPlay(s);
 }
 function setRadioVolume(val) {
   if (radioAudio) radioAudio.volume = val / 100;
@@ -257,7 +371,7 @@ function setRadioVolume(val) {
 }
 
 function buildRadioPopup(s) {
-  const playing = radioStation?.stationuuid === s.stationuuid;
+  const playing = _currentStation()?.stationuuid === s.stationuuid;
   const tags = (s.tags || '').split(',').slice(0, 4).filter(Boolean).join(' · ');
   const meta = [s.country, s.bitrate ? s.bitrate + ' kbps' : ''].filter(Boolean).join(' · ');
   return '<div class="rmap-popup">' +
@@ -277,8 +391,8 @@ function wirePopupBtn(s) {
   const btn = document.getElementById('rmap-popup-btn');
   if (!btn) return;
   btn.onclick = () => {
-    if (radioStation?.stationuuid === s.stationuuid) { stopRadio(); radioMap.closePopup(); }
-    else { playStation(s); radioMap.closePopup(); }
+    if (_currentStation()?.stationuuid === s.stationuuid) { radioCmdStop(); radioMap.closePopup(); }
+    else { radioCmdPlay(s); radioMap.closePopup(); }
   };
 }
 
@@ -291,17 +405,22 @@ function playStation(s) {
   if (ws.readyState === WebSocket.OPEN)
     ws.send(JSON.stringify({ type: 'radio-now-playing', name: s.name, url: s.url_resolved }));
   _startRadioAudio(s);
-  const np = document.getElementById('rmap-np');
-  if (np) {
-    np.classList.add('vis');
-    const fav = document.getElementById('rmap-np-favicon');
-    if (fav) { fav.src = s.favicon || RADIO_FALLBACK_IMG; fav.onerror = () => { fav.src = RADIO_FALLBACK_IMG; }; fav.style.opacity = '1'; }
-    document.getElementById('rmap-np-name').textContent = s.name;
-    document.getElementById('rmap-np-meta').textContent = [s.country, s.bitrate ? s.bitrate + ' kbps' : ''].filter(Boolean).join(' · ');
-  }
+  _renderNPBar(s, null);
   updateHomeRadio();
   placeRadioMarkers();
   renderRadioList(radioListFilter);
+}
+
+function _renderNPBar(s, viaName) {
+  const np = document.getElementById('rmap-np');
+  if (!np) return;
+  np.classList.add('vis');
+  np.classList.toggle('remote', !!viaName);
+  const fav = document.getElementById('rmap-np-favicon');
+  if (fav) { fav.src = s.favicon || RADIO_FALLBACK_IMG; fav.onerror = () => { fav.src = RADIO_FALLBACK_IMG; }; fav.style.opacity = '1'; }
+  document.getElementById('rmap-np-name').textContent = s.name;
+  const meta = [s.country, s.bitrate ? s.bitrate + ' kbps' : ''].filter(Boolean).join(' · ');
+  document.getElementById('rmap-np-meta').textContent = viaName ? (meta ? meta + ' · ' : '') + 'on ' + viaName : meta;
 }
 
 // Builds and plays the actual Audio element -- split out from playStation()
