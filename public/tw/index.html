@@ -127,8 +127,12 @@
 
       <!-- Mini weather (auto-located, not editable) -->
       <div class="home-mini-card home-mini-wx" id="home-wx-card" onclick="navigate('weather')" style="cursor:pointer;">
+        <div class="home-mini-wx-hdr">
+          <span class="home-mini-wx-lbl">Weather</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="color:var(--text-muted);flex-shrink:0;"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg>
+        </div>
         <div id="home-wx-display" style="width:100%;">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <div class="home-mini-wx-main">
             <span class="home-mini-wx-icon" id="w-icon">⛅</span>
             <span class="home-mini-wx-temp" id="w-temp">--°</span>
           </div>
@@ -203,17 +207,6 @@
       </div>
     </div>
 
-  </div>
-
-  <!-- Hidden elements referenced by JS but not shown on this layout -->
-  <div style="display:none;">
-    <div id="home-np-album"></div>
-    <span id="home-np-vol-placeholder"></span>
-    <div id="home-sw-display"></div>
-    <div id="home-sw-label"></div>
-    <div id="home-active-timers"></div>
-    <div id="home-markets-card"></div>
-    <div id="home-coins"></div>
   </div>
 
 </div>
@@ -383,9 +376,9 @@ async function navigate(tab) {
   // Lazy-load tabs on first visit
   if (tab === 'weather' && !wxLoaded) {
     wxLoaded = true;
-    const q = wxLocQuery || wxCity; // device location first, then last manual search
-    if (q) loadWx(q);
-    else fetch(BASE_PATH + '/api/config?device=' + deviceId).then(r => r.json()).then(c => { if (c.weatherCity) loadWx(c.weatherCity); else showWxError('No city set (WEATHER_CITY in .env)'); }).catch(() => showWxError('Could not load config'));
+    const q = wxResolveQuery();
+    if (q) { loadWx(q); wxUpdateCityBarVisibility(); }
+    else { wxGeoDenied = true; wxUpdateCityBarVisibility(); showWxError('Search for a city below, or allow location access.'); }
   }
   if (tab === 'music')   { if (typeof loadMusicHome === 'function') loadMusicHome(); }
   if (tab === 'timer')   initTimerView();
@@ -882,12 +875,47 @@ tick(); setInterval(tick, 1000);
 const WX_MAP = {113:'☀️',116:'⛅',119:'☁️',122:'☁️',143:'🌫️',176:'🌦️',185:'🌨️',200:'⛈️',227:'🌨️',230:'❄️',248:'🌫️',260:'🌫️',263:'🌦️',266:'🌦️',281:'🌧️',284:'🌧️',293:'🌦️',296:'🌦️',299:'🌧️',302:'🌧️',305:'🌧️',308:'🌧️',311:'🌨️',314:'🌨️',317:'🌨️',320:'🌨️',323:'❄️',326:'❄️',329:'❄️',332:'❄️',335:'❄️',338:'❄️',350:'🌨️',353:'🌦️',356:'🌧️',359:'🌧️',362:'🌨️',365:'🌨️',368:'❄️',371:'❄️',374:'🌨️',377:'🌨️',386:'⛈️',389:'⛈️',392:'⛈️',395:'⛈️'};
 function wxEmoji(code) { return WX_MAP[+code] || '🌤️'; }
 
-// ── Home weather widget (device geolocation; falls back to server city) ───
-let wxCity     = localStorage.getItem('wxCity')   || ''; // weather-tab manual searches only
-let wxLocQuery = localStorage.getItem('wxCoords') || ''; // "lat,long" from geolocation
+// ── Weather: shared state for the home widget + Weather tab ────────────────
+// These used to be two independent fetch/render pipelines that never told
+// each other about changes -- a manual search on the Weather tab never
+// reached the home widget, and if the tab had already been visited before
+// geolocation resolved, it never picked up the real location either. Now
+// there's one query resolver and one refresh function; anything that
+// changes the query (geolocation resolving, a manual search) calls
+// wxRefreshAll() so both surfaces always agree.
+let wxCity        = localStorage.getItem('wxCity')   || ''; // last manual search (Weather tab fallback)
+let wxLocQuery    = localStorage.getItem('wxCoords') || ''; // "lat,long" from geolocation
+let wxServerCity  = '';
 let wxLoadedQuery = '';
+let wxGeoDenied   = false; // geolocation unavailable/denied -- only then does manual search matter
 
-function homeWxLoad(query, displayFallback) {
+// Geolocation always wins when available; manual search is just the
+// fallback for when it isn't (denied, unsupported, or not yet resolved).
+function wxResolveQuery() { return wxLocQuery || wxCity || wxServerCity; }
+
+function wxRefreshAll() {
+  const q = wxResolveQuery();
+  if (!q) return;
+  homeWxLoad(q);
+  if (typeof wxLoaded !== 'undefined' && wxLoaded && typeof loadWx === 'function') loadWx(q);
+}
+
+// Called by the Weather tab's search box (see weather/script.js).
+function wxSetManualCity(city) {
+  wxCity = city;
+  localStorage.setItem('wxCity', city);
+  wxRefreshAll();
+}
+
+// The city search bar only makes sense once we know we can't auto-locate --
+// otherwise geolocation would just override it anyway. Guarded because the
+// Weather tab (and its search bar) may not be loaded yet.
+function wxUpdateCityBarVisibility() {
+  const bar = document.getElementById('wx-city-bar');
+  if (bar) bar.style.display = wxGeoDenied ? 'flex' : 'none';
+}
+
+function homeWxLoad(query) {
   if (!query || query === wxLoadedQuery) return;
   wxLoadedQuery = query;
   fetch(BASE_PATH + '/api/weather?city=' + encodeURIComponent(query))
@@ -896,7 +924,7 @@ function homeWxLoad(query, displayFallback) {
       const c = d.current_condition[0];
       document.getElementById('w-temp').textContent = c.temp_C + '°';
       document.getElementById('w-desc').textContent = c.weatherDesc[0].value;
-      document.getElementById('w-city').textContent = d.nearest_area?.[0]?.areaName?.[0]?.value || displayFallback || '';
+      document.getElementById('w-city').textContent = d.nearest_area?.[0]?.areaName?.[0]?.value || query;
       document.getElementById('w-icon').textContent = wxEmoji(c.weatherCode);
       const wxCard = document.getElementById('home-wx-card');
       if (wxCard) {
@@ -912,22 +940,25 @@ function homeWxLoad(query, displayFallback) {
 }
 
 function wxRequestLocation() {
-  if (!navigator.geolocation) return;
+  if (!navigator.geolocation) { wxGeoDenied = true; wxUpdateCityBarVisibility(); return; }
   navigator.geolocation.getCurrentPosition(pos => {
     const q = pos.coords.latitude.toFixed(4) + ',' + pos.coords.longitude.toFixed(4);
     wxLocQuery = q;
     localStorage.setItem('wxCoords', q);
-    homeWxLoad(q);
-  }, () => {}, { timeout: 10000, maximumAge: 10 * 60 * 1000 });
+    wxGeoDenied = false;
+    wxUpdateCityBarVisibility();
+    wxRefreshAll();
+  }, () => { wxGeoDenied = true; wxUpdateCityBarVisibility(); }, { timeout: 10000, maximumAge: 10 * 60 * 1000 });
 }
 
 fetch(BASE_PATH + '/api/config?device=' + deviceId)
   .then(r => r.json())
   .then(cfg => {
-    // Paint immediately from cached coords or the server's default city,
+    wxServerCity = cfg.weatherCity || '';
+    // Paint immediately from cached coords/last search/server default,
     // then refine with a fresh geolocation fix.
-    if (wxLocQuery) homeWxLoad(wxLocQuery);
-    else if (cfg.weatherCity) homeWxLoad(cfg.weatherCity, cfg.weatherCity);
+    const q = wxResolveQuery();
+    if (q) homeWxLoad(q);
     else document.getElementById('w-desc').textContent = 'Locating…';
     wxRequestLocation();
   })
@@ -951,33 +982,6 @@ let viewStack = [], vplUri = '', varUri = '', valbUri = '', allPlaylists = [];
 
 // ── Home snippets ─────────────────────────────────────────────────────────
 function loadHomeSnippets() {
-  // Markets — 6 coins
-  fetch(BASE_PATH + '/api/crypto?ids=bitcoin,ethereum,solana,binancecoin,ripple,cardano&device=' + deviceId)
-    .then(r => r.json()).then(data => {
-      const el = document.getElementById('home-coins');
-      if (!el || !Array.isArray(data)) return;
-      const coins = data.slice(0, 6);
-      el.innerHTML = coins.map(c => {
-        const chg = c.price_change_percentage_24h || 0;
-        const up  = chg >= 0;
-        const p   = c.current_price >= 1000
-          ? '$' + c.current_price.toLocaleString(undefined, {maximumFractionDigits: 0})
-          : '$' + c.current_price.toLocaleString(undefined, {maximumFractionDigits: 4});
-        return '<div class="home-coin-row">' +
-          '<span class="home-coin-sym">' + esc(c.symbol.toUpperCase()) + '</span>' +
-          '<span class="home-coin-price">' + p + '</span>' +
-          '<span class="home-coin-chg ' + (up ? 'up' : 'down') + '">' + (up ? '+' : '') + chg.toFixed(2) + '%</span>' +
-          '</div>';
-      }).join('');
-      const mktCard = document.getElementById('home-markets-card');
-      if (mktCard && coins.length) {
-        const avgChg = coins.reduce((s, c) => s + (c.price_change_percentage_24h || 0), 0) / coins.length;
-        mktCard.classList.remove('mkt-up','mkt-down');
-        mktCard.classList.add(avgChg >= 0 ? 'mkt-up' : 'mkt-down');
-      }
-    }).catch(() => { const el = document.getElementById('home-coins'); if (el) el.innerHTML = '<div class="home-snip-dim">Unavailable</div>'; });
-
-  // Recently played music
   fetch(BASE_PATH + '/api/recently-played?device=' + deviceId)
     .then(r => r.json()).then(data => {
       const el = document.getElementById('home-recent-tracks');
@@ -985,7 +989,12 @@ function loadHomeSnippets() {
       const items = (data.items || [])
         .filter((v, i, a) => a.findIndex(x => x.track?.id === v.track?.id) === i)
         .slice(0, 4);
-      if (!items.length) { el.innerHTML = '<div style="font-size:12px;color:var(--text-muted);padding:4px 0;">Nothing played recently</div>'; return; }
+      if (!items.length) {
+        el.innerHTML = '<div class="home-mini-empty">' +
+          '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>' +
+          '<span>Nothing played recently</span></div>';
+        return;
+      }
       el.innerHTML = items.slice(0, 3).map(item => {
         const t = item.track || {};
         const name   = t.name || '—';

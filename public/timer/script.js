@@ -31,10 +31,6 @@ function swRender() {
   const d = t % 100, s = Math.floor(t/1000) % 60, m = Math.floor(t/60000) % 60, h = Math.floor(t/3600000);
   const str = (h ? h + ':' + String(m).padStart(2,'0') : String(m).padStart(2,'0')) + ':' + String(s).padStart(2,'0');
   el.innerHTML = str + '<span style="font-size:32px;letter-spacing:0;">.' + String(Math.floor(d/10)) + '</span>';
-  const hEl = document.getElementById('home-sw-display');
-  const hLbl = document.getElementById('home-sw-label');
-  if (hEl) hEl.textContent = str;
-  if (hLbl) hLbl.textContent = swRunning ? 'Running' : (swElapsed > 0 ? 'Paused' : 'Stopwatch ready');
   if (swRunning) swRaf = requestAnimationFrame(swRender);
 }
 function swToggle() {
@@ -48,8 +44,6 @@ function swReset() {
   btn.textContent = 'Start'; btn.classList.add('go'); btn.style.background=''; btn.style.color='';
   document.getElementById('sw-display').innerHTML = '00:00<span style="font-size:32px;letter-spacing:0;">.0</span>';
   document.getElementById('sw-laps').innerHTML = '';
-  const hEl = document.getElementById('home-sw-display'); if (hEl) hEl.textContent = '00:00';
-  const hLbl = document.getElementById('home-sw-label'); if (hLbl) hLbl.textContent = 'Stopwatch ready';
 }
 function swLap() {
   if (!swRunning) return;
