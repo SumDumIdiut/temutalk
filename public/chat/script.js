@@ -10,7 +10,6 @@ let chatMyAvatar       = null;
 let chatMyCustomAvatar = null;
 let chatMyProvider     = null;
 let _avUploading       = false;
-const chatGroupMap   = {};   // id → { id, name }
 const chatRoomUnread = {};   // room → count
 const chatRoomMsgs   = {};   // room → [msg, ...]
 const chatFriendMap  = {};   // uid → { id, name, avatarUrl }
@@ -148,7 +147,6 @@ function chatUpdateAnnouncementBar() {
 // ── Room ──────────────────────────────────────────────────────────────────────
 function chatRoomLabel(room) {
   if (room === 'global') return 'Global';
-  if (room.startsWith('group:')) return chatGroupMap[room]?.name || 'Group';
   if (room.startsWith('dm:')) {
     if (chatDMInfo[room]) return chatDMInfo[room].name;
     const otherId = room.slice(3).split(':').find(id => id !== deviceId);
@@ -180,20 +178,6 @@ window.chatOpenRoom = chatOpenRoom;
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 function chatRenderSidebar() {
   if (!_chatReady) return;
-
-  // Groups
-  const groupEl = chatEl('chat-groups-list');
-  if (groupEl) {
-    const groups = Object.values(chatGroupMap);
-    groupEl.innerHTML = groups.map(g => {
-      const u = chatRoomUnread[g.id] || 0;
-      return `<div class="chat-room-item${g.id === chatRoom ? ' active' : ''}" data-room="${g.id}" onclick="chatOpenRoom('${g.id}')">
-        <div class="chat-room-icon" style="font-size:14px">#</div>
-        <div class="chat-room-name">${esc(g.name)}</div>
-        ${u ? `<div class="chat-room-badge">${u}</div>` : ''}
-      </div>`;
-    }).join('');
-  }
 
   // Global unread badge
   const gu = chatRoomUnread['global'] || 0;
@@ -745,11 +729,6 @@ window.chatOnMessage = function (m) {
     chatUpdateAccountRow();
     return;
   }
-  if (m.type === 'chat:group-created') {
-    chatGroupMap[m.group.id] = m.group;
-    chatRenderSidebar();
-    return;
-  }
   if (m.type === 'chat:friends-list') {
     for (const f of (m.friends || [])) chatFriendMap[f.id] = f;
     chatRenderSidebar();
@@ -795,124 +774,6 @@ window.chatOnMessage = function (m) {
   }
 };
 
-
-function chatShowGroupMenu() {
-  const m = document.createElement('div');
-  m.className = 'chat-modal-overlay';
-  m.id = 'chat-group-modal';
-  m.innerHTML = `<div class="chat-modal">
-    <h3>Groups</h3>
-    <div style="display:flex;gap:8px">
-      <button class="chat-modal-btn chat-modal-btn-primary" style="font-size:.78rem" onclick="chatShowCreateGroup()">+ Create</button>
-      <button class="chat-modal-btn chat-modal-btn-cancel" style="font-size:.78rem" onclick="chatShowJoinGroup()">Join by ID</button>
-    </div>
-    <div id="group-list-area"><div style="font-size:.78rem;color:#8b93a3">Loading…</div></div>
-    <button class="chat-modal-btn chat-modal-btn-cancel" onclick="this.closest('.chat-modal-overlay').remove()">Close</button>
-  </div>`;
-  document.body.appendChild(m);
-  fetch(BASE_PATH + '/api/chat/groups?device=' + deviceId).then(r => r.json()).then(d => {
-    const el = document.getElementById('group-list-area');
-    if (!el) return;
-    if (!d.groups?.length) { el.innerHTML = '<div style="font-size:.76rem;color:#556">No groups yet. Create one!</div>'; return; }
-    el.innerHTML = '<div class="chat-group-list">' + d.groups.map(g =>
-      `<div class="chat-group-row" onclick="chatJoinGroupFromList('${g.id}','${esc(g.name)}')">
-        <div class="chat-group-row-name">${esc(g.name)}</div>
-        <div class="chat-group-row-count">${g.memberCount} member${g.memberCount !== 1 ? 's' : ''}</div>
-        ${g.hasCall ? '<span style="font-size:.72rem;color:#3ddc84">📞</span>' : ''}
-      </div>`).join('') + '</div>';
-  }).catch(() => {});
-}
-window.chatShowGroupMenu = chatShowGroupMenu;
-
-function chatShowCreateGroup() {
-  document.getElementById('chat-group-modal')?.remove();
-  const m = document.createElement('div');
-  m.className = 'chat-modal-overlay';
-  m.innerHTML = `<div class="chat-modal">
-    <h3>Create Group</h3>
-    <input class="chat-modal-inp" id="cg-name" placeholder="Group name…" maxlength="50"
-      onkeydown="if(event.key==='Enter')document.getElementById('cg-pass').focus()">
-    <input class="chat-modal-inp" id="cg-pass" type="password" placeholder="Password (share with members)…"
-      onkeydown="if(event.key==='Enter')chatCreateGroup()">
-    <div class="chat-modal-err" id="cg-err"></div>
-    <div class="chat-modal-row">
-      <button class="chat-modal-btn chat-modal-btn-cancel" onclick="this.closest('.chat-modal-overlay').remove()">Cancel</button>
-      <button class="chat-modal-btn chat-modal-btn-primary" onclick="chatCreateGroup()">Create</button>
-    </div>
-  </div>`;
-  document.body.appendChild(m);
-  m.querySelector('#cg-name').focus();
-}
-window.chatShowCreateGroup = chatShowCreateGroup;
-
-function chatCreateGroup() {
-  const name = (document.getElementById('cg-name')?.value || '').trim();
-  const password = (document.getElementById('cg-pass')?.value || '').trim();
-  const errEl = document.getElementById('cg-err');
-  if (!name || !password) { if (errEl) errEl.textContent = 'Name and password required'; return; }
-  ws.send(JSON.stringify({ type: 'chat:group-create', name, password }));
-  document.querySelector('.chat-modal-overlay')?.remove();
-}
-window.chatCreateGroup = chatCreateGroup;
-
-function chatShowJoinGroup() {
-  document.getElementById('chat-group-modal')?.remove();
-  const m = document.createElement('div');
-  m.className = 'chat-modal-overlay';
-  m.innerHTML = `<div class="chat-modal">
-    <h3>Join Group by ID</h3>
-    <input class="chat-modal-inp" id="jg-id" placeholder="Group ID…"
-      onkeydown="if(event.key==='Enter')document.getElementById('jg-pass').focus()">
-    <input class="chat-modal-inp" id="jg-pass" type="password" placeholder="Password…"
-      onkeydown="if(event.key==='Enter')chatDoJoinGroup()">
-    <div class="chat-modal-err" id="jg-err"></div>
-    <div class="chat-modal-row">
-      <button class="chat-modal-btn chat-modal-btn-cancel" onclick="this.closest('.chat-modal-overlay').remove()">Cancel</button>
-      <button class="chat-modal-btn chat-modal-btn-primary" onclick="chatDoJoinGroup()">Join</button>
-    </div>
-  </div>`;
-  document.body.appendChild(m);
-  m.querySelector('#jg-id').focus();
-}
-window.chatShowJoinGroup = chatShowJoinGroup;
-
-function chatJoinGroupFromList(groupId, name) {
-  document.querySelector('.chat-modal-overlay')?.remove();
-  const m = document.createElement('div');
-  m.className = 'chat-modal-overlay';
-  m.innerHTML = `<div class="chat-modal">
-    <h3>Join "${esc(name)}"</h3>
-    <input class="chat-modal-inp" id="jg-pass2" type="password" placeholder="Password…"
-      onkeydown="if(event.key==='Enter')chatDoJoinGroup2('${groupId}')">
-    <div class="chat-modal-err" id="jg-err2"></div>
-    <div class="chat-modal-row">
-      <button class="chat-modal-btn chat-modal-btn-cancel" onclick="this.closest('.chat-modal-overlay').remove()">Cancel</button>
-      <button class="chat-modal-btn chat-modal-btn-primary" onclick="chatDoJoinGroup2('${groupId}')">Join</button>
-    </div>
-  </div>`;
-  document.body.appendChild(m);
-  m.querySelector('#jg-pass2').focus();
-}
-window.chatJoinGroupFromList = chatJoinGroupFromList;
-
-function chatDoJoinGroup() {
-  const groupId  = (document.getElementById('jg-id')?.value || '').trim();
-  const password = (document.getElementById('jg-pass')?.value || '').trim();
-  const errEl = document.getElementById('jg-err');
-  if (!groupId || !password) { if (errEl) errEl.textContent = 'ID and password required'; return; }
-  ws.send(JSON.stringify({ type: 'chat:group-join', groupId, password }));
-  document.querySelector('.chat-modal-overlay')?.remove();
-}
-window.chatDoJoinGroup = chatDoJoinGroup;
-
-function chatDoJoinGroup2(groupId) {
-  const password = (document.getElementById('jg-pass2')?.value || '').trim();
-  const errEl = document.getElementById('jg-err2');
-  if (!password) { if (errEl) errEl.textContent = 'Password required'; return; }
-  ws.send(JSON.stringify({ type: 'chat:group-join', groupId, password }));
-  document.querySelector('.chat-modal-overlay')?.remove();
-}
-window.chatDoJoinGroup2 = chatDoJoinGroup2;
 
 // ── Calls (WebRTC) ────────────────────────────────────────────────────────────
 function chatUpdateCallBar() {
