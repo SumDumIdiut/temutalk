@@ -9,6 +9,7 @@ let chatMyName         = '';
 let chatMyAvatar       = null;
 let chatMyCustomAvatar = null;
 let chatMyProvider     = null;
+let chatMyAccountKey   = null; // chatAccounts key (e.g. 'discord:123') — used only to check server ownership
 let _avUploading       = false;
 const chatRoomUnread = {};   // room → count
 const chatRoomMsgs   = {};   // room → [msg, ...]
@@ -75,6 +76,7 @@ function chatCheckAuth() {
       chatMyAvatar       = profile.avatarUrl;
       chatMyCustomAvatar = profile.customAvatarUrl || null;
       chatMyProvider     = profile.provider;
+      chatMyAccountKey   = profile.providerId || null;
       chatHideLogin();
       chatUpdateAccountRow();
       chatJoinRoom('global');
@@ -239,6 +241,8 @@ function chatSwitchToServer(serverId) {
   if (serverEl) serverEl.style.display = '';
   const nameLbl = chatEl('chat-server-name-label');
   if (nameLbl) nameLbl.textContent = server.name;
+  const settingsBtn = chatEl('chat-server-settings-btn');
+  if (settingsBtn) settingsBtn.style.display = (server.ownerId === chatMyAccountKey) ? '' : 'none';
   chatRenderChannelList();
   chatRenderServerRail();
   chatMemberList = [];
@@ -298,6 +302,123 @@ function chatRenderMemberList() {
   }
   inner.innerHTML = html;
 }
+
+// ── Server settings (owner-only: create roles/channels, assign roles) ────────
+function chatOpenServerSettings() {
+  const server = chatServerMap[chatActiveServerId];
+  if (!server || server.ownerId !== chatMyAccountKey) return;
+  document.getElementById('chat-server-settings-overlay')?.remove();
+  const overlay = document.createElement('div');
+  overlay.className = 'chat-settings-overlay';
+  overlay.id = 'chat-server-settings-overlay';
+  overlay.innerHTML = `
+    <div class="chat-settings-backdrop" onclick="this.closest('.chat-settings-overlay').remove()"></div>
+    <div class="chat-settings-box chat-server-settings-box">
+      <div class="chat-settings-title">${esc(server.name)} — Server Settings</div>
+
+      <label class="chat-settings-label">Roles</label>
+      <div id="css-roles-list" class="chat-settings-list"></div>
+      <div class="chat-settings-inline-form">
+        <input class="chat-settings-input" id="css-role-name" maxlength="30" placeholder="New role name…" style="flex:1"
+          onkeydown="if(event.key==='Enter')chatCreateRole()">
+        <input type="color" id="css-role-color" value="#99aab5" class="chat-color-input" title="Role color">
+        <button class="chat-card-btn chat-card-btn-primary" style="width:auto;font-size:.75rem;padding:8px 14px" onclick="chatCreateRole()">Add</button>
+      </div>
+      <div class="chat-modal-err" id="css-role-err"></div>
+
+      <label class="chat-settings-label" style="margin-top:16px">Channels</label>
+      <div id="css-channels-list" class="chat-settings-list"></div>
+      <div class="chat-settings-inline-form">
+        <input class="chat-settings-input" id="css-channel-name" maxlength="50" placeholder="New channel name…" style="flex:1"
+          onkeydown="if(event.key==='Enter')chatCreateChannel()">
+        <select id="css-channel-type" class="chat-settings-select">
+          <option value="text"># Text</option>
+          <option value="voice">🔊 Voice</option>
+        </select>
+        <button class="chat-card-btn chat-card-btn-primary" style="width:auto;font-size:.75rem;padding:8px 14px" onclick="chatCreateChannel()">Add</button>
+      </div>
+      <div class="chat-modal-err" id="css-channel-err"></div>
+
+      <label class="chat-settings-label" style="margin-top:16px">Members</label>
+      <div id="css-members-list" class="chat-settings-list"></div>
+
+      <div class="chat-settings-actions">
+        <button class="chat-card-btn" onclick="this.closest('.chat-settings-overlay').remove()">Close</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  chatRenderServerSettingsPanels();
+  setTimeout(() => document.getElementById('css-role-name')?.focus(), 50);
+}
+window.chatOpenServerSettings = chatOpenServerSettings;
+
+// Called after creation/role-assign responses land, so an already-open panel
+// reflects the change immediately instead of only on next open. No-ops
+// harmlessly when the panel isn't open.
+function chatRenderServerSettingsPanels() {
+  const overlay = document.getElementById('chat-server-settings-overlay');
+  const server = chatServerMap[chatActiveServerId];
+  if (!overlay || !server) return;
+
+  const rolesEl = overlay.querySelector('#css-roles-list');
+  if (rolesEl) {
+    rolesEl.innerHTML = server.roles.map(r =>
+      `<div class="chat-settings-row"><span class="chat-role-pill" style="background:${esc(r.color)}22;color:${esc(r.color)};border:1px solid ${esc(r.color)}55">${esc(r.name)}</span></div>`
+    ).join('') || '<div class="chat-settings-hint">No roles yet</div>';
+  }
+
+  const channelsEl = overlay.querySelector('#css-channels-list');
+  if (channelsEl) {
+    channelsEl.innerHTML = server.channels.map(c =>
+      `<div class="chat-settings-row"><span>${c.type === 'voice' ? '🔊' : '#'} ${esc(c.name)}</span></div>`
+    ).join('') || '<div class="chat-settings-hint">No channels yet</div>';
+  }
+
+  const membersEl = overlay.querySelector('#css-members-list');
+  if (membersEl) {
+    membersEl.innerHTML = chatMemberList.map(m => {
+      const memberRoles = m.roles || [];
+      const chips = server.roles.map(r => {
+        const active = memberRoles.includes(r.id);
+        const style = active ? `background:${esc(r.color)};color:#fff;border-color:${esc(r.color)}` : `color:${esc(r.color)};border-color:${esc(r.color)}55`;
+        return `<span class="chat-role-chip" style="${style}" onclick="chatToggleMemberRole('${esc(m.accountKey)}','${esc(r.id)}')">${esc(r.name)}</span>`;
+      }).join('');
+      return `<div class="chat-settings-row chat-settings-member-row">
+        <span class="chat-settings-member-name">${esc(m.name)}</span>
+        <div class="chat-settings-role-chips">${chips || '<span class="chat-settings-hint">No roles created yet</span>'}</div>
+      </div>`;
+    }).join('') || '<div class="chat-settings-hint">No members</div>';
+  }
+}
+
+function chatCreateRole() {
+  const nameInp = document.getElementById('css-role-name');
+  const colorInp = document.getElementById('css-role-color');
+  const errEl = document.getElementById('css-role-err');
+  const name = (nameInp?.value || '').trim();
+  if (errEl) errEl.textContent = '';
+  if (!name) { if (errEl) errEl.textContent = 'Name required'; return; }
+  if (wsReady) ws.send(JSON.stringify({ type: 'chat:role-create', serverId: chatActiveServerId, name, color: colorInp?.value || '#99aab5' }));
+  if (nameInp) nameInp.value = '';
+}
+window.chatCreateRole = chatCreateRole;
+
+function chatCreateChannel() {
+  const nameInp = document.getElementById('css-channel-name');
+  const typeInp = document.getElementById('css-channel-type');
+  const errEl = document.getElementById('css-channel-err');
+  const name = (nameInp?.value || '').trim();
+  if (errEl) errEl.textContent = '';
+  if (!name) { if (errEl) errEl.textContent = 'Name required'; return; }
+  if (wsReady) ws.send(JSON.stringify({ type: 'chat:channel-create', serverId: chatActiveServerId, name, channelType: typeInp?.value || 'text' }));
+  if (nameInp) nameInp.value = '';
+}
+window.chatCreateChannel = chatCreateChannel;
+
+function chatToggleMemberRole(accountKey, roleId) {
+  if (wsReady) ws.send(JSON.stringify({ type: 'chat:role-assign', serverId: chatActiveServerId, targetAccountKey: accountKey, roleId }));
+}
+window.chatToggleMemberRole = chatToggleMemberRole;
 
 function chatLeaveCurrentServer() {
   if (!chatActiveServerId) return;
@@ -939,13 +1060,14 @@ window.chatOnMessage = function (m) {
     chatMyAvatar       = m.avatarUrl;
     chatMyCustomAvatar = m.customAvatarUrl || null;
     chatMyProvider     = m.provider;
+    chatMyAccountKey   = m.providerId || null;
     chatHideLogin();
     chatUpdateAccountRow();
     if (!chatRoomMsgs['global']) chatJoinRoom('global');
     return;
   }
   if (m.type === 'chat:logged-out') {
-    chatMyName = ''; chatMyAvatar = null; chatMyCustomAvatar = null; chatMyProvider = null;
+    chatMyName = ''; chatMyAvatar = null; chatMyCustomAvatar = null; chatMyProvider = null; chatMyAccountKey = null;
     chatCloseSettings();
     chatUpdateAccountRow();
     chatShowLogin();
@@ -996,24 +1118,26 @@ window.chatOnMessage = function (m) {
     const server = chatServerMap[m.serverId];
     if (server) {
       server.channels.push(m.channel);
-      if (chatActiveServerId === m.serverId) chatRenderChannelList();
+      if (chatActiveServerId === m.serverId) { chatRenderChannelList(); chatRenderServerSettingsPanels(); }
     }
     return;
   }
   if (m.type === 'chat:role-created') {
     chatServerMap[m.serverId]?.roles.push(m.role);
+    if (m.serverId === chatActiveServerId) chatRenderServerSettingsPanels();
     return;
   }
   // chat:members/chat:member-join both carry a full roster snapshot (not a
   // delta) — only chat:member-leave is delta-shaped (just the departing accountKey).
   if (m.type === 'chat:members' || m.type === 'chat:member-join') {
-    if (m.serverId === chatActiveServerId) { chatMemberList = m.members || []; chatRenderMemberList(); }
+    if (m.serverId === chatActiveServerId) { chatMemberList = m.members || []; chatRenderMemberList(); chatRenderServerSettingsPanels(); }
     return;
   }
   if (m.type === 'chat:member-leave') {
     if (m.serverId === chatActiveServerId) {
       chatMemberList = chatMemberList.filter(x => x.accountKey !== m.accountKey);
       chatRenderMemberList();
+      chatRenderServerSettingsPanels();
     }
     return;
   }
@@ -1030,7 +1154,7 @@ window.chatOnMessage = function (m) {
     return;
   }
   if (m.type === 'chat:error') {
-    const errEl = document.querySelector('#cs-err,#js-err,#af-err,#chat-login-err');
+    const errEl = document.querySelector('#cs-err,#js-err,#af-err,#chat-login-err,#css-role-err,#css-channel-err');
     if (errEl) errEl.textContent = m.error;
     return;
   }
