@@ -18,6 +18,7 @@ const chatPendingOut = new Set(); // uids I've sent requests to
 const chatDMInfo     = {};   // dmRoomId → { uid, name, avatarUrl }
 const chatServerMap  = {};   // serverId → server summary (from chat:my-servers/server-created/server-joined)
 let chatActiveServerId = null; // null = Home mode (Global/DMs); else viewing that server's channels
+let chatMemberList = []; // roster of the currently-open channel's server (server mode only)
 
 // Call state
 let chatInCall      = false;
@@ -240,6 +241,8 @@ function chatSwitchToServer(serverId) {
   if (nameLbl) nameLbl.textContent = server.name;
   chatRenderChannelList();
   chatRenderServerRail();
+  chatMemberList = [];
+  chatRenderMemberList();
   chatOpenRoom(`channel:${serverId}:${server.defaultChannelId}`);
 }
 window.chatSwitchToServer = chatSwitchToServer;
@@ -249,10 +252,52 @@ function chatGoHome() {
   const homeEl = chatEl('chat-home-content'), serverEl = chatEl('chat-server-content');
   if (homeEl) homeEl.style.display = '';
   if (serverEl) serverEl.style.display = 'none';
+  chatMemberList = [];
+  chatRenderMemberList();
   chatRenderServerRail();
   chatOpenRoom('global');
 }
 window.chatGoHome = chatGoHome;
+
+// Grouped by role (first-matching role only, since roles are cosmetic/unordered-priority
+// in v1 — no permission hierarchy to sort by), unroled members in a plain "Members" bucket.
+// Degrades to a single flat bucket when the server has no roles yet.
+function chatRenderMemberList() {
+  const panel = chatEl('chat-member-list');
+  if (!panel) return;
+  if (!chatActiveServerId || !chatMemberList.length) { panel.style.display = 'none'; return; }
+  panel.style.display = '';
+  const inner = chatEl('chat-member-list-inner');
+  if (!inner) return;
+  const server = chatServerMap[chatActiveServerId];
+  const roles = server?.roles || [];
+  const groups = roles.map(r => ({ role: r, members: [] }));
+  const none = [];
+  for (const m of chatMemberList) {
+    const roleId = (m.roles || [])[0];
+    const grp = roleId && groups.find(g => g.role.id === roleId);
+    if (grp) grp.members.push(m); else none.push(m);
+  }
+  const sortMembers = arr => [...arr].sort((a, b) => (b.online - a.online) || (a.name || '').localeCompare(b.name || ''));
+  const memberRow = (m, color) => `<div class="chat-member-item${m.online ? '' : ' offline'}">
+    <div class="chat-member-avatar">
+      ${m.avatarUrl ? `<img src="${esc(m.avatarUrl)}" alt="">` : esc((m.name || '?').slice(0, 2).toUpperCase())}
+      <div class="chat-member-status-dot"></div>
+    </div>
+    <div class="chat-member-name"${color ? ` style="color:${esc(color)}"` : ''}>${esc(m.name)}</div>
+  </div>`;
+  let html = '';
+  for (const g of groups) {
+    if (!g.members.length) continue;
+    html += `<div class="chat-member-group-label" style="color:${esc(g.role.color)}">${esc(g.role.name)} — ${g.members.length}</div>`;
+    html += sortMembers(g.members).map(m => memberRow(m, g.role.color)).join('');
+  }
+  if (none.length) {
+    html += `<div class="chat-member-group-label">Members — ${none.length}</div>`;
+    html += sortMembers(none).map(m => memberRow(m, null)).join('');
+  }
+  inner.innerHTML = html;
+}
 
 function chatLeaveCurrentServer() {
   if (!chatActiveServerId) return;
@@ -464,11 +509,14 @@ function chatRenderMessages() {
     const own = m.from === deviceId;
     const showName = m.from !== lastFrom;
     lastFrom = m.from;
+    // Role colour is stamped server-side on channel messages (see lib/chat.js) —
+    // resolved once at send time, not re-derived here from the live roster.
+    const nameStyle = m.roleColor ? ` style="color:${esc(m.roleColor)}"` : '';
 
     if (own) {
       html += `<div class="chat-msg own">
         <div class="chat-msg-body">
-          ${showName ? `<div class="chat-msg-name">${esc(m.fromName)}</div>` : ''}
+          ${showName ? `<div class="chat-msg-name"${nameStyle}>${esc(m.fromName)}</div>` : ''}
           <div class="chat-msg-own-row">
             <div class="chat-msg-bubble">${esc(m.text)}</div>
             ${avatarHtml(m.fromName, m.avatarUrl, 32, null)}
@@ -480,7 +528,7 @@ function chatRenderMessages() {
       const clickData = { uid: m.from, name: m.fromName, av: m.avatarUrl || '' };
       html += `<div class="chat-msg">
         <div class="chat-msg-body">
-          ${showName ? `<div class="chat-msg-name clickable" data-uid="${esc(m.from)}" data-name="${esc(m.fromName)}" data-av="${esc(m.avatarUrl||'')}" onclick="chatAvatarClick(event,this)">${esc(m.fromName)}</div>` : ''}
+          ${showName ? `<div class="chat-msg-name clickable" data-uid="${esc(m.from)}" data-name="${esc(m.fromName)}" data-av="${esc(m.avatarUrl||'')}" onclick="chatAvatarClick(event,this)"${nameStyle}>${esc(m.fromName)}</div>` : ''}
           <div class="chat-msg-own-row">
             ${avatarHtml(m.fromName, m.avatarUrl, 32, clickData)}
             <div class="chat-msg-bubble">${esc(m.text)}</div>
@@ -954,6 +1002,19 @@ window.chatOnMessage = function (m) {
   }
   if (m.type === 'chat:role-created') {
     chatServerMap[m.serverId]?.roles.push(m.role);
+    return;
+  }
+  // chat:members/chat:member-join both carry a full roster snapshot (not a
+  // delta) — only chat:member-leave is delta-shaped (just the departing accountKey).
+  if (m.type === 'chat:members' || m.type === 'chat:member-join') {
+    if (m.serverId === chatActiveServerId) { chatMemberList = m.members || []; chatRenderMemberList(); }
+    return;
+  }
+  if (m.type === 'chat:member-leave') {
+    if (m.serverId === chatActiveServerId) {
+      chatMemberList = chatMemberList.filter(x => x.accountKey !== m.accountKey);
+      chatRenderMemberList();
+    }
     return;
   }
   if (m.type === 'chat:friend-req') {
