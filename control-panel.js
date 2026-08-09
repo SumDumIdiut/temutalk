@@ -451,8 +451,8 @@ details summary:hover{color:var(--tx)}
       <div id="accs-list"><div style="color:var(--sec);font-size:13px">Loading…</div></div>
     </div>
     <div class="accs-sec">
-      <div class="accs-sec-hdr">Groups</div>
-      <div id="groups-list"></div>
+      <div class="accs-sec-hdr">Servers</div>
+      <div id="servers-list"></div>
     </div>
     <div class="accs-sec">
       <details>
@@ -517,7 +517,7 @@ function switchTab(name){
 // ── Room list ─────────────────────────────────────────────────────────────────
 function roomIcon(type){
   if(type==='global')return '🌐';
-  if(type==='group') return '👥';
+  if(type==='server')return '👥';
   if(type==='dm')    return '💬';
   return '💬';
 }
@@ -525,11 +525,11 @@ function roomIcon(type){
 function renderRooms(){
   var col=document.getElementById('rooms-col');if(!col)return;
   var q=(document.getElementById('room-search')?.value||'').toLowerCase().trim();
-  var global=[],groups=[],dms=[];
+  var global=[],servers=[],dms=[];
   spyRooms.forEach(function(r,id){
     if(q&&!(r.name||id).toLowerCase().includes(q))return;
     if(id==='global')global.push([id,r]);
-    else if(id.startsWith('group:'))groups.push([id,r]);
+    else if(id.startsWith('channel:'))servers.push([id,r]);
     else dms.push([id,r]);
   });
 
@@ -557,7 +557,7 @@ function renderRooms(){
     });
   }
   section('Global',global);
-  section('Groups',groups);
+  section('Server Channels',servers);
   section('Direct Messages',dms);
   if(!h)h='<div style="padding:14px;color:var(--sec);font-size:12px">No results</div>';
   col.innerHTML=h;
@@ -577,10 +577,10 @@ function selectRoom(id){
   var compose=document.getElementById('m-compose');
   if(nameEl)nameEl.textContent=r.name||id;
   if(typeEl){
-    var labels={global:'Global',group:'Group',dm:'DM'};
+    var labels={global:'Global',server:'Channel',dm:'DM'};
     typeEl.textContent=roomIcon(r.type||'dm')+' '+(labels[r.type]||'DM');
     typeEl.style.display='';
-    // Only allow clearing global and group rooms (not DMs) — or allow all
+    // Only allow clearing global and server-channel rooms (not DMs) — or allow all
     typeEl.style.display='';
   }
   if(clearBtn)clearBtn.style.display='';
@@ -780,7 +780,7 @@ async function loadAccounts(){
     var d=await r.json();
     chatAccounts=d.accounts||[];
     renderAccounts();
-    renderGroups(d.groups||[]);
+    renderServers(d.servers||[]);
     loadTestReqs();
   }catch(e){}
 }
@@ -799,24 +799,24 @@ function renderAccounts(){
   el.innerHTML=h;
 }
 
-function renderGroups(groups){
-  var el=document.getElementById('groups-list');if(!el)return;
-  if(!groups.length){el.innerHTML='<div style="color:var(--sec);font-size:13px">No groups yet</div>';return;}
+function renderServers(servers){
+  var el=document.getElementById('servers-list');if(!el)return;
+  if(!servers.length){el.innerHTML='<div style="color:var(--sec);font-size:13px">No servers yet</div>';return;}
   var h='';
-  groups.forEach(function(g){
+  servers.forEach(function(s){
     h+='<div class="acc-item">';
     h+='<div class="acc-av" style="font-size:.9rem">&#128101;</div>';
-    h+='<div style="flex:1;min-width:0"><div class="acc-name">'+esc(g.name)+'</div><div class="acc-key">'+g.memberCount+' member'+(g.memberCount!==1?'s':'')+'</div></div>';
-    h+='<button class="abtn danger" onclick="deleteGroup(\\''+esc(g.id)+'\\')">&#128465;</button>';
+    h+='<div style="flex:1;min-width:0"><div class="acc-name">'+esc(s.name)+'</div><div class="acc-key">'+s.memberCount+' member'+(s.memberCount!==1?'s':'')+'</div></div>';
+    h+='<button class="abtn danger" onclick="deleteServer(\\''+esc(s.id)+'\\')">&#128465;</button>';
     h+='</div>';
   });
   el.innerHTML=h;
 }
 
-async function deleteGroup(id){
-  if(!confirm('Delete this group and all its messages?'))return;
+async function deleteServer(id){
+  if(!confirm('Delete this server and all its channels/messages?'))return;
   try{
-    var r=await fetch(P+'/api/admin/chat-group/'+encodeURIComponent(id),{method:'DELETE'});
+    var r=await fetch(P+'/api/admin/chat-server/'+encodeURIComponent(id),{method:'DELETE'});
     var d=await r.json();
     if(d.ok)loadAccounts();else alert(d.error||'Delete failed');
   }catch(e){alert('Error: '+e.message);}
@@ -925,9 +925,12 @@ async function spyConnect(){
 function spyMsg(m){
   if(m.type==='chat:ghost-state'){
     spyMsgs.set('global',m.global||[]);
-    (m.groups||[]).forEach(function(g){
-      spyRooms.set(g.id,{name:g.name,type:'group'});
-      spyMsgs.set(g.id,g.messages||[]);
+    (m.servers||[]).forEach(function(s){
+      (s.channels||[]).forEach(function(c){
+        var roomId='channel:'+s.id+':'+c.id;
+        spyRooms.set(roomId,{name:s.name+' #'+c.name,type:'server'});
+        spyMsgs.set(roomId,c.messages||[]);
+      });
     });
     (m.dms||[]).forEach(function(d){
       var msgs=d.messages||[];
@@ -953,15 +956,14 @@ function spyMsg(m){
     }
     return;
   }
-  if(m.type==='chat:group-created'){
-    spyRooms.set(m.group.id,{name:m.group.name,type:'group'});
-    spyMsgs.set(m.group.id,[]);
-    if(curTab==='chat')renderRooms();
-    return;
-  }
-  if(m.type==='chat:group-deleted'){
-    spyRooms.delete(m.groupId);spyMsgs.delete(m.groupId);
-    if(curRoom===m.groupId){curRoom=null;renderRooms();renderMsgs();}
+  if(m.type==='chat:server-deleted'){
+    var prefix='channel:'+m.serverId+':';
+    [...spyRooms.keys()].forEach(function(roomId){
+      if(roomId.indexOf(prefix)!==0)return;
+      spyRooms.delete(roomId);spyMsgs.delete(roomId);
+      if(curRoom===roomId)curRoom=null;
+    });
+    renderRooms();renderMsgs();
     return;
   }
   if(m.type==='chat:clear'){
@@ -1078,9 +1080,9 @@ async function handleRequest(req, res) {
     return;
   }
 
-  if (req.method === 'DELETE' && url.pathname.startsWith('/api/admin/chat-group/')) {
-    const groupId = decodeURIComponent(url.pathname.slice('/api/admin/chat-group/'.length));
-    const data = await callServerJson(`/api/admin/chat-group/${encodeURIComponent(groupId)}`, 'DELETE');
+  if (req.method === 'DELETE' && url.pathname.startsWith('/api/admin/chat-server/')) {
+    const serverId = decodeURIComponent(url.pathname.slice('/api/admin/chat-server/'.length));
+    const data = await callServerJson(`/api/admin/chat-server/${encodeURIComponent(serverId)}`, 'DELETE');
     sendJson(res, data ? 200 : 502, data || { error: 'unavailable' });
     return;
   }

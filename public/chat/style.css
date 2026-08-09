@@ -689,20 +689,6 @@
 .chat-modal-btn-primary { background: hsl(var(--accent-h,248),var(--accent-s,72%),52%); color: #fff; }
 .chat-modal-btn-cancel  { background: rgba(255,255,255,.07); color: var(--text, #e6e8ec); }
 .chat-modal-err { font-size: .77rem; color: #ff8080; min-height: 1.1em; }
-.chat-group-list { max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
-.chat-group-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 9px;
-  border-radius: 9px;
-  background: rgba(255,255,255,.04);
-  cursor: pointer;
-  transition: background .14s;
-}
-.chat-group-row:hover { background: rgba(255,255,255,.08); }
-.chat-group-row-name  { flex: 1; font-size: .82rem; font-weight: 600; }
-.chat-group-row-count { font-size: .7rem; color: var(--text-muted, #8b93a3); }
 
 /* ── User card popup ─────────────────────────────────────────────────────────── */
 .chat-user-card {
