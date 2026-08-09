@@ -187,7 +187,6 @@ function chatJoinRoom(room) {
   chatRenderMessages();
   chatUpdateCallBar();
   chatUpdateAnnouncementBar();
-  chatEl('chat-input')?.focus();
 }
 
 function chatOpenRoom(room) {
@@ -348,7 +347,6 @@ function chatOpenServerSettings() {
     </div>`;
   document.body.appendChild(overlay);
   chatRenderServerSettingsPanels();
-  setTimeout(() => document.getElementById('css-role-name')?.focus(), 50);
 }
 window.chatOpenServerSettings = chatOpenServerSettings;
 
@@ -463,7 +461,6 @@ function chatShowCreateServer() {
     </div>
   </div>`;
   document.body.appendChild(m);
-  m.querySelector('#cs-name').focus();
 }
 window.chatShowCreateServer = chatShowCreateServer;
 
@@ -492,7 +489,6 @@ function chatShowJoinServer() {
     </div>
   </div>`;
   document.body.appendChild(m);
-  m.querySelector('#js-code').focus();
 }
 window.chatShowJoinServer = chatShowJoinServer;
 
@@ -901,7 +897,6 @@ function chatOpenSettings() {
       </div>` : '';
   }
   overlay.style.display = 'flex';
-  setTimeout(() => nameInp && nameInp.focus(), 50);
 }
 window.chatOpenSettings = chatOpenSettings;
 
@@ -1036,7 +1031,7 @@ function chatShowNewDM() {
   }
   overlay.style.display = 'flex';
   const inp = chatEl('chat-new-dm-search');
-  if (inp) { inp.value = ''; inp.focus(); }
+  if (inp) inp.value = '';
   chatFilterNewDM();
 }
 window.chatShowNewDM = chatShowNewDM;
