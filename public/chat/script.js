@@ -16,6 +16,8 @@ const chatFriendMap  = {};   // uid → { id, name, avatarUrl }
 const chatPendingIn  = {};   // uid → { id, name, avatarUrl }  (incoming requests)
 const chatPendingOut = new Set(); // uids I've sent requests to
 const chatDMInfo     = {};   // dmRoomId → { uid, name, avatarUrl }
+const chatServerMap  = {};   // serverId → server summary (from chat:my-servers/server-created/server-joined)
+let chatActiveServerId = null; // null = Home mode (Global/DMs); else viewing that server's channels
 
 // Call state
 let chatInCall      = false;
@@ -145,12 +147,30 @@ function chatUpdateAnnouncementBar() {
 }
 
 // ── Room ──────────────────────────────────────────────────────────────────────
+// Mirrors lib/chat.js's chatParseChannelRoom: 'channel:<serverId>:<channelId>',
+// where serverId itself already contains a colon ('server:<hex16>'), so the
+// channelId is the LAST segment and everything between is the serverId.
+function chatParseChannelRoom(room) {
+  if (!room.startsWith('channel:')) return null;
+  const parts = room.split(':');
+  if (parts.length < 4) return null;
+  const channelId = parts[parts.length - 1];
+  const serverId  = parts.slice(1, -1).join(':');
+  return { serverId, channelId };
+}
+
 function chatRoomLabel(room) {
   if (room === 'global') return 'Global';
   if (room.startsWith('dm:')) {
     if (chatDMInfo[room]) return chatDMInfo[room].name;
     const otherId = room.slice(3).split(':').find(id => id !== deviceId);
     return chatFriendMap[otherId]?.name || 'DM';
+  }
+  const parsed = chatParseChannelRoom(room);
+  if (parsed) {
+    const server  = chatServerMap[parsed.serverId];
+    const channel = server?.channels.find(c => c.id === parsed.channelId);
+    return server ? `${server.name} #${channel?.name || ''}` : 'Channel';
   }
   return room;
 }
@@ -174,6 +194,171 @@ function chatOpenRoom(room) {
   });
 }
 window.chatOpenRoom = chatOpenRoom;
+
+// ── Server rail / navigation ────────────────────────────────────────────────────
+function chatRenderServerRail() {
+  const el = chatEl('chat-rail-servers');
+  if (!el) return;
+  el.innerHTML = Object.values(chatServerMap).map(s => {
+    const initials = esc((s.name || '?').slice(0, 2).toUpperCase());
+    const inner = s.icon ? `<img src="${esc(s.icon)}" alt="${esc(s.name)}">` : initials;
+    return `<div class="chat-rail-item${s.id === chatActiveServerId ? ' active' : ''}" data-server-id="${esc(s.id)}" title="${esc(s.name)}" onclick="chatSwitchToServer('${esc(s.id)}')">${inner}</div>`;
+  }).join('');
+  chatEl('chat-rail-home')?.classList.toggle('active', !chatActiveServerId);
+}
+
+function chatRenderChannelList() {
+  const server = chatServerMap[chatActiveServerId];
+  const textEl  = chatEl('chat-text-channels-list');
+  const voiceEl = chatEl('chat-voice-channels-list');
+  const voiceLbl = chatEl('chat-voice-channels-label');
+  if (!server || !textEl || !voiceEl) return;
+  const rowHtml = c => {
+    const room = `channel:${server.id}:${c.id}`;
+    const u = chatRoomUnread[room] || 0;
+    return `<div class="chat-room-item${room === chatRoom ? ' active' : ''}" data-room="${room}" onclick="chatOpenRoom('${room}')">
+      <div class="chat-room-icon" style="font-size:14px">${c.type === 'voice' ? '🔊' : '#'}</div>
+      <div class="chat-room-name">${esc(c.name)}</div>
+      ${u ? `<div class="chat-room-badge">${u}</div>` : ''}
+    </div>`;
+  };
+  const textChannels  = server.channels.filter(c => c.type !== 'voice');
+  const voiceChannels = server.channels.filter(c => c.type === 'voice');
+  textEl.innerHTML = textChannels.map(rowHtml).join('');
+  voiceEl.innerHTML = voiceChannels.map(rowHtml).join('');
+  if (voiceLbl) voiceLbl.style.display = voiceChannels.length ? '' : 'none';
+}
+
+function chatSwitchToServer(serverId) {
+  const server = chatServerMap[serverId];
+  if (!server) return;
+  chatActiveServerId = serverId;
+  const homeEl = chatEl('chat-home-content'), serverEl = chatEl('chat-server-content');
+  if (homeEl) homeEl.style.display = 'none';
+  if (serverEl) serverEl.style.display = '';
+  const nameLbl = chatEl('chat-server-name-label');
+  if (nameLbl) nameLbl.textContent = server.name;
+  chatRenderChannelList();
+  chatRenderServerRail();
+  chatOpenRoom(`channel:${serverId}:${server.defaultChannelId}`);
+}
+window.chatSwitchToServer = chatSwitchToServer;
+
+function chatGoHome() {
+  chatActiveServerId = null;
+  const homeEl = chatEl('chat-home-content'), serverEl = chatEl('chat-server-content');
+  if (homeEl) homeEl.style.display = '';
+  if (serverEl) serverEl.style.display = 'none';
+  chatRenderServerRail();
+  chatOpenRoom('global');
+}
+window.chatGoHome = chatGoHome;
+
+function chatLeaveCurrentServer() {
+  if (!chatActiveServerId) return;
+  if (!confirm('Leave "' + (chatServerMap[chatActiveServerId]?.name || 'this server') + '"?')) return;
+  if (wsReady) try { ws.send(JSON.stringify({ type: 'chat:server-leave', serverId: chatActiveServerId })); } catch {}
+  delete chatServerMap[chatActiveServerId];
+  chatGoHome();
+}
+window.chatLeaveCurrentServer = chatLeaveCurrentServer;
+
+// ── Create / Join server ─────────────────────────────────────────────────────
+function chatShowServerMenu() {
+  const m = document.createElement('div');
+  m.className = 'chat-modal-overlay';
+  m.id = 'chat-server-modal';
+  m.innerHTML = `<div class="chat-modal">
+    <h3>Add a Server</h3>
+    <div style="display:flex;gap:8px">
+      <button class="chat-modal-btn chat-modal-btn-primary" style="font-size:.78rem" onclick="chatShowCreateServer()">+ Create</button>
+      <button class="chat-modal-btn chat-modal-btn-cancel" style="font-size:.78rem" onclick="chatShowJoinServer()">Join by Invite</button>
+    </div>
+    <button class="chat-modal-btn chat-modal-btn-cancel" onclick="this.closest('.chat-modal-overlay').remove()">Close</button>
+  </div>`;
+  document.body.appendChild(m);
+}
+window.chatShowServerMenu = chatShowServerMenu;
+
+function chatShowCreateServer() {
+  document.getElementById('chat-server-modal')?.remove();
+  const m = document.createElement('div');
+  m.className = 'chat-modal-overlay';
+  m.innerHTML = `<div class="chat-modal">
+    <h3>Create Server</h3>
+    <input class="chat-modal-inp" id="cs-name" placeholder="Server name…" maxlength="50"
+      onkeydown="if(event.key==='Enter')document.getElementById('cs-desc').focus()">
+    <input class="chat-modal-inp" id="cs-desc" placeholder="Description (optional)…" maxlength="300"
+      onkeydown="if(event.key==='Enter')chatCreateServer()">
+    <div class="chat-modal-err" id="cs-err"></div>
+    <div class="chat-modal-row">
+      <button class="chat-modal-btn chat-modal-btn-cancel" onclick="this.closest('.chat-modal-overlay').remove()">Cancel</button>
+      <button class="chat-modal-btn chat-modal-btn-primary" onclick="chatCreateServer()">Create</button>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+  m.querySelector('#cs-name').focus();
+}
+window.chatShowCreateServer = chatShowCreateServer;
+
+function chatCreateServer() {
+  const name = (document.getElementById('cs-name')?.value || '').trim();
+  const description = (document.getElementById('cs-desc')?.value || '').trim();
+  const errEl = document.getElementById('cs-err');
+  if (!name) { if (errEl) errEl.textContent = 'Name required'; return; }
+  ws.send(JSON.stringify({ type: 'chat:server-create', name, description }));
+  document.querySelector('.chat-modal-overlay')?.remove();
+}
+window.chatCreateServer = chatCreateServer;
+
+function chatShowJoinServer() {
+  document.getElementById('chat-server-modal')?.remove();
+  const m = document.createElement('div');
+  m.className = 'chat-modal-overlay';
+  m.innerHTML = `<div class="chat-modal">
+    <h3>Join a Server</h3>
+    <input class="chat-modal-inp" id="js-code" placeholder="Invite code…"
+      onkeydown="if(event.key==='Enter')chatJoinServer()">
+    <div class="chat-modal-err" id="js-err"></div>
+    <div class="chat-modal-row">
+      <button class="chat-modal-btn chat-modal-btn-cancel" onclick="this.closest('.chat-modal-overlay').remove()">Cancel</button>
+      <button class="chat-modal-btn chat-modal-btn-primary" onclick="chatJoinServer()">Join</button>
+    </div>
+  </div>`;
+  document.body.appendChild(m);
+  m.querySelector('#js-code').focus();
+}
+window.chatShowJoinServer = chatShowJoinServer;
+
+function chatJoinServer() {
+  const inviteCode = (document.getElementById('js-code')?.value || '').trim();
+  const errEl = document.getElementById('js-err');
+  if (!inviteCode) { if (errEl) errEl.textContent = 'Invite code required'; return; }
+  ws.send(JSON.stringify({ type: 'chat:server-join', inviteCode }));
+  document.querySelector('.chat-modal-overlay')?.remove();
+}
+window.chatJoinServer = chatJoinServer;
+
+// ── Onboarding ────────────────────────────────────────────────────────────────
+function chatShowServerOnboarding(server) {
+  document.getElementById('chat-onboarding-overlay')?.remove();
+  const overlay = document.createElement('div');
+  overlay.className = 'chat-settings-overlay';
+  overlay.id = 'chat-onboarding-overlay';
+  const iconHtml = server.icon
+    ? `<img src="${esc(server.icon)}" alt="" style="width:64px;height:64px;border-radius:16px;object-fit:cover">`
+    : `<div style="font-size:40px">🎉</div>`;
+  overlay.innerHTML = `
+    <div class="chat-settings-backdrop" onclick="this.parentElement.remove()"></div>
+    <div class="chat-settings-box" style="text-align:center;align-items:center;display:flex;flex-direction:column;gap:10px">
+      ${iconHtml}
+      <div class="chat-settings-title">Welcome to ${esc(server.name)}!</div>
+      ${server.description ? `<div class="chat-settings-hint" style="text-align:center">${esc(server.description)}</div>` : ''}
+      <button class="chat-card-btn chat-card-btn-primary" style="width:auto;padding:8px 24px;margin-top:8px" onclick="this.closest('.chat-settings-overlay').remove()">Got it →</button>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.style.display = 'flex';
+}
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 function chatRenderSidebar() {
@@ -734,6 +919,43 @@ window.chatOnMessage = function (m) {
     chatRenderSidebar();
     return;
   }
+  // Sent once on WS join/reconnect — server membership is account-keyed, so
+  // (unlike Global/DMs) there's no other way this tab learns which servers
+  // it belongs to.
+  if (m.type === 'chat:my-servers') {
+    for (const s of (m.servers || [])) chatServerMap[s.id] = s;
+    chatRenderServerRail();
+    return;
+  }
+  if (m.type === 'chat:server-created') {
+    chatServerMap[m.server.id] = m.server;
+    chatSwitchToServer(m.server.id);
+    return;
+  }
+  if (m.type === 'chat:server-joined') {
+    chatServerMap[m.server.id] = m.server;
+    chatSwitchToServer(m.server.id);
+    if (m.isNew) chatShowServerOnboarding(m.server);
+    return;
+  }
+  if (m.type === 'chat:server-deleted') {
+    delete chatServerMap[m.serverId];
+    if (chatActiveServerId === m.serverId) chatGoHome();
+    else chatRenderServerRail();
+    return;
+  }
+  if (m.type === 'chat:channel-created') {
+    const server = chatServerMap[m.serverId];
+    if (server) {
+      server.channels.push(m.channel);
+      if (chatActiveServerId === m.serverId) chatRenderChannelList();
+    }
+    return;
+  }
+  if (m.type === 'chat:role-created') {
+    chatServerMap[m.serverId]?.roles.push(m.role);
+    return;
+  }
   if (m.type === 'chat:friend-req') {
     chatPendingIn[m.fromId] = { id: m.fromId, name: m.fromName, avatarUrl: m.avatarUrl || '' };
     chatRenderSidebar();
@@ -747,7 +969,7 @@ window.chatOnMessage = function (m) {
     return;
   }
   if (m.type === 'chat:error') {
-    const errEl = document.querySelector('#cg-err,#jg-err,#jg-err2,#af-err,#chat-login-err');
+    const errEl = document.querySelector('#cs-err,#js-err,#af-err,#chat-login-err');
     if (errEl) errEl.textContent = m.error;
     return;
   }
