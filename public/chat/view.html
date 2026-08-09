@@ -13,20 +13,43 @@
     </div>
   </div>
 
+  <!-- Server rail -->
+  <div class="chat-server-rail" id="chat-server-rail">
+    <div class="chat-rail-item active" id="chat-rail-home" onclick="chatGoHome()" title="Home">🏠</div>
+    <div class="chat-rail-divider"></div>
+    <div id="chat-rail-servers"></div>
+    <div class="chat-rail-item chat-rail-add" onclick="chatShowServerMenu()" title="Add a server">+</div>
+  </div>
+
   <!-- Sidebar -->
   <div class="chat-sidebar">
     <div class="chat-sidebar-body" id="chat-sidebar-body">
-      <div class="chat-section-label" style="padding-top:12px">Rooms</div>
-      <div class="chat-room-item active" id="chat-room-global" data-room="global" onclick="chatOpenRoom('global')">
-        <div class="chat-room-icon">🌐</div>
-        <div class="chat-room-name">Global</div>
-        <div class="chat-room-badge" id="chat-unread-global" style="display:none">0</div>
+      <div id="chat-home-content">
+        <div class="chat-section-label" style="padding-top:12px">Rooms</div>
+        <div class="chat-room-item active" id="chat-room-global" data-room="global" onclick="chatOpenRoom('global')">
+          <div class="chat-room-icon">🌐</div>
+          <div class="chat-room-name">Global</div>
+          <div class="chat-room-badge" id="chat-unread-global" style="display:none">0</div>
+        </div>
+        <div class="chat-section-label" id="chat-dms-label">
+          <span>Direct Messages</span>
+          <button class="chat-add-btn" title="New DM" onclick="chatShowNewDM()">+</button>
+        </div>
+        <div id="chat-dms-list"></div>
       </div>
-      <div class="chat-section-label" id="chat-dms-label">
-        <span>Direct Messages</span>
-        <button class="chat-add-btn" title="New DM" onclick="chatShowNewDM()">+</button>
+      <div id="chat-server-content" style="display:none">
+        <div class="chat-section-label" style="padding-top:12px">
+          <span id="chat-server-name-label">Server</span>
+        </div>
+        <div class="chat-section-label">Text Channels</div>
+        <div id="chat-text-channels-list"></div>
+        <div class="chat-section-label" id="chat-voice-channels-label" style="display:none">Voice Channels</div>
+        <div id="chat-voice-channels-list"></div>
+        <div class="chat-room-item" onclick="chatLeaveCurrentServer()" style="margin-top:8px;color:#ff8080">
+          <div class="chat-room-icon" style="background:none;font-size:16px">←</div>
+          <div class="chat-room-name">Leave Server</div>
+        </div>
       </div>
-      <div id="chat-dms-list"></div>
     </div>
     <div class="chat-account-row" id="chat-account-row" style="display:none">
       <div id="chat-account-avatar"></div>
