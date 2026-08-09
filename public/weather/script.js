@@ -33,9 +33,7 @@ function changeWxCity() {
   const inp = document.getElementById('wx-city-input');
   const city = inp.value.trim();
   if (!city) return;
-  wxCity = city;
-  localStorage.setItem('wxCity', city);
-  loadWx(city);
+  wxSetManualCity(city); // updates wxCity + repaints both the tab and the home widget
 }
 
 function renderWx(data) {
