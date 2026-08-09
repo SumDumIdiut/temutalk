@@ -244,6 +244,66 @@
   margin-top: 4px;
   opacity: .7;
 }
+
+/* ── Server settings (owner-only panel) ─────────────────────────────────────── */
+.chat-server-settings-box {
+  width: 400px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+.chat-settings-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.chat-settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(255,255,255,.04);
+  font-size: .82rem;
+}
+.chat-settings-inline-form { display: flex; gap: 6px; align-items: center; }
+.chat-settings-select {
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: .82rem;
+  padding: 7px 8px;
+  outline: none;
+}
+.chat-color-input {
+  width: 34px;
+  height: 34px;
+  padding: 2px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 8px;
+  background: none;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.chat-role-pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: .74rem;
+  font-weight: 700;
+}
+.chat-settings-member-row { flex-wrap: wrap; }
+.chat-settings-member-name { font-weight: 600; }
+.chat-settings-role-chips { display: flex; gap: 5px; flex-wrap: wrap; }
+.chat-role-chip {
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: .7rem;
+  font-weight: 700;
+  border: 1px solid rgba(255,255,255,.15);
+  background: rgba(255,255,255,.05);
+  color: var(--text-muted, #8b93a3);
+  cursor: pointer;
+  user-select: none;
+  transition: background .12s, color .12s;
+}
 .chat-settings-av-row {
   display: flex;
   align-items: flex-start;
