@@ -505,6 +505,42 @@ function chatJoinServer() {
 }
 window.chatJoinServer = chatJoinServer;
 
+// Any member can invite (not owner-gated) — chatServerSummary already sends
+// inviteCode to every member via chat:my-servers/server-created/server-joined,
+// so there's no extra round-trip needed here.
+function chatShowInvite() {
+  const server = chatServerMap[chatActiveServerId];
+  if (!server) return;
+  const m = document.createElement('div');
+  m.className = 'chat-modal-overlay';
+  m.innerHTML = `<div class="chat-modal">
+    <h3>Invite to ${esc(server.name)}</h3>
+    <div style="display:flex;gap:8px">
+      <input class="chat-modal-inp" id="chat-invite-code-inp" readonly value="${esc(server.inviteCode)}" onclick="this.select()">
+      <button class="chat-modal-btn chat-modal-btn-primary" id="chat-invite-copy-btn" style="flex:0 0 auto;width:auto;padding:9px 16px" onclick="chatCopyInviteCode()">Copy</button>
+    </div>
+    <div class="chat-settings-hint">Anyone with this code can join — share it with people you trust. Use "+" → Join by Invite to redeem it.</div>
+    <button class="chat-modal-btn chat-modal-btn-cancel" onclick="this.closest('.chat-modal-overlay').remove()">Close</button>
+  </div>`;
+  document.body.appendChild(m);
+}
+window.chatShowInvite = chatShowInvite;
+
+function chatCopyInviteCode() {
+  const inp = document.getElementById('chat-invite-code-inp');
+  const btn = document.getElementById('chat-invite-copy-btn');
+  if (!inp) return;
+  const showCopied = () => { if (btn) { btn.textContent = 'Copied!'; setTimeout(() => { if (btn) btn.textContent = 'Copy'; }, 1500); } };
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(inp.value).then(showCopied).catch(() => { inp.select(); document.execCommand('copy'); showCopied(); });
+  } else {
+    inp.select();
+    document.execCommand('copy');
+    showCopied();
+  }
+}
+window.chatCopyInviteCode = chatCopyInviteCode;
+
 // ── Onboarding ────────────────────────────────────────────────────────────────
 function chatShowServerOnboarding(server) {
   document.getElementById('chat-onboarding-overlay')?.remove();
