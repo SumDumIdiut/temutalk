@@ -496,16 +496,17 @@ function chatOpenSettings() {
               <input type="file" id="chat-settings-file" accept="image/*" style="display:none" onchange="chatHandleAvatarFile(this)">
             </div>
             <input class="chat-settings-input" id="chat-settings-avatar" type="url" maxlength="500" placeholder="Or paste image URL…" oninput="chatPreviewAvatar()">
-            <div class="chat-settings-hint">Leave blank to use Spotify photo</div>
+            <div class="chat-settings-hint">Leave blank to use your Discord photo</div>
           </div>
         </div>
         <label class="chat-settings-label" style="margin-top:14px">Display name</label>
         <input class="chat-settings-input" id="chat-settings-name" type="text" maxlength="32" placeholder="Your display name…">
-        <div class="chat-settings-hint">Overrides your Spotify name in chat</div>
+        <div class="chat-settings-hint">Overrides your Discord name in chat</div>
         <div class="chat-settings-actions">
           <button class="chat-card-btn" onclick="chatCloseSettings()">Cancel</button>
           <button class="chat-card-btn chat-card-btn-primary" id="chat-settings-save-btn" onclick="chatSaveSettings()">Save</button>
         </div>
+        <div id="chat-settings-account-actions"></div>
       </div>`;
     document.body.appendChild(overlay);
   }
@@ -515,6 +516,16 @@ function chatOpenSettings() {
   if (nameInp) nameInp.value = chatMyName || '';
   if (avInp)   avInp.value  = chatMyCustomAvatar || '';
   chatPreviewAvatar();
+  // Only Discord-linked accounts can be logged out / deleted here — a
+  // Spotify-linked identity is managed from the Music tab's own connect flow.
+  const actionsEl = chatEl('chat-settings-account-actions');
+  if (actionsEl) {
+    actionsEl.innerHTML = chatMyProvider === 'discord' ? `
+      <div class="chat-settings-danger-zone">
+        <button class="chat-card-btn chat-card-btn-muted" onclick="chatLogout()">Log out</button>
+        <button class="chat-card-btn chat-card-btn-danger" onclick="chatDeleteAccount()">Delete account</button>
+      </div>` : '';
+  }
   overlay.style.display = 'flex';
   setTimeout(() => nameInp && nameInp.focus(), 50);
 }
@@ -606,6 +617,17 @@ function chatSaveSettings() {
   chatCloseSettings();
 }
 window.chatSaveSettings = chatSaveSettings;
+
+function chatLogout() {
+  if (wsReady) try { ws.send(JSON.stringify({ type: 'chat:logout' })); } catch {}
+}
+window.chatLogout = chatLogout;
+
+function chatDeleteAccount() {
+  if (!confirm('Delete your chat account? This forgets your linked Discord identity and any custom name/avatar. Your messages stay in chat history, and friends/DMs are unaffected. This can\'t be undone — you\'d need to sign in again to get a chat identity back.')) return;
+  if (wsReady) try { ws.send(JSON.stringify({ type: 'chat:delete-account' })); } catch {}
+}
+window.chatDeleteAccount = chatDeleteAccount;
 
 // ── New DM ────────────────────────────────────────────────────────────────────
 function chatKnownUsers() {
@@ -703,6 +725,13 @@ window.chatOnMessage = function (m) {
     chatHideLogin();
     chatUpdateAccountRow();
     if (!chatRoomMsgs['global']) chatJoinRoom('global');
+    return;
+  }
+  if (m.type === 'chat:logged-out') {
+    chatMyName = ''; chatMyAvatar = null; chatMyCustomAvatar = null; chatMyProvider = null;
+    chatCloseSettings();
+    chatUpdateAccountRow();
+    chatShowLogin();
     return;
   }
   if (m.type === 'chat:name-set') {

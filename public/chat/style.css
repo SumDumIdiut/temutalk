@@ -757,6 +757,9 @@
 .chat-card-btn-primary { background: hsl(var(--accent-h,248),var(--accent-s,72%),52%); color: #fff; }
 .chat-card-btn-friends { background: rgba(61,220,132,.1); color: #3ddc84; }
 .chat-card-btn-muted   { background: rgba(255,255,255,.05); color: var(--text-muted, #556); }
+.chat-card-btn-danger  { background: rgba(255,107,129,.12); color: #ff6b81; }
+.chat-settings-danger-zone { display: flex; gap: 8px; margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.08); }
+.chat-settings-danger-zone .chat-card-btn { width: auto; flex: 1; padding: 7px 10px; }
 
 /* ── DM pending requests ─────────────────────────────────────────────────────── */
 .chat-dm-req-item {
