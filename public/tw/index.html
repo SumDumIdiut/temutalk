@@ -851,7 +851,7 @@ function tick() {
   let   h = n.getHours();
   const m = n.getMinutes().toString().padStart(2,'0');
   const secs = themeClockSec === 'on'
-    ? '<span style="font-size:.4em;letter-spacing:0;margin-left:6px;vertical-align:baseline;opacity:.55;">' + n.getSeconds().toString().padStart(2,'0') + '</span>'
+    ? '<span style="font-size:.4em;letter-spacing:0;margin-left:6px;vertical-align:baseline;color:#f87cc4;color:var(--pink);-webkit-text-fill-color:#f87cc4;-webkit-text-fill-color:var(--pink);opacity:.85;">' + n.getSeconds().toString().padStart(2,'0') + '</span>'
     : '';
   const greetEl = document.getElementById('home-greeting');
   if (greetEl) greetEl.textContent = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
@@ -859,7 +859,7 @@ function tick() {
   if (themeClock === '12') {
     const ampm = h >= 12 ? 'pm' : 'am';
     h = h % 12 || 12;
-    clk.innerHTML = h + ':' + m + secs + '<span style="font-size:.32em;letter-spacing:0;margin-left:8px;vertical-align:middle;opacity:.7;">' + ampm + '</span>';
+    clk.innerHTML = h + ':' + m + secs + '<span style="font-size:.32em;letter-spacing:0;margin-left:8px;vertical-align:middle;color:#a0a8c8;color:var(--text-dim);-webkit-text-fill-color:#a0a8c8;-webkit-text-fill-color:var(--text-dim);opacity:.85;">' + ampm + '</span>';
   } else {
     clk.innerHTML = h.toString().padStart(2,'0') + ':' + m + secs;
   }
