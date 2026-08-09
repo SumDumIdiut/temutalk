@@ -50,6 +50,16 @@
   box-shadow: 0 0 20px rgba(176,159,252,.4), inset 0 1px 0 rgba(255,255,255,.2);
   border-color: rgba(176,159,252,.3);
 }
+/* Home is "go back to Global/DMs", not an actual server, so it gets its own
+   outline treatment (ID selector, so it doesn't affect joined-server icons
+   which keep the filled gradient above). */
+#chat-rail-home.active {
+  background: transparent;
+  color: var(--primary);
+  box-shadow: none;
+  border-color: var(--primary);
+}
+#chat-rail-home.active:hover { background: var(--primary-dim); }
 .chat-rail-item img { width: 100%; height: 100%; object-fit: cover; }
 .chat-rail-divider { width: 32px; height: 2px; border-radius: 1px; background: var(--glass-border); flex-shrink: 0; }
 .chat-rail-add { font-weight: 300; font-size: 26px; }
@@ -745,7 +755,10 @@
   color: var(--text);
 }
 .chat-msg.own .chat-msg-bubble {
-  background: linear-gradient(rgba(8,9,15,.4), rgba(8,9,15,.4)), linear-gradient(135deg, #7c6cf8, #f87cc4);
+  /* var(--primary) tracks the user's own accent-color choice (Theme
+     settings' hue/saturation sliders) rather than a fixed brand purple —
+     the dark overlay layer keeps it deep enough for white text at any hue. */
+  background: linear-gradient(rgba(8,9,15,.4), rgba(8,9,15,.4)), linear-gradient(135deg, var(--primary), var(--pink));
   border-color: rgba(255,255,255,.16);
   color: #fff;
 }
@@ -803,24 +816,24 @@
 .chat-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-glow), 0 2px 0 rgba(0,0,0,.4); }
 .chat-input::placeholder { color: var(--text-muted); }
 .chat-send-btn {
-  background: linear-gradient(135deg, #7c6cf8, #f87cc4);
-  border: 1.5px solid rgba(255,255,255,.22);
+  background: transparent;
+  border: 2px solid var(--primary);
   border-radius: var(--radius-sm);
-  padding: 10px 22px;
-  color: #fff;
+  padding: 9px 21px;
+  color: var(--primary);
   font-size: .88rem;
   font-weight: 800;
   font-family: inherit;
   cursor: pointer;
   flex-shrink: 0;
   align-self: flex-end;
-  box-shadow: 0 4px 0 #4228c0, 0 6px 20px rgba(124,108,248,.4);
-  transition: filter .12s, transform .1s, box-shadow .12s;
+  box-shadow: 0 2px 0 rgba(0,0,0,.35);
+  transition: background .14s, transform .1s, box-shadow .12s;
   -webkit-tap-highlight-color: transparent;
 }
-.chat-send-btn:hover    { filter: brightness(1.1); }
-.chat-send-btn:active   { transform: translateY(3px); box-shadow: 0 1px 0 #4228c0, 0 2px 10px rgba(124,108,248,.3); }
-.chat-send-btn:disabled { opacity: .4; cursor: default; filter: none; transform: none; box-shadow: 0 4px 0 #4228c0, 0 6px 20px rgba(124,108,248,.4); }
+.chat-send-btn:hover    { background: var(--primary-dim); }
+.chat-send-btn:active   { transform: translateY(2px); box-shadow: none; }
+.chat-send-btn:disabled { opacity: .4; cursor: default; background: transparent; transform: none; box-shadow: 0 2px 0 rgba(0,0,0,.35); }
 
 /* ── Login overlay ───────────────────────────────────────────────────────────── */
 .chat-login-overlay {
