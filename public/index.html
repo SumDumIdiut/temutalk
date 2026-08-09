@@ -371,6 +371,16 @@ async function navigate(tab) {
   const $old = document.getElementById('view-' + curTab);
   const $new = document.getElementById('view-' + tab);
 
+  // Blur whatever's focused in the tab we're leaving. Views are hidden via
+  // opacity/transform, not removed from the DOM, so a focused field (e.g.
+  // chat's message box, which intentionally re-focuses itself after Send)
+  // would otherwise silently keep real DOM focus while off-screen -- then
+  // mobile browsers pop the keyboard back up the instant that same field
+  // becomes visible again on a later visit, with no field actually tapped.
+  if (document.activeElement && $old.contains(document.activeElement)) {
+    document.activeElement.blur();
+  }
+
   // Set new view off-screen without transition
   $new.style.transition = 'none';
   $new.style.opacity = '0';
