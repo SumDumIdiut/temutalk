@@ -57,11 +57,20 @@
    #home-wx-card), which the previous version of this file didn't (it aimed
    at a .home-wx class that no longer exists in the markup), so this had
    silently never applied. */
-.home-mini-wx.wx-sunny  { background: linear-gradient(140deg,#1c3a2a 0%,var(--surface) 65%); border-top-color: #fbbf24; }
-.home-mini-wx.wx-cloudy { background: linear-gradient(140deg,#1e2a3a 0%,var(--surface) 65%); }
-.home-mini-wx.wx-rain   { background: linear-gradient(140deg,#162030 0%,var(--surface) 65%); border-top-color: #38bdf8; }
-.home-mini-wx.wx-storm  { background: linear-gradient(140deg,#1a0e2a 0%,var(--surface) 65%); border-top-color: #c084fc; }
-.home-mini-wx.wx-snow   { background: linear-gradient(140deg,#1a2840 0%,var(--surface) 65%); border-top-color: #e0f2fe; }
+/* Each state used to fade a fully opaque hand-picked hex into var(--surface).
+   That meant the visible card was mostly the opaque color, not the user's
+   actual theme surface -- cranking the glass-opacity/tint sliders in System
+   did nothing here, unlike every other card on the site. Switched to a
+   low-alpha color wash layered on top of the real var(--surface) (painted
+   first so it composites over, fading to fully transparent well inside the
+   card so --surface always shows through on the right): the identity tint
+   stays recognizable but never dominates, and now genuinely tracks the
+   user's theme instead of overriding it. */
+.home-mini-wx.wx-sunny  { background: linear-gradient(140deg,rgba(251,191,36,.16) 0%,transparent 60%),var(--surface); border-top-color: #fbbf24; }
+.home-mini-wx.wx-cloudy { background: linear-gradient(140deg,rgba(96,165,250,.16) 0%,transparent 60%),var(--surface); }
+.home-mini-wx.wx-rain   { background: linear-gradient(140deg,rgba(56,189,248,.16) 0%,transparent 60%),var(--surface); border-top-color: #38bdf8; }
+.home-mini-wx.wx-storm  { background: linear-gradient(140deg,rgba(192,132,252,.16) 0%,transparent 60%),var(--surface); border-top-color: #c084fc; }
+.home-mini-wx.wx-snow   { background: linear-gradient(140deg,rgba(224,242,254,.16) 0%,transparent 60%),var(--surface); border-top-color: #e0f2fe; }
 
 /* ── Mini timers (floats above the weather card when any are running) ── */
 .home-mini-timer { position: absolute; bottom: calc(100% + 10px); left: 0; right: 0; z-index: 10; border-top: 4px solid #fb923c; cursor: pointer; padding: 14px 18px; }
@@ -101,14 +110,18 @@
    no matter how far the opacity got dialed down. Dropped it entirely --
    music now uses the exact same box-shadow as the base .home-mini-card,
    with only the border-top color and background tint carrying the theme. */
+/* Same fix as the weather states above: was a fully opaque hex fading into
+   var(--surface), so the theme's actual surface color/opacity never showed
+   through and the pink read as much stronger than every other widget. Now a
+   low-alpha wash over the real var(--surface), same as weather. */
 .home-mini-music {
   flex: 1;
   border-top: 4px solid #f472b6;
   overflow: hidden;
-  background: linear-gradient(100deg,#25141f 0%,var(--surface) 180%);
+  background: linear-gradient(100deg,rgba(244,114,182,.14) 0%,transparent 55%),var(--surface);
 }
 .home-mini-music:hover { border-color: rgba(244,114,182,.6); }
-.home-mini-music.radio-active { border-top-color: #e879f9; background: linear-gradient(100deg,#221426 0%,var(--surface) 180%); }
+.home-mini-music.radio-active { border-top-color: #e879f9; background: linear-gradient(100deg,rgba(232,121,249,.14) 0%,transparent 55%),var(--surface); }
 .home-mini-music.radio-active:hover { border-color: rgba(232,121,249,.6); }
 
 /* Empty state (no recent plays) */
