@@ -1,48 +1,67 @@
 
   <style>
-    #lib-tabs { display:flex; padding:0 8px 8px; flex-shrink:0; border-bottom:1px solid rgba(255,255,255,.06); }
-    .lib-tab { -webkit-appearance:none; appearance:none; flex:1; background:none; border:none; border-bottom:2px solid transparent; margin-bottom:-1px; color:var(--text-muted); font-family:inherit; font-size:13px; font-weight:500; padding:6px 4px 8px; cursor:pointer; transition:color .15s,border-color .15s; outline:none; }
-    .lib-tab:hover  { color:var(--text); }
-    .lib-tab.active { color:var(--primary); border-bottom-color:var(--primary); }
+    /* #lib-tabs/.lib-tab live in music/style.css -- not duplicated here
+       (a duplicate in this dynamically-inserted <style> would win the
+       cascade over the <link>'d stylesheet regardless of what the
+       external file says, since it's inserted later in the DOM). */
 
     /* Service switcher */
     #music-svc-bar { display:flex; gap:6px; padding:10px 12px 0; flex-shrink:0; }
     #music-body { position:relative; flex:1; min-height:0; overflow:hidden; }
     #auth-spotify-wrap, #auth-youtube-wrap, #auth-apple-wrap { display:flex; flex-direction:column; align-items:center; width:100%; max-width:380px; }
     #auth-spotify-wrap svg, #auth-youtube-wrap svg, #auth-apple-wrap > svg { display:block; margin:0 auto 10px; }
-    .msvc-btn { flex:1; display:flex; align-items:center; justify-content:center; gap:6px; background:var(--surface); border:1px solid var(--glass-border); border-radius:8px; color:var(--text-muted); font:inherit; font-size:12px; font-weight:500; padding:7px 4px; cursor:pointer; transition:all .15s; }
-    .msvc-btn:hover { color:var(--text); border-color:var(--text-muted); }
-    .msvc-btn.active { background:var(--surface-hi); border-color:var(--primary); color:var(--primary); font-weight:700; }
+    .msvc-btn {
+      flex:1; display:flex; align-items:center; justify-content:center; gap:6px;
+      background:var(--surface); border:2px solid var(--glass-border); border-radius:var(--radius-sm);
+      color:var(--text-muted); font:inherit; font-size:12px; font-weight:800; padding:7px 4px; cursor:pointer;
+      box-shadow: 0 2px 0 rgba(0,0,0,.4);
+      transition: background .15s, color .15s, border-color .15s, transform .1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .msvc-btn:hover   { color:var(--text); border-color:var(--text-muted); background:var(--surface-hi); }
+    .msvc-btn:active  { transform: translateY(2px); box-shadow: none; }
+    .msvc-btn.active  { background:var(--surface-hi); border-color:var(--primary); color:var(--primary); }
     .msvc-btn svg { flex-shrink:0; }
 
     /* Auth sub-screens */
     .auth-svc-panel { width:100%; max-width:340px; margin-top:4px; }
-    .auth-note { color:var(--text-muted); font-size:12px; line-height:1.55; margin-bottom:14px; }
+    .auth-note { color:var(--text-muted); font-size:12px; font-weight: 600; line-height:1.55; margin-bottom:14px; }
     .auth-note a { color:var(--primary); }
     .auth-note code { background:var(--surface-hi); padding:1px 5px; border-radius:4px; color:var(--text); font-size:11px; }
-    .auth-field-lbl { font-size:11px; color:var(--text-muted); margin-bottom:4px; }
-    .auth-textarea { width:100%; min-height:90px; background:var(--surface-hi); border:1px solid var(--glass-border); border-radius:8px; color:var(--text); font:12px/1.4 monospace; padding:10px 12px; resize:vertical; outline:none; box-sizing:border-box; transition:border-color .15s; }
-    .auth-textarea:focus { border-color:var(--primary); }
-    .auth-disconnect { background:none; border:none; color:var(--text-muted); font:inherit; font-size:12px; cursor:pointer; text-decoration:underline; padding:0; margin-top:10px; }
+    .auth-field-lbl { font-size:11px; font-weight: 700; color:var(--text-muted); margin-bottom:4px; }
+    .auth-textarea {
+      width:100%; min-height:90px; background:var(--surface-hi); border:2px solid var(--glass-border);
+      border-radius:var(--radius-sm); color:var(--text); font:12px/1.4 monospace; padding:10px 12px;
+      resize:vertical; outline:none; box-sizing:border-box; box-shadow: 0 2px 0 rgba(0,0,0,.4);
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .auth-textarea:focus { border-color:var(--primary); box-shadow: 0 0 0 3px var(--primary-glow), 0 2px 0 rgba(0,0,0,.4); }
+    .auth-disconnect { background:none; border:none; color:var(--text-muted); font:inherit; font-size:12px; font-weight: 700; cursor:pointer; text-decoration:underline; padding:0; margin-top:10px; }
 
     /* Web Playback SDK status — hidden while ready, surfaces the failure reason otherwise */
     #browser-player-status { display:none; font-size:10px; color:var(--red); margin-left:10px; max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex-shrink:0; }
 
     /* Output device picker */
     .sp-target-wrap { position:relative; flex-shrink:0; }
-    .sp-target-btn { display:flex; align-items:center; justify-content:center; background:none; border:none; color:var(--text-muted); padding:4px; cursor:pointer; border-radius:6px; transition:color .15s, background .15s; }
-    .sp-target-btn:hover { color:var(--text); background:var(--surface-hi); }
+    .sp-target-btn { display:flex; align-items:center; justify-content:center; background:none; border:none; color:var(--text-muted); padding:4px; cursor:pointer; border-radius:8px; transition:color .15s, background .15s, transform .1s; -webkit-tap-highlight-color: transparent; }
+    .sp-target-btn:hover  { color:var(--text); background:var(--surface-hi); }
+    .sp-target-btn:active { transform: scale(.88); }
     .sp-target-btn.active { color:var(--primary); }
-    .sp-device-pop { position:absolute; bottom:calc(100% + 8px); right:0; width:240px; max-height:280px; overflow-y:auto; background:rgba(10,12,22,.97); backdrop-filter:blur(20px); border:1px solid var(--glass-border); border-radius:12px; box-shadow:0 12px 40px rgba(0,0,0,.6); z-index:20; display:none; padding:6px; }
+    .sp-device-pop {
+      position:absolute; bottom:calc(100% + 8px); right:0; width:240px; max-height:280px; overflow-y:auto;
+      background: rgba(16,15,26,.92); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+      border:2px solid var(--glass-border); border-radius: var(--radius); box-shadow: var(--card-shadow-hover);
+      z-index:20; display:none; padding:6px;
+    }
     .sp-device-pop.open { display:block; }
-    .sp-dev-loading { color:var(--text-muted); font-size:12px; padding:10px 8px; line-height:1.5; }
-    .sp-dev-row { display:flex; align-items:center; gap:9px; padding:8px; border-radius:8px; cursor:pointer; transition:background .12s; }
+    .sp-dev-loading { color:var(--text-muted); font-size:12px; font-weight: 600; padding:10px 8px; line-height:1.5; }
+    .sp-dev-row { display:flex; align-items:center; gap:9px; padding:8px; border-radius:var(--radius-sm); cursor:pointer; transition:background .12s; }
     .sp-dev-row:hover { background:var(--surface-hi); }
-    .sp-dev-row.active { background:rgba(29,185,84,.12); }
+    .sp-dev-row.active { background:var(--primary-dim); }
     .sp-dev-icon { color:var(--text-muted); flex-shrink:0; }
     .sp-dev-row.active .sp-dev-icon { color:var(--primary); }
     .sp-dev-info { flex:1; min-width:0; }
-    .sp-dev-name { font-size:12.5px; font-weight:500; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .sp-dev-name { font-size:12.5px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .sp-dev-sub { font-size:10.5px; color:var(--text-muted); margin-top:1px; }
     .sp-dev-check { color:var(--primary); font-size:13px; flex-shrink:0; }
   </style>
@@ -79,7 +98,7 @@
       </div>
       <div id="connect-form" style="display:none;text-align:center;margin-top:4px;">
         <p class="auth-note" style="max-width:300px;">Link Spotify to this device to control music.</p>
-        <div id="oauth-error" style="display:none;color:#ff6b6b;font-size:13px;background:rgba(255,107,107,.1);border:1.5px solid rgba(255,107,107,.25);border-radius:10px;padding:10px 14px;margin-bottom:12px;text-align:left;"></div>
+        <div id="oauth-error" style="display:none;color:var(--red);font-size:13px;font-weight:600;background:var(--red-bg);border:2px solid rgba(255,107,129,.3);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:12px;text-align:left;"></div>
         <a id="auth-link" href="#" class="btn btn-primary">Connect Spotify</a><br>
         <button onclick="clearCreds()" class="auth-disconnect">Change credentials</button>
       </div>
