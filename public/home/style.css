@@ -129,19 +129,12 @@
 .home-mini-empty svg { flex-shrink: 0; opacity: .5; }
 .home-mini-empty span { font-size: 12.5px; font-weight: 600; }
 
-/* Now-playing -- single row (art+info | controls+progress | volume),
-   matching the music tab's #player-bar miniplayer layout instead of
-   stacking art, progress, and controls in three separate rows. */
+/* Now-playing -- single row (art+info | controls+progress), matching the
+   music tab's #player-bar miniplayer layout instead of stacking art,
+   progress, and controls in three separate rows. */
 .home-np-row  { display: flex; align-items: center; gap: 16px; }
 .home-np-info { display: flex; align-items: center; gap: 12px; flex: 0 0 auto; min-width: 0; max-width: 46%; }
 .home-np-center { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; }
-/* Vertical fader (icon above, drag up/down) instead of the usual horizontal
-   volume slider -- writing-mode over a rotate() transform because rotating
-   a horizontal element only repaints it, it doesn't reflow its layout box,
-   so the row would still reserve the original horizontal footprint and the
-   rotated slider would overlap its neighbors. writing-mode: vertical-lr
-   makes the element's actual box vertical, no overlap correction needed. */
-.home-np-vol-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 0 0 auto; height: 96px; justify-content: center; }
 
 .home-mini-art { width: 64px; height: 64px; border-radius: 14px; object-fit: cover; flex-shrink: 0; background: var(--surface-hi); box-shadow: 0 6px 20px rgba(0,0,0,.45); }
 .home-mini-track { font-size: 18px; font-weight: 800; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -.2px; }
@@ -182,22 +175,6 @@
 .home-radio-pulse { width: 8px; height: 8px; border-radius: 50%; background: #e879f9; flex-shrink: 0; animation: rmap-pulse 1.4s ease-in-out infinite; }
 .home-radio-stop { margin-left: auto; background: rgba(232,121,249,.12); border: 1.5px solid rgba(232,121,249,.3); border-radius: 999px; color: #e879f9; font-size: 12px; font-weight: 700; padding: 5px 14px; cursor: pointer; transition: background .15s, box-shadow .15s; flex-shrink: 0; -webkit-tap-highlight-color: transparent; }
 .home-radio-stop:hover { background: rgba(232,121,249,.22); box-shadow: 0 0 14px rgba(232,121,249,.22); }
-.home-np-vol {
-  -webkit-appearance: none; appearance: none;
-  writing-mode: vertical-lr; direction: rtl; /* min at bottom, max at top */
-  width: 5px; height: 96px; flex: 0 0 auto;
-  border-radius: 3px;
-  background: var(--border); outline: none; cursor: pointer; accent-color: #fff;
-  /* The site-wide `* { box-sizing: border-box }` reset throws off the
-     browser's thumb-centering math for a writing-mode: vertical-lr custom
-     range input specifically -- the thumb renders visibly shifted off the
-     track's centerline. box-sizing: content-box (this element only, scoped
-     here rather than touching the global reset) fixes it; confirmed via a
-     side-by-side isolated test with/without the override. */
-  box-sizing: content-box;
-}
-.home-np-vol::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #fff; cursor: pointer; }
-.home-np-vol::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #fff; border: none; cursor: pointer; }
 
 /* ── Mobile ── */
 /* #view-home .page's own padding/width rules are more specific than
@@ -212,27 +189,11 @@
   .home-widgets { flex-direction: column; padding: 14px 6px 18px; gap: 10px; }
   .home-mini-wx { min-width: 0; }
   .home-mini-art { width: 56px; height: 56px; }
-  /* The single-row miniplayer layout (art+info | controls+progress | volume,
-     side by side) needs real horizontal room -- track name, three buttons,
-     a progress bar and a volume slider all fighting for space on a ~360px
-     phone just overlap instead of shrinking sensibly. Stack the three zones
-     back into rows here, same idea as the pre-miniplayer layout. */
+  /* The single-row miniplayer layout (art+info | controls+progress) needs
+     real horizontal room -- track name, three buttons, and a progress bar
+     all fighting for space on a ~360px phone just overlap instead of
+     shrinking sensibly. Stack the two zones back into rows here, same idea
+     as the pre-miniplayer layout. */
   .home-np-row { flex-direction: column; align-items: stretch; gap: 10px; }
   .home-np-info { max-width: none; }
-  /* The vertical fader is a nice fit next to a wide horizontal miniplayer
-     row, but the mobile layout above already stacks everything into a
-     column -- a vertical drag there would eat vertical space the card
-     doesn't have and fights the column's own direction. Back to a plain
-     horizontal slider here, same as before the fader was introduced. */
-  .home-np-vol-wrap { align-self: center; flex-direction: row; height: auto; }
-  /* A 3px track with a 12px thumb is fine with a mouse pointer but hard to
-     grab and hard to fine-tune with a fingertip -- taller track, bigger
-     thumb, and a longer track (more travel per % change) all make it easier
-     to land on and drag accurately with touch. */
-  .home-np-vol {
-    writing-mode: horizontal-tb; direction: ltr;
-    width: 92px; height: 6px;
-  }
-  .home-np-vol::-webkit-slider-thumb { width: 20px; height: 20px; }
-  .home-np-vol::-moz-range-thumb { width: 20px; height: 20px; }
 }
