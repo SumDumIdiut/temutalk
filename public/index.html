@@ -1030,10 +1030,16 @@ function tintMusicCard(src) {
       const d = ctx.getImageData(0, 0, 8, 8).data;
       let r = 0, g = 0, b = 0, count = 0;
       for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i+1]; b += d[i+2]; count++; }
-      r = Math.round(r / count * 0.22);
-      g = Math.round(g / count * 0.22);
-      b = Math.round(b / count * 0.22);
-      card.style.background = 'linear-gradient(100deg,rgb(' + r + ',' + g + ',' + b + ') 0%,var(--surface) 180%)';
+      r = Math.round(r / count);
+      g = Math.round(g / count);
+      b = Math.round(b / count);
+      // Same low-alpha-wash-over-var(--surface) pattern as the CSS fallback
+      // (home/style.css) -- a low, fixed alpha regardless of how bright the
+      // sampled album art is keeps every track's tint at a consistent,
+      // subtle strength and lets the user's actual surface color/opacity
+      // theme setting show through, instead of a fully opaque sampled color
+      // overriding it outright.
+      card.style.background = 'linear-gradient(100deg,rgba(' + r + ',' + g + ',' + b + ',.16) 0%,transparent 55%),var(--surface)';
     } catch (e) {
       // Falls back to .home-mini-music's own CSS gradient (see home/style.css)
       // -- this can genuinely happen (a CORS-tainted canvas read against
