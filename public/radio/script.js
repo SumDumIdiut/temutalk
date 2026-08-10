@@ -496,6 +496,11 @@ function updateHomeRadio() {
   card?.classList.toggle('radio-active', active);
 
   if (active) {
+    // tintMusicCard() (see index.html) sets an inline background from the
+    // last Spotify track's album art, which -- being inline -- would
+    // otherwise outrank the .radio-active CSS gradient indefinitely. Clear
+    // it so radio gets its own intentional look instead of a stale tint.
+    if (card) card.style.background = '';
     radioSection.style.cssText = 'flex:1;display:flex;flex-direction:column;justify-content:space-between;';
     if (npPlaying) npPlaying.style.display = 'none';
     if (npRecent)  npRecent.style.display  = 'none';
@@ -513,6 +518,7 @@ function updateHomeRadio() {
     if (lbl) { lbl.textContent = hasTrack ? 'Now Playing' : 'Music'; lbl.style.color = ''; }
     if (npPlaying) npPlaying.style.display = hasTrack ? 'block' : 'none';
     if (npRecent)  npRecent.style.display  = hasTrack ? 'none'  : '';
+    if (card && !hasTrack) card.style.background = '';
   }
 }
 
