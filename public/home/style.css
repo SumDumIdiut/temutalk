@@ -92,19 +92,24 @@
    washing the whole card. A shallower angle + a stop pushed well past 100%
    keeps the fade gradual and incomplete across the full visible width,
    regardless of how wide the card ends up being. */
+/* No separate colored box-shadow glow -- weather never actually had one
+   either (checked its computed style directly: just var(--card-shadow)/
+   var(--card-shadow-hover), same as every other card). What read as
+   weather's "glow" was always just its background tint; adding an actual
+   halo on top of music's tint was a literal glow, stronger than weather's
+   and stacking further on :hover, which is what kept reading as too much
+   no matter how far the opacity got dialed down. Dropped it entirely --
+   music now uses the exact same box-shadow as the base .home-mini-card,
+   with only the border-top color and background tint carrying the theme. */
 .home-mini-music {
   flex: 1;
   border-top: 4px solid #f472b6;
   overflow: hidden;
   background: linear-gradient(100deg,#25141f 0%,var(--surface) 180%);
-  box-shadow: var(--card-shadow), 0 0 28px -10px rgba(244,114,182,.28);
 }
-.home-mini-music:hover {
-  border-color: rgba(244,114,182,.6);
-  box-shadow: var(--card-shadow-hover), 0 0 34px -8px rgba(244,114,182,.35);
-}
-.home-mini-music.radio-active { border-top-color: #e879f9; background: linear-gradient(100deg,#221426 0%,var(--surface) 180%); box-shadow: var(--card-shadow), 0 0 28px -10px rgba(232,121,249,.28); }
-.home-mini-music.radio-active:hover { border-color: rgba(232,121,249,.6); box-shadow: var(--card-shadow-hover), 0 0 34px -8px rgba(232,121,249,.35); }
+.home-mini-music:hover { border-color: rgba(244,114,182,.6); }
+.home-mini-music.radio-active { border-top-color: #e879f9; background: linear-gradient(100deg,#221426 0%,var(--surface) 180%); }
+.home-mini-music.radio-active:hover { border-color: rgba(232,121,249,.6); }
 
 /* Empty state (no recent plays) */
 .home-mini-empty { display: flex; align-items: center; gap: 10px; padding: 6px 0 2px; color: var(--text-muted); }
