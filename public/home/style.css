@@ -171,7 +171,12 @@
 .home-radio-pulse { width: 8px; height: 8px; border-radius: 50%; background: #e879f9; flex-shrink: 0; animation: rmap-pulse 1.4s ease-in-out infinite; }
 .home-radio-stop { margin-left: auto; background: rgba(232,121,249,.12); border: 1.5px solid rgba(232,121,249,.3); border-radius: 999px; color: #e879f9; font-size: 12px; font-weight: 700; padding: 5px 14px; cursor: pointer; transition: background .15s, box-shadow .15s; flex-shrink: 0; -webkit-tap-highlight-color: transparent; }
 .home-radio-stop:hover { background: rgba(232,121,249,.22); box-shadow: 0 0 14px rgba(232,121,249,.22); }
-.home-np-vol { -webkit-appearance: none; appearance: none; height: 3px; border-radius: 2px; background: var(--border); outline: none; cursor: pointer; accent-color: #fff; }
+.home-np-vol {
+  -webkit-appearance: none; appearance: none;
+  width: 70px; flex: 0 0 auto;
+  height: 3px; border-radius: 2px;
+  background: var(--border); outline: none; cursor: pointer; accent-color: #fff;
+}
 .home-np-vol::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #fff; cursor: pointer; }
 .home-np-vol::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; background: #fff; border: none; cursor: pointer; }
 
@@ -188,4 +193,11 @@
   .home-widgets { flex-direction: column; padding: 14px 6px 18px; gap: 10px; }
   .home-mini-wx { min-width: 0; }
   .home-mini-art { width: 56px; height: 56px; }
+  /* A 3px track with a 12px thumb is fine with a mouse pointer but hard to
+     grab and hard to fine-tune with a fingertip -- taller track, bigger
+     thumb, and a longer track (more travel per % change) all make it easier
+     to land on and drag accurately with touch. */
+  .home-np-vol { width: 92px; height: 6px; }
+  .home-np-vol::-webkit-slider-thumb { width: 20px; height: 20px; }
+  .home-np-vol::-moz-range-thumb { width: 20px; height: 20px; }
 }
