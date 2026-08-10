@@ -118,25 +118,25 @@
     .fp-btn:hover   { color: var(--text); background: var(--surface-hi); }
     .fp-btn:active  { transform: scale(.88); }
     .fp-btn.lit     { color: var(--primary); }
-    /* Dark surface + glass border, matching the site's .btn-surface
-       convention, instead of a solid brand-color fill -- the primary-color
-       icon carries the identity, so the button still reads as "the play
-       button" without overriding the user's surface/border theme settings. */
+    /* Dark surface + white glass border, matching the site's .btn-surface
+       convention and every other button's chrome -- a plain white icon
+       instead of a colored fill, so this composites with the user's actual
+       surface/border theme instead of overriding it with a fixed color. */
     .fp-btn-play    {
       background: var(--surface-highest);
-      color: var(--primary); width: 38px; height: 38px; border-radius: 50%;
+      color: #fff; width: 38px; height: 38px; border-radius: 50%;
       border: 2px solid var(--glass-border);
       transition: transform .1s, border-color .15s, box-shadow .12s;
       box-shadow: 0 2px 0 rgba(0,0,0,.45);
     }
-    .fp-btn-play:hover  { border-color: rgba(176,159,252,.5); color: var(--primary); }
+    .fp-btn-play:hover  { border-color: rgba(255,255,255,.4); color: #fff; }
     .fp-btn-play:active { transform: translateY(2px); box-shadow: none; }
     #bar-prog    { display: flex; align-items: center; gap: 8px; width: 100%; }
     .bar-time    { font-size: 11px; font-weight: 600; color: var(--text-muted); flex-shrink: 0; width: 34px; }
     .bar-time:last-child { text-align: right; }
     #fp-bar      { flex: 1; position: relative; height: 4px; background: rgba(255,255,255,.1); border-radius: 999px; cursor: pointer; transition: height .15s; }
     #fp-bar:hover { height: 6px; }
-    #fp-fill     { position: absolute; top: 0; left: 0; bottom: 0; background: linear-gradient(90deg, #7c6cf8, var(--primary)); border-radius: 999px; transition: width .6s linear; pointer-events: none; }
+    #fp-fill     { position: absolute; top: 0; left: 0; bottom: 0; background: #fff; border-radius: 999px; transition: width .6s linear; pointer-events: none; }
     #bar-vol     { flex: 0 0 22%; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
     #bar-vol svg { color: var(--text-muted); flex-shrink: 0; }
 
@@ -155,12 +155,12 @@
     .det-play-btn  {
       width: 48px; height: 48px; border-radius: 50%;
       background: var(--surface-highest);
-      border: 2px solid var(--glass-border); color: var(--primary);
+      border: 2px solid var(--glass-border); color: #fff;
       display: flex; align-items: center; justify-content: center; cursor: pointer;
       -webkit-tap-highlight-color: transparent; transition: transform .1s, border-color .15s, box-shadow .12s; flex-shrink: 0;
       box-shadow: 0 2px 0 rgba(0,0,0,.45);
     }
-    .det-play-btn:hover  { border-color: rgba(176,159,252,.5); }
+    .det-play-btn:hover  { border-color: rgba(255,255,255,.4); }
     .det-play-btn:active { transform: translateY(2px); box-shadow: none; }
     .det-shuf-btn  { background: none; border: none; color: var(--text-muted); cursor: pointer; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 50%; -webkit-tap-highlight-color: transparent; transition: color .15s, background .15s; }
     .det-shuf-btn:hover { color: var(--text); background: var(--surface-hi); }

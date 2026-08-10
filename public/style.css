@@ -382,7 +382,7 @@ body[data-tab="weather"] .b3 { background: radial-gradient(circle, rgba(62,245,1
 .progress-fill {
   position: absolute;
   top: 0; left: 0; bottom: 0;
-  background: linear-gradient(90deg, #7c6cf8, #f87cc4);
+  background: #fff;
   border-radius: 999px;
   transition: width .6s linear;
   pointer-events: none;
@@ -406,16 +406,16 @@ body[data-tab="weather"] .b3 { background: radial-gradient(circle, rgba(62,245,1
   -webkit-appearance: none;
   width: 16px; height: 16px;
   border-radius: 50%;
-  background: var(--primary);
+  background: #fff;
   cursor: pointer;
-  border: 2px solid rgba(255,255,255,.3);
-  box-shadow: 0 2px 0 rgba(80,40,160,.5), 0 0 10px rgba(176,159,252,.6);
+  border: 2px solid var(--glass-border);
+  box-shadow: 0 2px 4px rgba(0,0,0,.4);
 }
 .vol-slider::-moz-range-thumb {
   width: 16px; height: 16px;
   border-radius: 50%;
-  background: var(--primary);
-  border: 2px solid rgba(255,255,255,.3);
+  background: #fff;
+  border: 2px solid var(--glass-border);
   cursor: pointer;
 }
 
