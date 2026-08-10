@@ -150,36 +150,42 @@
         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="color:var(--text-muted);flex-shrink:0;"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg>
       </div>
 
-      <!-- Spotify: playing -->
+      <!-- Spotify: playing -- single-row layout matching the music tab's
+           #player-bar miniplayer (art+info | controls+progress | volume)
+           instead of stacking art/progress/controls in three rows. -->
       <div id="home-np-playing" style="display:none;">
-        <div class="home-mini-np-row">
-          <img class="home-mini-art" id="home-np-art" src="" alt="">
-          <div style="flex:1;min-width:0;">
-            <div class="home-mini-track" id="home-np-track">—</div>
-            <div class="home-mini-artist" id="home-np-artist">—</div>
-          </div>
-        </div>
-        <div class="home-mini-prog">
-          <div class="home-mini-prog-row">
-            <span class="home-mini-time" id="home-np-cur">0:00</span>
-            <div class="progress-bar" style="margin:0;flex:1;">
-              <div class="progress-fill" id="home-np-bar" style="width:0%"></div>
+        <div class="home-np-row">
+          <div class="home-np-info">
+            <img class="home-mini-art" id="home-np-art" src="" alt="">
+            <div style="min-width:0;">
+              <div class="home-mini-track" id="home-np-track">—</div>
+              <div class="home-mini-artist" id="home-np-artist">—</div>
             </div>
-            <span class="home-mini-time" id="home-np-tot">0:00</span>
           </div>
-        </div>
-        <div class="home-mini-ctrls">
-          <button class="home-mini-ctrl" onclick="action('previous')" tabindex="-1">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
-          </button>
-          <button class="home-mini-ctrl home-mini-ctrl-play" onclick="togglePlay()" tabindex="-1">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" id="home-play-icon"><path d="M8 5v14l11-7z"/></svg>
-          </button>
-          <button class="home-mini-ctrl" onclick="action('next')" tabindex="-1">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-          </button>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="color:var(--text-muted);margin-left:6px;flex-shrink:0;"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
-          <input type="range" class="home-np-vol" id="home-np-vol" min="0" max="100" value="80" oninput="setVolume(this.value);">
+          <div class="home-np-center">
+            <div class="home-mini-ctrls">
+              <button class="home-mini-ctrl" onclick="action('previous')" tabindex="-1">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+              </button>
+              <button class="home-mini-ctrl home-mini-ctrl-play" onclick="togglePlay()" tabindex="-1">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" id="home-play-icon"><path d="M8 5v14l11-7z"/></svg>
+              </button>
+              <button class="home-mini-ctrl" onclick="action('next')" tabindex="-1">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+              </button>
+            </div>
+            <div class="home-mini-prog-row">
+              <span class="home-mini-time" id="home-np-cur">0:00</span>
+              <div class="progress-bar" style="margin:0;flex:1;">
+                <div class="progress-fill" id="home-np-bar" style="width:0%"></div>
+              </div>
+              <span class="home-mini-time" id="home-np-tot">0:00</span>
+            </div>
+          </div>
+          <div class="home-np-vol-wrap">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="color:var(--text-muted);flex-shrink:0;"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+            <input type="range" class="home-np-vol" id="home-np-vol" min="0" max="100" value="80" oninput="setVolume(this.value);">
+          </div>
         </div>
       </div>
 
