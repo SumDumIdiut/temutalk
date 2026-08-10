@@ -1,8 +1,14 @@
     /* ── News tab ───────────────────────────────────────────────────────── */
     .news-sub-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
-    .news-sub-btn { background: var(--surface); border: 1px solid var(--glass-border); border-radius: 999px; color: var(--text-dim); font-family: inherit; font-size: 12px; font-weight: 500; padding: 5px 13px; cursor: pointer; transition: background .15s, color .15s, border-color .15s; -webkit-tap-highlight-color: transparent; }
-    .news-sub-btn:hover { background: var(--surface-hi); }
-    .news-sub-btn.active { background: rgba(251,191,36,.15); border-color: #fbbf24; color: #fbbf24; }
+    .news-sub-btn {
+      background: var(--surface); border: 2px solid var(--glass-border); border-radius: 999px;
+      color: var(--text-dim); font-family: inherit; font-size: 12px; font-weight: 800; padding: 6px 14px;
+      cursor: pointer; box-shadow: 0 2px 0 rgba(0,0,0,.4);
+      transition: background .15s, color .15s, border-color .15s, transform .1s; -webkit-tap-highlight-color: transparent;
+    }
+    .news-sub-btn:hover  { background: var(--surface-hi); }
+    .news-sub-btn:active { transform: translateY(2px); box-shadow: none; }
+    .news-sub-btn.active { background: rgba(251,191,36,.15); border-color: #fbbf24; color: #fbbf24; box-shadow: 0 2px 0 rgba(0,0,0,.4), 0 0 16px rgba(251,191,36,.22); }
     .news-card { text-decoration: none; display: flex; align-items: flex-start; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--border); -webkit-tap-highlight-color: transparent; transition: opacity .12s; }
     .news-card:last-child { border-bottom: none; }
     .news-card:hover .news-title { color: #fbbf24; }

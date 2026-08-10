@@ -3,10 +3,11 @@
 
 .astro-page { padding-bottom:48px; }
 .astro-header { display:flex; align-items:center; justify-content:space-between; padding:4px 0 16px; }
-.astro-loc-chip { font-size:11px; color:var(--text-muted); background:var(--surface); border:1px solid var(--glass-border); border-radius:999px; padding:3px 10px; max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.astro-refresh-btn { background:var(--surface-hi); border:1px solid var(--glass-border); border-radius:999px; color:var(--text-muted); font-family:inherit; font-size:13px; padding:5px 13px; cursor:pointer; }
-.astro-refresh-btn:hover { color:var(--text); }
-.astro-card { background:var(--surface); border:1px solid var(--glass-border); border-radius:var(--radius-sm); padding:16px; margin-bottom:10px; }
+.astro-loc-chip { font-size:11px; color:var(--text-muted); background:var(--surface); border:2px solid var(--glass-border); border-radius:999px; padding:3px 10px; max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.astro-refresh-btn { background:var(--surface-hi); border:2px solid var(--glass-border); border-radius:999px; color:var(--text-muted); font-family:inherit; font-size:13px; font-weight:700; padding:6px 14px; cursor:pointer; box-shadow:0 2px 0 rgba(0,0,0,.4); transition:color .15s, background .15s, transform .1s; }
+.astro-refresh-btn:hover  { color:var(--text); background:var(--surface-highest); }
+.astro-refresh-btn:active { transform:translateY(2px); box-shadow:none; }
+.astro-card { background:var(--surface); border:2px solid var(--glass-border); border-radius:var(--radius-sm); padding:16px; margin-bottom:10px; box-shadow:var(--card-shadow); }
 .astro-card-title { font-size:15px; font-weight:700; color:var(--astro-accent); margin-bottom:12px; }
 
 /* ── 3D Solar System ── */
@@ -32,7 +33,7 @@
 /* ── Space Stations ── */
 .st-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px; }
 @media (max-width:420px) { .st-grid { grid-template-columns:1fr; } }
-.st-card { background:var(--surface-hi); border:1px solid var(--glass-border); border-radius:8px; padding:12px; }
+.st-card { background:var(--surface-hi); border:2px solid var(--glass-border); border-radius:var(--radius-sm); padding:12px; box-shadow:var(--card-shadow); }
 .st-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
 .st-name { font-size:13px; font-weight:700; color:var(--text); }
 .st-badge { font-size:10px; padding:2px 7px; border-radius:999px; font-weight:600; }
