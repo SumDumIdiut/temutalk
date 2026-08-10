@@ -144,19 +144,19 @@
 .home-mini-ctrl { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--glass-border); background: var(--surface-hi); color: var(--text); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .15s, border-color .15s, transform .1s; flex-shrink: 0; -webkit-tap-highlight-color: transparent; }
 .home-mini-ctrl:hover  { background: var(--surface-highest); }
 .home-mini-ctrl:active { transform: scale(.9); }
-/* Dark surface + glass border, matching the site's .btn-surface convention,
-   instead of a solid brand-color fill -- keeps the pink identity in the icon
-   color alone so the button still reads as "the play button" without
-   overriding the user's actual surface/border theme settings. */
+/* Dark surface + white glass border, matching the site's .btn-surface
+   convention and every other button's chrome -- a plain white icon instead
+   of a colored fill or colored icon, so this composites with the user's
+   actual surface/border theme instead of overriding it with a fixed color. */
 .home-mini-ctrl-play {
   width: 42px;
   height: 42px;
   background: var(--surface-highest);
   border: 2px solid var(--glass-border);
-  color: #f472b6;
+  color: #fff;
   box-shadow: 0 2px 0 rgba(0,0,0,.45);
 }
-.home-mini-ctrl-play:hover  { border-color: rgba(244,114,182,.5); }
+.home-mini-ctrl-play:hover  { border-color: rgba(255,255,255,.4); }
 .home-mini-ctrl-play:active { transform: scale(.92); box-shadow: none; }
 
 /* Recent tracks list */
@@ -171,9 +171,9 @@
 .home-radio-pulse { width: 8px; height: 8px; border-radius: 50%; background: #e879f9; flex-shrink: 0; animation: rmap-pulse 1.4s ease-in-out infinite; }
 .home-radio-stop { margin-left: auto; background: rgba(232,121,249,.12); border: 1.5px solid rgba(232,121,249,.3); border-radius: 999px; color: #e879f9; font-size: 12px; font-weight: 700; padding: 5px 14px; cursor: pointer; transition: background .15s, box-shadow .15s; flex-shrink: 0; -webkit-tap-highlight-color: transparent; }
 .home-radio-stop:hover { background: rgba(232,121,249,.22); box-shadow: 0 0 14px rgba(232,121,249,.22); }
-.home-np-vol { -webkit-appearance: none; appearance: none; height: 3px; border-radius: 2px; background: var(--border); outline: none; cursor: pointer; accent-color: #e879f9; }
-.home-np-vol::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #e879f9; cursor: pointer; }
-.home-np-vol::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; background: #e879f9; border: none; cursor: pointer; }
+.home-np-vol { -webkit-appearance: none; appearance: none; height: 3px; border-radius: 2px; background: var(--border); outline: none; cursor: pointer; accent-color: #fff; }
+.home-np-vol::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #fff; cursor: pointer; }
+.home-np-vol::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; background: #fff; border: none; cursor: pointer; }
 
 /* ── Mobile ── */
 /* #view-home .page's own padding/width rules are more specific than
