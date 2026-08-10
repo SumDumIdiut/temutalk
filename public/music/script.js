@@ -207,6 +207,7 @@ function onPlayer(data) {
     document.getElementById('fp-art').src  = src;
     document.getElementById('bar-art').src = src;
     tintMusicCard(src);
+    loadArtAccent(src);
   }
 
   // Artist section
@@ -315,6 +316,20 @@ function onArtLoad(img) {
       R.style.setProperty('--primary-glow', `hsla(${bH},${bS}%,73%,.4)`);
     }
   } catch (_) {}
+}
+
+// A crossOrigin="anonymous" <img> that the album-art CDN doesn't answer with
+// CORS headers for refuses to render at all (not just refuses the canvas
+// read) -- that was previously set directly on the visible #fp-art element,
+// so any track whose art came back without those headers just failed to
+// show art entirely. Loading a separate, invisible copy for the accent-color
+// read (same technique as tintMusicCard) means the visible image is never
+// subject to that restriction -- worst case here is just no accent color.
+function loadArtAccent(src) {
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = () => onArtLoad(img);
+  img.src = src;
 }
 
 function renderProg() {
@@ -1134,6 +1149,7 @@ function _updateNowPlaying(title, artist, album, artUrl) {
     document.getElementById('fp-art').src  = artUrl;
     document.getElementById('bar-art').src = artUrl;
     tintMusicCard(artUrl);
+    loadArtAccent(artUrl);
   }
   const npEmpty   = document.getElementById('np-empty');
   const npDetails = document.getElementById('np-details');
@@ -1262,6 +1278,7 @@ function onPlayer(data) {
     document.getElementById('fp-art').src  = src;
     document.getElementById('bar-art').src = src;
     tintMusicCard(src);
+    loadArtAccent(src);
   }
 
   const artistIds = data.item.artists.map(a => a.id).join(',');
