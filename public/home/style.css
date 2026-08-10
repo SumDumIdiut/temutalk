@@ -188,6 +188,13 @@
   width: 5px; height: 96px; flex: 0 0 auto;
   border-radius: 3px;
   background: var(--border); outline: none; cursor: pointer; accent-color: #fff;
+  /* The site-wide `* { box-sizing: border-box }` reset throws off the
+     browser's thumb-centering math for a writing-mode: vertical-lr custom
+     range input specifically -- the thumb renders visibly shifted off the
+     track's centerline. box-sizing: content-box (this element only, scoped
+     here rather than touching the global reset) fixes it; confirmed via a
+     side-by-side isolated test with/without the override. */
+  box-sizing: content-box;
 }
 .home-np-vol::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #fff; cursor: pointer; }
 .home-np-vol::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #fff; border: none; cursor: pointer; }
