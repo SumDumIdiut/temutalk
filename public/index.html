@@ -1033,7 +1033,7 @@ function tintMusicCard(src) {
       r = Math.round(r / count * 0.35);
       g = Math.round(g / count * 0.35);
       b = Math.round(b / count * 0.35);
-      card.style.background = 'linear-gradient(140deg,rgb(' + r + ',' + g + ',' + b + ') 0%,var(--surface) 60%)';
+      card.style.background = 'linear-gradient(100deg,rgb(' + r + ',' + g + ',' + b + ') 0%,var(--surface) 180%)';
     } catch (e) {
       // Falls back to .home-mini-music's own CSS gradient (see home/style.css)
       // -- this can genuinely happen (a CORS-tainted canvas read against
