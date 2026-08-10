@@ -96,15 +96,15 @@
   flex: 1;
   border-top: 4px solid #f472b6;
   overflow: hidden;
-  background: linear-gradient(100deg,#3a1c32 0%,var(--surface) 180%);
-  box-shadow: var(--card-shadow), 0 0 36px -6px rgba(244,114,182,.45);
+  background: linear-gradient(100deg,#25141f 0%,var(--surface) 180%);
+  box-shadow: var(--card-shadow), 0 0 28px -10px rgba(244,114,182,.28);
 }
 .home-mini-music:hover {
   border-color: rgba(244,114,182,.6);
-  box-shadow: var(--card-shadow-hover), 0 0 44px -4px rgba(244,114,182,.55);
+  box-shadow: var(--card-shadow-hover), 0 0 34px -8px rgba(244,114,182,.35);
 }
-.home-mini-music.radio-active { border-top-color: #e879f9; background: linear-gradient(100deg,#341c3a 0%,var(--surface) 180%); box-shadow: var(--card-shadow), 0 0 36px -6px rgba(232,121,249,.45); }
-.home-mini-music.radio-active:hover { border-color: rgba(232,121,249,.6); box-shadow: var(--card-shadow-hover), 0 0 44px -4px rgba(232,121,249,.55); }
+.home-mini-music.radio-active { border-top-color: #e879f9; background: linear-gradient(100deg,#221426 0%,var(--surface) 180%); box-shadow: var(--card-shadow), 0 0 28px -10px rgba(232,121,249,.28); }
+.home-mini-music.radio-active:hover { border-color: rgba(232,121,249,.6); box-shadow: var(--card-shadow-hover), 0 0 34px -8px rgba(232,121,249,.35); }
 
 /* Empty state (no recent plays) */
 .home-mini-empty { display: flex; align-items: center; gap: 10px; padding: 6px 0 2px; color: var(--text-muted); }
