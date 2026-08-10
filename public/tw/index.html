@@ -1034,7 +1034,14 @@ function tintMusicCard(src) {
       g = Math.round(g / count * 0.35);
       b = Math.round(b / count * 0.35);
       card.style.background = 'linear-gradient(140deg,rgb(' + r + ',' + g + ',' + b + ') 0%,var(--surface) 60%)';
-    } catch(_) {}
+    } catch (e) {
+      // Falls back to .home-mini-music's own CSS gradient (see home/style.css)
+      // -- this can genuinely happen (a CORS-tainted canvas read against
+      // whichever image CDN served this particular track's art), so it's
+      // not treated as an error worth surfacing to the user, just logged
+      // for anyone debugging why a specific track never got tinted.
+      console.warn('[music] tintMusicCard: color sampling failed, using fallback gradient', e);
+    }
   };
   img.src = src;
 }
