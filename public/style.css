@@ -67,7 +67,18 @@ body {
   content: '';
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse 100% 100% at 50% 50%, transparent 60%, var(--bg) 100%);
+  /* The radial vignette alone protects the left/right/top/bottom edges only
+     in proportion to viewport aspect ratio -- on a short, wide window it
+     barely fades the bottom few hundred px, letting a blob (fixed px size,
+     positioned by vh%) sit at full strength directly behind whatever's
+     pinned to the bottom of the screen (home tab's mini-card dock, music
+     tab's player bar) and bleed through their glass backdrop-filter.
+     This linear layer fades out a fixed 200px strip at the bottom
+     regardless of aspect ratio, closing that gap without touching blob
+     size/position/opacity anywhere else. */
+  background:
+    linear-gradient(to bottom, transparent 0%, transparent calc(100% - 200px), var(--bg) 100%),
+    radial-gradient(ellipse 100% 100% at 50% 50%, transparent 60%, var(--bg) 100%);
   z-index: 1;
 }
 
