@@ -1005,7 +1005,7 @@ function loadHomeSnippets() {
         const name   = t.name || '—';
         const artist = (t.artists || []).map(a => a.name).join(', ') || '—';
         const img    = (t.album?.images?.[2] || t.album?.images?.[1] || t.album?.images?.[0])?.url || '';
-        return '<div class="home-mini-recent-row">' +
+        return '<div class="home-mini-recent-row" data-uri="' + esc(t.uri || '') + '" onclick="event.stopPropagation(); if (this.dataset.uri) playUris([this.dataset.uri]);">' +
           '<img class="home-mini-recent-art" src="' + esc(img) + '" alt="">' +
           '<div style="min-width:0;"><div class="home-mini-recent-name">' + esc(name) + '</div>' +
           '<div class="home-mini-recent-sub">' + esc(artist) + '</div></div>' +
