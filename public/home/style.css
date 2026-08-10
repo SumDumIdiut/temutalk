@@ -141,19 +141,23 @@
 .home-mini-time:last-child { text-align: right; }
 
 .home-mini-ctrls { display: flex; align-items: center; gap: 6px; margin-top: 12px; }
-.home-mini-ctrl { width: 34px; height: 34px; border-radius: 50%; border: none; background: var(--surface-hi); color: var(--text); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .15s, transform .1s; flex-shrink: 0; -webkit-tap-highlight-color: transparent; }
+.home-mini-ctrl { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--glass-border); background: var(--surface-hi); color: var(--text); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .15s, border-color .15s, transform .1s; flex-shrink: 0; -webkit-tap-highlight-color: transparent; }
 .home-mini-ctrl:hover  { background: var(--surface-highest); }
 .home-mini-ctrl:active { transform: scale(.9); }
+/* Dark surface + glass border, matching the site's .btn-surface convention,
+   instead of a solid brand-color fill -- keeps the pink identity in the icon
+   color alone so the button still reads as "the play button" without
+   overriding the user's actual surface/border theme settings. */
 .home-mini-ctrl-play {
   width: 42px;
   height: 42px;
-  background: linear-gradient(135deg, #f472b6, #e879f9);
-  border: 1.5px solid rgba(255,255,255,.22);
-  color: #fff;
-  box-shadow: 0 4px 16px rgba(244,114,182,.4);
+  background: var(--surface-highest);
+  border: 2px solid var(--glass-border);
+  color: #f472b6;
+  box-shadow: 0 2px 0 rgba(0,0,0,.45);
 }
-.home-mini-ctrl-play:hover  { filter: brightness(1.1); }
-.home-mini-ctrl-play:active { transform: scale(.92); }
+.home-mini-ctrl-play:hover  { border-color: rgba(244,114,182,.5); }
+.home-mini-ctrl-play:active { transform: scale(.92); box-shadow: none; }
 
 /* Recent tracks list */
 .home-mini-recent-row { display: flex; align-items: center; gap: 9px; padding: 6px 0; border-bottom: 1px solid var(--border); cursor: pointer; border-radius: 8px; transition: background .12s; }
