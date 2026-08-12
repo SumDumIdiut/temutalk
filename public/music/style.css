@@ -164,6 +164,10 @@
     .det-play-btn:active { transform: translateY(2px); box-shadow: none; }
     .det-shuf-btn  { background: none; border: none; color: var(--text-muted); cursor: pointer; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 50%; -webkit-tap-highlight-color: transparent; transition: color .15s, background .15s; }
     .det-shuf-btn:hover { color: var(--text); background: var(--surface-hi); }
+    /* .lit here just means "fetching the mix" -- toggled on for the
+       duration of playMagicShuffle()'s similar-tracks requests. */
+    .det-magic-btn.lit { color: var(--pink); animation: magic-pulse 1s ease-in-out infinite; }
+    @keyframes magic-pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
     .det-divider   { height: 1px; background: var(--border); margin: 4px 18px 6px; }
     .det-track     { display: flex; align-items: center; gap: 12px; padding: 9px 18px; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background .1s; border-radius: 8px; }
     .det-track:hover  { background: var(--surface); }

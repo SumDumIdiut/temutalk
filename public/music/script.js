@@ -390,6 +390,50 @@ function cycleRepeat() {
   renderRepeat();
   api('/api/player/repeat', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ state: repeatState }) });
 }
+
+// ── Autoplay: when whatever's playing finishes naturally and nothing is
+// queued after it, fetch and play something similar instead of leaving
+// silence. There's no track-end event to hook into (Spotify Connect state
+// only reaches this app via the server's ~3s player-state poll), so this is
+// detected by comparing each poll against the last one: playing, near the
+// end of the track, then on a later poll stopped with progress back near
+// zero on the same track -- Spotify's own behavior when a track completes
+// with an empty queue. Auto-advancing into an already-queued next track (a
+// playlist/album context, or repeat) never sets is_playing:false in
+// between, so this deliberately never fires for those cases. ─────────────
+let autoplayEnabled = localStorage.getItem('autoplayEnabled') !== 'false';
+let _apLastTrackId = null, _apLastProgress = 0, _apLastDuration = 1, _apLastPlaying = false, _apFiring = false;
+
+function toggleAutoplay() {
+  autoplayEnabled = !autoplayEnabled;
+  localStorage.setItem('autoplayEnabled', autoplayEnabled ? 'true' : 'false');
+  document.getElementById('fp-autoplay')?.classList.toggle('lit', autoplayEnabled);
+}
+
+function _checkAutoplay(data) {
+  if (!autoplayEnabled || _apFiring) { _apRecordPoll(data); return; }
+  const wasNearEnd = _apLastPlaying && _apLastTrackId && _apLastProgress >= _apLastDuration - 2500;
+  const stoppedNow = !data.is_playing
+    && (!data.item || data.item.id === _apLastTrackId)
+    && (data.progress_ms || 0) < 2000;
+  if (wasNearEnd && stoppedNow) {
+    _apFiring = true;
+    const seedTrackId  = _apLastTrackId;
+    const seedArtistId = lastArtistIds ? lastArtistIds.split(',')[0] : '';
+    let url = '/api/similar-tracks?seedTrackId=' + encodeURIComponent(seedTrackId) + '&limit=1&exclude=' + encodeURIComponent(seedTrackId);
+    if (seedArtistId) url += '&seedArtistId=' + encodeURIComponent(seedArtistId);
+    api(url).then(res => {
+      const t = res.tracks && res.tracks[0];
+      if (t && t.uri) playUris([t.uri]);
+    }).catch(() => {}).finally(() => { _apFiring = false; });
+  }
+  _apRecordPoll(data);
+}
+function _apRecordPoll(data) {
+  if (data.item) { _apLastTrackId = data.item.id; _apLastDuration = data.item.duration_ms || 1; }
+  _apLastProgress = data.progress_ms || 0;
+  _apLastPlaying  = !!data.is_playing;
+}
 function seekTo(e) {
   const rect = document.getElementById('fp-bar').getBoundingClientRect();
   progMs = Math.floor(Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)) * durMs);
@@ -471,6 +515,62 @@ function playUris(uris) {
 function shuffleContext(uri) {
   if (!shuffled) { shuffled = true; document.getElementById('fp-shuffle').classList.add('lit'); api('/api/player/shuffle', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ state: true }) }); }
   playContext(uri);
+}
+
+// Magic shuffle: the playlist's own tracks (shuffled) with similar tracks
+// woven in every third slot, played as an explicit uris list -- Spotify's
+// own context_uri playback can't do this since a context hands the whole
+// track sequence to Spotify's servers, and there's no way to tell Spotify
+// "play these plus some of your own recommendations mixed in."
+function playMagicShuffle(contextUri) {
+  const playlistId = contextUri.split(':').pop();
+  const btn = document.getElementById('vpl-magic-btn');
+  if (btn) btn.classList.add('lit');
+  const stopLoading = () => { if (btn) btn.classList.remove('lit'); };
+
+  api('/api/playlist/' + playlistId + '/tracks').then(data => {
+    const ownTracks = (data.items || []).map(i => i.track).filter(t => t && t.uri);
+    if (!ownTracks.length) { _playErr({ error: 'Playlist has no playable tracks' }); stopLoading(); return; }
+
+    const shuffledOwn = ownTracks.slice();
+    for (let i = shuffledOwn.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffledOwn[i], shuffledOwn[j]] = [shuffledOwn[j], shuffledOwn[i]];
+    }
+
+    // Seed from a spread of tracks across the shuffled order (not just the
+    // first one) so the recommendations pull from more than one corner of
+    // the playlist's taste, roughly one seed per ~5 tracks.
+    const seedCount   = Math.max(1, Math.min(5, Math.ceil(shuffledOwn.length / 5)));
+    const seeds       = Array.from({ length: seedCount }, (_, i) => shuffledOwn[Math.floor(i * shuffledOwn.length / seedCount)]);
+    const excludeIds  = ownTracks.map(t => t.id).join(',');
+    const perSeedLimit = Math.max(1, Math.ceil(shuffledOwn.length / 2 / seedCount));
+
+    Promise.all(seeds.map(t => {
+      let url = '/api/similar-tracks?seedTrackId=' + encodeURIComponent(t.id) + '&limit=' + perSeedLimit + '&exclude=' + encodeURIComponent(excludeIds);
+      if (t.artists?.[0]?.id) url += '&seedArtistId=' + encodeURIComponent(t.artists[0].id);
+      return api(url).then(r => r.tracks || []).catch(() => []);
+    })).then(groups => {
+      const seen = new Set();
+      const similar = groups.flat().filter(t => { if (seen.has(t.id)) return false; seen.add(t.id); return true; });
+
+      const mixed = [];
+      let ri = 0, si = 0;
+      while (ri < shuffledOwn.length) {
+        mixed.push(shuffledOwn[ri++]);
+        if (ri % 2 === 0 && si < similar.length) mixed.push(similar[si++]);
+      }
+      while (si < similar.length) mixed.push(similar[si++]);
+
+      const uris = mixed.map(t => t.uri).filter(Boolean);
+      if (!uris.length) { _playErr({ error: 'Nothing playable found' }); return; }
+      // The uris array is already shuffled and mixed with similar tracks --
+      // Spotify's own native shuffle would re-shuffle this explicit queue on
+      // top of that, undoing the deliberate interleaving. Turn it off.
+      if (shuffled) { shuffled = false; document.getElementById('fp-shuffle').classList.remove('lit'); api('/api/player/shuffle', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ state: false }) }); }
+      playUris(uris);
+    }).finally(stopLoading);
+  }).catch(() => { _playErr({ error: 'Failed to load playlist' }); stopLoading(); });
 }
 
 // ── Remove a track from a playlist (playlist detail view) ─────────────────
@@ -1184,6 +1284,7 @@ function showApp() {
   if (bar) bar.style.display = 'none';
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('music-app').classList.add('ma-show');
+  document.getElementById('fp-autoplay')?.classList.toggle('lit', autoplayEnabled);
   if (activeService === 'spotify' && !_credsSynced) {
     _credsSynced = true;
     const { cid, csec } = getSpotifyCreds();
@@ -1248,6 +1349,7 @@ function onPlayer(data) {
   if (activeService !== 'spotify') return;
   if (!data.authenticated) { showAuth(); return; }
   showApp();
+  _checkAutoplay(data);
   if (!data.item) return;
 
   const name    = data.item.name;
