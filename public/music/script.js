@@ -261,7 +261,6 @@ function onPlayer(data) {
   if (data.device?.volume_percent != null) {
     _serverVolume = true;
     document.getElementById('fp-vol').value = data.device.volume_percent;
-    document.getElementById('home-np-vol').value = data.device.volume_percent;
     _serverVolume = false;
   }
   shuffled = data.shuffle_state;
@@ -1322,7 +1321,6 @@ function onPlayer(data) {
   if (data.device?.volume_percent != null) {
     _serverVolume = true;
     document.getElementById('fp-vol').value = data.device.volume_percent;
-    document.getElementById('home-np-vol').value = data.device.volume_percent;
     _serverVolume = false;
   }
   shuffled = data.shuffle_state;
