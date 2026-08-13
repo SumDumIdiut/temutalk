@@ -182,23 +182,26 @@
        .sp-device-pop (the output-device picker) elsewhere in this file,
        with an actual open/close transition instead of a hard display
        toggle (display can't be animated, so opacity/transform/visibility
-       carry the animation and display stays out of it entirely). */
+       carry the animation and display stays out of it entirely). Snaps out
+       sideways from the button instead of dropping down -- same
+       overshoot-then-settle easing the toast notification already uses
+       elsewhere in this app for a "snap into place" feel, just horizontal. */
     .det-shuf-wrap { position: relative; }
     .det-shuf-pop {
-      position: absolute; top: calc(100% + 8px); left: 50%;
+      position: absolute; top: 50%; left: calc(100% + 10px);
       width: 180px;
       background: rgba(16,15,26,.92); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
       border: 2px solid var(--glass-border); border-radius: var(--radius); box-shadow: var(--card-shadow-hover);
       z-index: 20; padding: 6px;
-      transform-origin: top center;
-      transform: translateX(-50%) translateY(-6px) scale(.96);
+      transform-origin: left center;
+      transform: translateY(-50%) translateX(-10px) scale(.9);
       opacity: 0; visibility: hidden; pointer-events: none;
-      transition: opacity .16s ease, transform .16s ease, visibility 0s linear .16s;
+      transition: opacity .15s ease, transform .22s cubic-bezier(.34,1.56,.64,1), visibility 0s linear .22s;
     }
     .det-shuf-pop.open {
-      transform: translateX(-50%) translateY(0) scale(1);
+      transform: translateY(-50%) translateX(0) scale(1);
       opacity: 1; visibility: visible; pointer-events: auto;
-      transition: opacity .16s ease, transform .16s ease, visibility 0s linear 0s;
+      transition: opacity .15s ease, transform .22s cubic-bezier(.34,1.56,.64,1), visibility 0s linear 0s;
     }
     .det-shuf-opt { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; font-weight: 700; color: var(--text); transition: background .12s; -webkit-tap-highlight-color: transparent; }
     .det-shuf-opt:hover { background: var(--surface-hi); }
