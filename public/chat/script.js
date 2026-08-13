@@ -149,6 +149,15 @@ function chatUpdateAnnouncementBar() {
   if (time) time.textContent = new Date(latest.ts).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 }
 
+// Mirrors lib/chat.js's chatIdentityKey: the identity this device is
+// currently speaking chat as -- its linked Discord account when signed in
+// (chatMyAccountKey), otherwise the device itself. DM room ids and
+// own-message checks both need this, not the raw deviceId, so a message
+// sent from one of an account's devices is recognized as "own" (and DM
+// rooms resolve to the same room) on every other device that account is
+// signed into.
+function chatMyIdentity() { return chatMyAccountKey || deviceId; }
+
 // ── Room ──────────────────────────────────────────────────────────────────────
 // Mirrors lib/chat.js's chatParseChannelRoom: 'channel:<serverId>:<channelId>',
 // where serverId itself already contains a colon ('server:<hex16>'), so the
@@ -166,7 +175,10 @@ function chatRoomLabel(room) {
   if (room === 'global') return 'Global';
   if (room.startsWith('dm:')) {
     if (chatDMInfo[room]) return chatDMInfo[room].name;
-    const otherId = room.slice(3).split(':').find(id => id !== deviceId);
+    // Double colon between the two parties, not single -- a party can be an
+    // accountKey with its own internal colon ('discord:999'); mirrors
+    // lib/chat.js's dm: room format exactly (see its chatCanAccess comment).
+    const otherId = room.slice(3).split('::').find(id => id !== chatMyIdentity());
     return chatFriendMap[otherId]?.name || 'DM';
   }
   const parsed = chatParseChannelRoom(room);
@@ -590,7 +602,7 @@ function chatRenderSidebar() {
     }
     // Friends as DM items
     for (const f of friends) {
-      const dmRoom = 'dm:' + [deviceId, f.id].sort().join(':');
+      const dmRoom = 'dm:' + [chatMyIdentity(), f.id].sort().join('::');
       const u = chatRoomUnread[dmRoom] || 0;
       const avHtml = f.avatarUrl
         ? `<div class="chat-room-icon"><img src="${esc(f.avatarUrl)}" alt="${esc(f.name)}"></div>`
@@ -603,7 +615,7 @@ function chatRenderSidebar() {
     }
     // Open DMs with non-friends
     for (const d of openDMs) {
-      const dmRoom = 'dm:' + [deviceId, d.uid].sort().join(':');
+      const dmRoom = 'dm:' + [chatMyIdentity(), d.uid].sort().join('::');
       const u = chatRoomUnread[dmRoom] || 0;
       const avHtml = d.avatarUrl
         ? `<div class="chat-room-icon"><img src="${esc(d.avatarUrl)}" alt="${esc(d.name)}"></div>`
@@ -659,7 +671,7 @@ function chatRenderMessages() {
       continue;
     }
 
-    const own = m.from === deviceId;
+    const own = m.from === chatMyIdentity();
     const showName = m.from !== lastFrom;
     lastFrom = m.from;
     // Role colour is stamped server-side on channel messages (see lib/chat.js) —
@@ -727,7 +739,7 @@ function chatAvatarClick(e, el) {
   const uid  = el.dataset.uid;
   const name = el.dataset.name;
   const av   = el.dataset.av || '';
-  if (!uid || uid === deviceId) return;
+  if (!uid || uid === chatMyIdentity()) return;
   e.stopPropagation();
   chatShowUserCard(e, uid, name, av);
 }
@@ -816,7 +828,7 @@ function chatDmItemClick(el) {
 window.chatDmItemClick = chatDmItemClick;
 
 function chatOpenDM(uid, name, av) {
-  const dmRoom = 'dm:' + [deviceId, uid].sort().join(':');
+  const dmRoom = 'dm:' + [chatMyIdentity(), uid].sort().join('::');
   if (!chatDMInfo[dmRoom]) chatDMInfo[dmRoom] = { uid, name, avatarUrl: av };
   chatOpenRoom(dmRoom);
   chatRenderSidebar();
@@ -1003,7 +1015,7 @@ function chatKnownUsers() {
   const seen = {};
   for (const msgs of Object.values(chatRoomMsgs)) {
     for (const m of (msgs || [])) {
-      if (m.from && m.from !== deviceId && m.from !== 'panel-bot' && m.name) {
+      if (m.from && m.from !== chatMyIdentity() && m.from !== 'panel-bot' && m.name) {
         seen[m.from] = { uid: m.from, name: m.name, avatarUrl: m.avatarUrl || '' };
       }
     }
