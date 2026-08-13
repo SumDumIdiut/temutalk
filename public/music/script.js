@@ -491,6 +491,21 @@ document.addEventListener('click', e => {
     pop.classList.remove('open');
 });
 
+// Shuffle / Magic Shuffle picker (playlist detail view) — same toggle +
+// outside-click-closes pattern as the device picker above.
+function toggleShuffleMenu(e) {
+  e?.stopPropagation();
+  document.getElementById('vpl-shuf-pop')?.classList.toggle('open');
+}
+function closeShuffleMenu() {
+  document.getElementById('vpl-shuf-pop')?.classList.remove('open');
+}
+document.addEventListener('click', e => {
+  const pop = document.getElementById('vpl-shuf-pop');
+  if (pop?.classList.contains('open') && !pop.contains(e.target) && !document.getElementById('vpl-shuf-btn')?.contains(e.target))
+    pop.classList.remove('open');
+});
+
 function _playErr(e) {
   const msg = e?.error || 'Playback failed — make sure Spotify is open on a device';
   alert(msg);
@@ -518,7 +533,7 @@ function shuffleContext(uri) {
 // "play these plus some of your own recommendations mixed in."
 function playMagicShuffle(contextUri) {
   const playlistId = contextUri.split(':').pop();
-  const btn = document.getElementById('vpl-magic-btn');
+  const btn = document.getElementById('vpl-shuf-btn');
   if (btn) btn.classList.add('lit');
   const stopLoading = () => { if (btn) btn.classList.remove('lit'); };
 

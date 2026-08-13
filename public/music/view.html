@@ -153,8 +153,21 @@
             <div class="det-sub" id="vpl-sub">--</div>
             <div class="det-actions">
               <button class="det-play-btn" onclick="playContext(vplUri)"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
-              <button class="det-shuf-btn" onclick="shuffleContext(vplUri)" title="Shuffle"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg></button>
-              <button class="det-shuf-btn det-magic-btn" id="vpl-magic-btn" onclick="playMagicShuffle(vplUri)" title="Magic shuffle -- your playlist mixed with similar songs"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg></button>
+              <div class="det-shuf-wrap">
+                <button class="det-shuf-btn" id="vpl-shuf-btn" onclick="toggleShuffleMenu(event)" title="Shuffle">
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>
+                </button>
+                <div class="det-shuf-pop" id="vpl-shuf-pop">
+                  <div class="det-shuf-opt" onclick="closeShuffleMenu();shuffleContext(vplUri)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>
+                    Shuffle
+                  </div>
+                  <div class="det-shuf-opt" onclick="closeShuffleMenu();playMagicShuffle(vplUri)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg>
+                    Magic Shuffle
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
