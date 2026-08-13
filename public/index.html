@@ -268,6 +268,21 @@
 // ── Base path (set when reverse-proxied under a prefix, e.g. /temutalk) ────
 const BASE_PATH = window.__BASE_PATH__ || '';
 
+// ── Disable copy/right-click/drag on everything except form fields ─────────
+// Pairs with style.css's user-select:none -- that alone stops a drag-select,
+// but doesn't stop the right-click menu's own "Copy" item or a ctrl+C on
+// text that got selected some other way (e.g. browser "Select All"), so
+// those are blocked here too. Form fields opt back in to all three, same as
+// they opt back in to user-select in CSS -- otherwise typing, pasting, and
+// right-click-paste into e.g. the Spotify credential fields or chat's
+// message box would break.
+function _isFormField(el) {
+  return !!el.closest('input, textarea, [contenteditable="true"]');
+}
+document.addEventListener('contextmenu', e => { if (!_isFormField(e.target)) e.preventDefault(); });
+document.addEventListener('dragstart',   e => { if (!_isFormField(e.target)) e.preventDefault(); });
+document.addEventListener('copy',        e => { if (!_isFormField(e.target)) e.preventDefault(); });
+
 // ── Device type detection (mobile vs. desktop/tablet) ───────────────────────
 // Two signals combined rather than either alone: a coarse/no-hover pointer
 // means an actual touchscreen (not just a touch-capable hybrid laptop that

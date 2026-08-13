@@ -1,6 +1,23 @@
 /* ── Reset & Base ───────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Unselectable/uncopyable by default -- this runs on a shared/kiosk-style
+   display, not a document someone reads and copies from, so accidental
+   text selection (a stray drag on a touchscreen, a long-press) is pure
+   friction with nothing to gain. Form fields are the one place selecting
+   text is actually functional (editing what you typed), so they explicitly
+   opt back in. */
+*, *::before, *::after {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+}
+input, textarea, [contenteditable="true"] {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  user-select: text;
+}
+
 :root {
   --bg:              #08090f;
   --surface:         rgba(255,255,255,.075);
