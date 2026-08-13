@@ -144,41 +144,62 @@
     .det-back-bar  { padding: 10px 10px 0; }
     .det-back-btn  { background: none; border: none; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; font-family: inherit; padding: 6px 8px; border-radius: 8px; -webkit-tap-highlight-color: transparent; transition: color .15s, background .15s; }
     .det-back-btn:hover { color: var(--text); background: var(--surface-hi); }
-    .det-hero      { padding: 20px 20px 16px; display: flex; flex-direction: column; align-items: center; gap: 0; text-align: center; }
-    .det-art       { width: min(48%, 200px); aspect-ratio: 1; flex-shrink: 0; border-radius: var(--radius); object-fit: cover; background: var(--surface-hi); box-shadow: 0 10px 40px rgba(0,0,0,.7); display: block; margin-bottom: 16px; }
+    /* Art fixed-size on the left, name/sub/actions filling the remaining
+       width on the right, instead of everything centered in a narrow
+       column -- makes proper use of the panel's actual width. */
+    .det-hero      { padding: 24px 24px 20px; display: flex; flex-direction: row; align-items: center; gap: 24px; text-align: left; }
+    .det-art       { width: 168px; height: 168px; aspect-ratio: 1; flex-shrink: 0; border-radius: var(--radius); object-fit: cover; background: var(--surface-hi); box-shadow: 0 10px 40px rgba(0,0,0,.7); display: block; }
     .det-art.round { border-radius: 50%; }
-    .det-meta      { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 4px; }
-    .det-name      { font-size: 22px; font-weight: 800; color: var(--text); letter-spacing: -.3px; }
-    .det-sub       { font-size: 13px; font-weight: 600; color: var(--text-muted); }
-    .det-actions   { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 16px; }
-    /* Same dark-surface + glass-border treatment as .fp-btn-play above. */
+    .det-meta      { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+    .det-name      { font-size: 30px; font-weight: 800; color: var(--text); letter-spacing: -.5px; }
+    .det-sub       { font-size: 13.5px; font-weight: 600; color: var(--text-muted); }
+    .det-actions   { display: flex; align-items: center; justify-content: flex-start; gap: 18px; margin-top: 18px; }
+    /* Bare icon, no button chrome -- white so it reads as the primary
+       action through weight/color alone, same idea as every other
+       icon-only control in this bar (.det-shuf-btn, .det-back-btn). */
     .det-play-btn  {
-      width: 48px; height: 48px; border-radius: 50%;
-      background: var(--surface-highest);
-      border: 2px solid var(--glass-border); color: #fff;
+      width: 40px; height: 40px;
+      background: none; border: none; color: #fff;
       display: flex; align-items: center; justify-content: center; cursor: pointer;
-      -webkit-tap-highlight-color: transparent; transition: transform .1s, border-color .15s, box-shadow .12s; flex-shrink: 0;
-      box-shadow: 0 2px 0 rgba(0,0,0,.45);
+      -webkit-tap-highlight-color: transparent; transition: transform .1s; flex-shrink: 0;
     }
-    .det-play-btn:hover  { border-color: rgba(255,255,255,.4); }
-    .det-play-btn:active { transform: translateY(2px); box-shadow: none; }
-    .det-shuf-btn  { background: none; border: none; color: var(--text-muted); cursor: pointer; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 50%; -webkit-tap-highlight-color: transparent; transition: color .15s, background .15s; }
-    .det-shuf-btn:hover { color: var(--text); background: var(--surface-hi); }
+    .det-play-btn:hover  { transform: scale(1.08); }
+    .det-play-btn:active { transform: scale(.9); }
+    .det-shuf-btn  { background: none; border: none; color: var(--text-muted); cursor: pointer; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 50%; -webkit-tap-highlight-color: transparent; transition: color .15s, background .15s, transform .1s; }
+    .det-shuf-btn:hover  { color: var(--text); background: var(--surface-hi); }
+    .det-shuf-btn:active { transform: scale(.9); }
+    /* Set once a mode's actually been picked (chooseShuffleMode) -- reads
+       as "engaged", same white-not-muted signal .det-play-btn's icon
+       always carries, instead of staying the same muted grey regardless of
+       whether shuffle/magic shuffle is on. */
+    .det-shuf-btn.engaged { color: #fff; }
     /* .lit here just means "fetching the mix" -- toggled on for the
-       duration of playMagicShuffle()'s similar-tracks requests. */
-    .det-shuf-btn.lit { color: var(--pink); animation: magic-pulse 1s ease-in-out infinite; }
+       duration of playMagicShuffle()'s similar-tracks requests, layered on
+       top of (not instead of) the engaged-white state above. */
+    .det-shuf-btn.lit { animation: magic-pulse 1s ease-in-out infinite; }
     @keyframes magic-pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
     /* Shuffle / Magic Shuffle picker -- same small-popover convention as
-       .sp-device-pop (the output-device picker) elsewhere in this file. */
+       .sp-device-pop (the output-device picker) elsewhere in this file,
+       with an actual open/close transition instead of a hard display
+       toggle (display can't be animated, so opacity/transform/visibility
+       carry the animation and display stays out of it entirely). */
     .det-shuf-wrap { position: relative; }
     .det-shuf-pop {
-      position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+      position: absolute; top: calc(100% + 8px); left: 50%;
       width: 180px;
       background: rgba(16,15,26,.92); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
       border: 2px solid var(--glass-border); border-radius: var(--radius); box-shadow: var(--card-shadow-hover);
-      z-index: 20; display: none; padding: 6px;
+      z-index: 20; padding: 6px;
+      transform-origin: top center;
+      transform: translateX(-50%) translateY(-6px) scale(.96);
+      opacity: 0; visibility: hidden; pointer-events: none;
+      transition: opacity .16s ease, transform .16s ease, visibility 0s linear .16s;
     }
-    .det-shuf-pop.open { display: block; }
+    .det-shuf-pop.open {
+      transform: translateX(-50%) translateY(0) scale(1);
+      opacity: 1; visibility: visible; pointer-events: auto;
+      transition: opacity .16s ease, transform .16s ease, visibility 0s linear 0s;
+    }
     .det-shuf-opt { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; font-weight: 700; color: var(--text); transition: background .12s; -webkit-tap-highlight-color: transparent; }
     .det-shuf-opt:hover { background: var(--surface-hi); }
     .det-shuf-opt svg { flex-shrink: 0; color: var(--text-muted); }
