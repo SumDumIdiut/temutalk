@@ -264,7 +264,7 @@ function onPlayer(data) {
     _serverVolume = false;
   }
   shuffled = data.shuffle_state;
-  document.getElementById('fp-shuffle').classList.toggle('lit', shuffled);
+  document.getElementById('fp-shuffle')?.classList.toggle('lit', shuffled);
   if (data.repeat_state) { repeatState = data.repeat_state; renderRepeat(); }
 }
 
@@ -348,8 +348,9 @@ function setPlayIcons(on) {
   document.getElementById('home-play-icon').innerHTML = p;
 }
 function renderRepeat() {
-  document.getElementById('fp-repeat').classList.toggle('lit', repeatState !== 'off');
-  document.getElementById('fp-repeat-icon').innerHTML = repeatState === 'track'
+  document.getElementById('fp-repeat')?.classList.toggle('lit', repeatState !== 'off');
+  const icon = document.getElementById('fp-repeat-icon');
+  if (icon) icon.innerHTML = repeatState === 'track'
     ? '<path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4zm-4-2V9h-1l-2 1v1h1.5v4H13z"/>'
     : '<path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/>';
 }
@@ -382,7 +383,7 @@ function togglePlay() {
 }
 function toggleShuffle() {
   shuffled = !shuffled;
-  document.getElementById('fp-shuffle').classList.toggle('lit', shuffled);
+  document.getElementById('fp-shuffle')?.classList.toggle('lit', shuffled);
   api('/api/player/shuffle', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ state: shuffled }) });
 }
 function cycleRepeat() {
@@ -517,12 +518,19 @@ const MAGIC_ICON_SVG    = '<svg width="26" height="26" viewBox="0 0 24 24" fill=
 function chooseShuffleMode(mode, contextUri) {
   closeShuffleMenu();
   const btn = document.getElementById('vpl-shuf-btn');
-  if (btn) {
-    btn.classList.add('engaged');
-    btn.innerHTML = mode === 'magic' ? MAGIC_ICON_SVG : SHUFFLE_ICON_SVG;
+  if (mode === 'magic') {
+    // Magic shuffle is a one-shot "build and play this queue" action, not
+    // a persistent toggle like native shuffle -- always reads as engaged
+    // once picked.
+    if (btn) { btn.classList.add('engaged'); btn.innerHTML = MAGIC_ICON_SVG; }
+    playMagicShuffle(contextUri);
+  } else {
+    // shuffleContext toggles the shared `shuffled` state itself, so the
+    // button reflects whatever it actually ended up as (on or off), not
+    // just "was just clicked".
+    shuffleContext(contextUri);
+    if (btn) { btn.innerHTML = SHUFFLE_ICON_SVG; btn.classList.toggle('engaged', shuffled); }
   }
-  if (mode === 'magic') playMagicShuffle(contextUri);
-  else shuffleContext(contextUri);
 }
 function resetShuffleButton() {
   const btn = document.getElementById('vpl-shuf-btn');
@@ -544,8 +552,14 @@ function playUris(uris) {
   api('/api/play-context', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ uris }) })
     .then(r => { if (r.error) _playErr(r); }).catch(() => _playErr());
 }
+// True toggle (not "only ever turn on") -- the bottom bar's own shuffle
+// button (which used to be the only way to turn shuffle back off) is gone,
+// so picking "Shuffle" again from the playlist dropdown while it's already
+// on needs to actually turn it off, same as the removed button did.
 function shuffleContext(uri) {
-  if (!shuffled) { shuffled = true; document.getElementById('fp-shuffle').classList.add('lit'); api('/api/player/shuffle', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ state: true }) }); }
+  shuffled = !shuffled;
+  document.getElementById('fp-shuffle')?.classList.toggle('lit', shuffled);
+  api('/api/player/shuffle', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ state: shuffled }) });
   playContext(uri);
 }
 
@@ -1458,7 +1472,7 @@ function onPlayer(data) {
     _serverVolume = false;
   }
   shuffled = data.shuffle_state;
-  document.getElementById('fp-shuffle').classList.toggle('lit', shuffled);
+  document.getElementById('fp-shuffle')?.classList.toggle('lit', shuffled);
   if (data.repeat_state) { repeatState = data.repeat_state; renderRepeat(); }
 }
 
