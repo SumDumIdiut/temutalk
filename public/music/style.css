@@ -274,15 +274,10 @@
     .new-rel-sub  { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
 
     /* ── Like button ─────────────────────────────────────────────────────────── */
-    #like-btn        { background: none; border: none; color: var(--text-muted); cursor: pointer; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; flex-shrink: 0; transition: color .15s, transform .15s; -webkit-tap-highlight-color: transparent; }
-    #like-btn:hover  { color: var(--text); }
+    /* Sizing/hover/active now come from the shared .fp-btn class (both
+       buttons moved into #bar-btns, alongside prev/play/next) -- only the
+       "liked" state color is actually unique to this button. */
     #like-btn.liked  { color: var(--green); }
-    #like-btn:active { transform: scale(.85); }
-
-    /* ── Add-to-playlist (player bar) ─────────────────────────────────────── */
-    #add-playlist-btn  { background: none; border: none; color: var(--text-muted); cursor: pointer; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; flex-shrink: 0; transition: color .15s, background .15s, transform .15s; -webkit-tap-highlight-color: transparent; }
-    #add-playlist-btn:hover  { color: var(--text); background: var(--surface-hi); }
-    #add-playlist-btn:active { transform: scale(.85); }
 
     /* Full modal picker (not a small corner popover — needs to be an obvious,
        unmistakable "select a playlist" screen, and easy to hit on a touch hub) */
