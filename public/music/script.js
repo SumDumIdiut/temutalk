@@ -341,6 +341,7 @@ function renderProg() {
   document.getElementById('fp-tot').textContent       = fmt(durMs);
   document.getElementById('home-np-cur').textContent  = fmt(disp);
   document.getElementById('home-np-tot').textContent  = fmt(durMs);
+  if (homeLyrOpen) renderHomeLyrics();
 }
 function setPlayIcons(on) {
   const p = on ? '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>' : '<path d="M8 5v14l11-7z"/>';
@@ -1001,9 +1002,9 @@ function loadNewReleases() {
 }
 
 
-// ── Lyrics (music center sub-tab) ─────────────────────────────────────────
-let lyricsTrack = '', lyricsArtist = '', lyricsLoaded = false;
-let lyricsLines = [], lyricsTimes = [], lyricsCurrentIdx = -1;
+// ── Lyrics (home widget karaoke view) ──────────────────────────────────────
+let homeLyrOpen = false, homeLyrLoadedFor = '';
+let homeLyrLines = [], homeLyrTimes = [], homeLyrCurrentIdx = -1;
 
 function parseLrc(lrc) {
   // returns [{time: ms, text: string}]
@@ -1015,90 +1016,80 @@ function parseLrc(lrc) {
   return out;
 }
 
-function loadLyrics() {
-  const trackEl  = document.getElementById('fp-track');
-  const artistEl = document.getElementById('fp-artist');
-  const albumEl  = document.getElementById('fp-artist'); // album stored in np-album hidden el
-  const track    = trackEl?.textContent.trim()  || '';
-  const artist   = artistEl?.textContent.trim() || '';
-  const album    = document.getElementById('home-np-album')?.textContent.trim() || '';
-  const statusEl = document.getElementById('lyrics-status');
-  const bodyEl   = document.getElementById('lyrics-body');
-  const nameEl   = document.getElementById('lyrics-track-name');
-  const artEl    = document.getElementById('lyrics-track-artist');
-  if (!track || track === '--') {
-    if (statusEl) statusEl.textContent = 'No track playing';
-    return;
-  }
-  if (track === lyricsTrack && artist === lyricsArtist && lyricsLoaded) return;
-  lyricsTrack = track; lyricsArtist = artist; lyricsLoaded = false;
-  lyricsLines = []; lyricsTimes = []; lyricsCurrentIdx = -1;
-  if (nameEl)   nameEl.textContent = track;
-  if (artEl)    artEl.textContent  = artist;
-  if (statusEl) { statusEl.style.display = ''; statusEl.textContent = 'Loading lyrics…'; }
-  if (bodyEl)   bodyEl.innerHTML   = '';
-  const url = BASE_PATH + '/api/lyrics?artist=' + encodeURIComponent(artist) +
-              '&track=' + encodeURIComponent(track) +
-              (album ? '&album=' + encodeURIComponent(album) : '') +
-              '&device=' + deviceId;
-  fetch(url).then(r => r.json()).then(d => {
-    lyricsLoaded = true;
-    if (d.synced) {
-      const parsed = parseLrc(d.synced);
-      lyricsTimes = parsed.map(p => p.time);
-      lyricsLines = parsed.map(p => p.text);
-    } else if (d.lyrics) {
-      lyricsLines = d.lyrics.replace(/\r\n/g, '\n').trim().split('\n');
-      lyricsTimes = [];
-    } else {
-      if (statusEl) { statusEl.style.display = ''; statusEl.textContent = 'No lyrics found'; }
-      return;
-    }
-    if (statusEl) statusEl.style.display = 'none';
-    lyricsCurrentIdx = -1;
-    if (bodyEl) {
-      bodyEl.innerHTML = lyricsLines
-        .map((l, i) => `<div class="lyric-line" data-idx="${i}">${l ? esc(l) : '&nbsp;'}</div>`)
-        .join('');
-    }
-    updateLyricsHighlight();
-  }).catch(() => {
-    if (statusEl) { statusEl.style.display = ''; statusEl.textContent = 'Could not load lyrics'; }
-  });
+function toggleHomeLyrics() {
+  const row  = document.querySelector('#home-np-playing .home-np-row');
+  const view = document.getElementById('home-lyr-view');
+  if (!row || !view) return;
+  homeLyrOpen = !homeLyrOpen;
+  row.style.display  = homeLyrOpen ? 'none' : '';
+  view.style.display = homeLyrOpen ? 'flex' : 'none';
+  if (homeLyrOpen) loadHomeLyrics();
 }
 
-function updateLyricsHighlight() {
-  if (!lyricsLines.length || !lyricsLoaded) return;
+function loadHomeLyrics() {
+  const track  = document.getElementById('home-np-track')?.textContent.trim()  || '';
+  const artist = document.getElementById('home-np-artist')?.textContent.trim() || '';
+  const album  = document.getElementById('home-np-album')?.textContent.trim()  || '';
+  const prevEl = document.getElementById('home-lyr-prev');
+  const curEl  = document.getElementById('home-lyr-current');
+  const nextEl = document.getElementById('home-lyr-next');
+  if (!track || track === '—') {
+    if (curEl)  curEl.textContent  = 'Nothing playing';
+    if (prevEl) prevEl.textContent = ' ';
+    if (nextEl) nextEl.textContent = ' ';
+    return;
+  }
+  const key = track + '::' + artist;
+  if (key === homeLyrLoadedFor) { renderHomeLyrics(); return; }
+  homeLyrLoadedFor = key;
+  homeLyrLines = []; homeLyrTimes = []; homeLyrCurrentIdx = -1;
+  if (curEl)  curEl.textContent  = 'Loading lyrics…';
+  if (prevEl) prevEl.textContent = ' ';
+  if (nextEl) nextEl.textContent = ' ';
+  const url = BASE_PATH + '/api/lyrics?artist=' + encodeURIComponent(artist) +
+              '&track=' + encodeURIComponent(track) +
+              (album ? '&album=' + encodeURIComponent(album) : '');
+  fetch(url).then(r => r.json()).then(d => {
+    if (key !== homeLyrLoadedFor) return; // track changed again while this was in flight
+    if (d.synced) {
+      const parsed = parseLrc(d.synced);
+      homeLyrTimes = parsed.map(p => p.time);
+      homeLyrLines = parsed.map(p => p.text);
+    } else if (d.lyrics) {
+      homeLyrLines = d.lyrics.replace(/\r\n/g, '\n').trim().split('\n');
+      homeLyrTimes = [];
+    } else {
+      if (curEl) curEl.textContent = 'No lyrics found';
+      return;
+    }
+    homeLyrCurrentIdx = -1;
+    renderHomeLyrics();
+  }).catch(() => { if (key === homeLyrLoadedFor && curEl) curEl.textContent = 'Could not load lyrics'; });
+}
+
+function renderHomeLyrics() {
+  if (!homeLyrOpen || !homeLyrLines.length) return;
   let idx;
-  if (lyricsTimes.length) {
-    // binary search for last timestamp <= progMs
-    let lo = 0, hi = lyricsTimes.length - 1;
+  if (homeLyrTimes.length) {
+    // binary search for the last timestamp <= progMs
+    let lo = 0, hi = homeLyrTimes.length - 1;
     idx = 0;
     while (lo <= hi) {
       const mid = (lo + hi) >> 1;
-      if (lyricsTimes[mid] <= progMs) { idx = mid; lo = mid + 1; }
+      if (homeLyrTimes[mid] <= progMs) { idx = mid; lo = mid + 1; }
       else hi = mid - 1;
     }
   } else {
-    idx = Math.min(lyricsLines.length - 1, Math.floor(progMs / durMs * lyricsLines.length));
+    idx = Math.min(homeLyrLines.length - 1, Math.floor(progMs / durMs * homeLyrLines.length));
   }
-  if (idx === lyricsCurrentIdx) return;
-  lyricsCurrentIdx = idx;
-  const bodyEl = document.getElementById('lyrics-body');
-  if (!bodyEl) return;
-  const lines = bodyEl.querySelectorAll('.lyric-line');
-  lines.forEach((el, i) => {
-    el.classList.toggle('lyr-active', i === idx);
-    el.classList.toggle('lyr-past',   i < idx);
-  });
-  const activeEl = lines[idx];
-  if (activeEl) {
-    const section = document.getElementById('ct-lyrics-section');
-    if (section) {
-      const offset = activeEl.offsetTop - section.clientHeight / 2 + activeEl.offsetHeight / 2;
-      section.scrollTo({ top: offset, behavior: 'smooth' });
-    }
-  }
+  if (idx === homeLyrCurrentIdx) return;
+  homeLyrCurrentIdx = idx;
+  const prevEl = document.getElementById('home-lyr-prev');
+  const curEl  = document.getElementById('home-lyr-current');
+  const nextEl = document.getElementById('home-lyr-next');
+  if (prevEl) prevEl.textContent = homeLyrLines[idx - 1] || ' ';
+  if (curEl)  curEl.textContent  = homeLyrLines[idx]     || ' ';
+  if (nextEl) nextEl.textContent = homeLyrLines[idx + 1] || ' ';
 }
 
 // ── Live multi-channel streaming ──────────────────────────────────────────────
@@ -1457,6 +1448,7 @@ function onPlayer(data) {
   if (trackId && trackId !== currentTrackId) {
     currentTrackId = trackId;
     api('/api/like-status?ids=' + trackId).then(res => { if (Array.isArray(res)) updateLikeBtn(res[0]); }).catch(() => {});
+    if (homeLyrOpen) loadHomeLyrics();
   }
 
   playing = data.is_playing;
