@@ -231,7 +231,7 @@ function chatRenderChannelList() {
     const room = `channel:${server.id}:${c.id}`;
     const u = chatRoomUnread[room] || 0;
     return `<div class="chat-room-item${room === chatRoom ? ' active' : ''}" data-room="${room}" onclick="chatOpenRoom('${room}')">
-      <div class="chat-room-icon" style="font-size:14px">${c.type === 'voice' ? '🔊' : '#'}</div>
+      <div class="chat-room-icon" style="font-size:14px">${c.type === 'voice' ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>' : '#'}</div>
       <div class="chat-room-name">${esc(c.name)}</div>
       ${u ? `<div class="chat-room-badge">${u}</div>` : ''}
     </div>`;
@@ -342,9 +342,11 @@ function chatOpenServerSettings() {
       <div class="chat-settings-inline-form">
         <input class="chat-settings-input" id="css-channel-name" maxlength="50" placeholder="New channel name…" style="flex:1"
           onkeydown="if(event.key==='Enter')chatCreateChannel()">
+        <!-- <option> text is plain text only -- no SVG here unlike every
+             other voice-channel icon in this file. -->
         <select id="css-channel-type" class="chat-settings-select">
           <option value="text"># Text</option>
-          <option value="voice">🔊 Voice</option>
+          <option value="voice">Voice</option>
         </select>
         <button class="chat-card-btn chat-card-btn-primary" style="width:auto;font-size:.75rem;padding:8px 14px" onclick="chatCreateChannel()">Add</button>
       </div>
@@ -380,7 +382,7 @@ function chatRenderServerSettingsPanels() {
   const channelsEl = overlay.querySelector('#css-channels-list');
   if (channelsEl) {
     channelsEl.innerHTML = server.channels.map(c =>
-      `<div class="chat-settings-row"><span>${c.type === 'voice' ? '🔊' : '#'} ${esc(c.name)}</span></div>`
+      `<div class="chat-settings-row"><span style="display:inline-flex;align-items:center;gap:5px">${c.type === 'voice' ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>' : '#'} ${esc(c.name)}</span></div>`
     ).join('') || '<div class="chat-settings-hint">No channels yet</div>';
   }
 
@@ -557,7 +559,7 @@ function chatShowServerOnboarding(server) {
   overlay.id = 'chat-onboarding-overlay';
   const iconHtml = server.icon
     ? `<img src="${esc(server.icon)}" alt="" style="width:64px;height:64px;border-radius:16px;object-fit:cover">`
-    : `<div style="font-size:40px">🎉</div>`;
+    : `<div style="color:var(--pink)"><svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg></div>`;
   overlay.innerHTML = `
     <div class="chat-settings-backdrop" onclick="this.parentElement.remove()"></div>
     <div class="chat-settings-box" style="text-align:center;align-items:center;display:flex;flex-direction:column;gap:10px">
@@ -595,8 +597,8 @@ function chatRenderSidebar() {
         ${avHtml}
         <div class="chat-dm-req-name">${esc(p.name)}</div>
         <div class="chat-dm-req-btns">
-          <button class="chat-dm-req-btn chat-dm-req-accept" title="Accept" onclick="chatAcceptFriendReq('${p.id}')">✓</button>
-          <button class="chat-dm-req-btn chat-dm-req-reject" title="Decline" onclick="chatRejectFriendReq('${p.id}')">✕</button>
+          <button class="chat-dm-req-btn chat-dm-req-accept" title="Accept" onclick="chatAcceptFriendReq('${p.id}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></button>
+          <button class="chat-dm-req-btn chat-dm-req-reject" title="Decline" onclick="chatRejectFriendReq('${p.id}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
       </div>`;
     }
@@ -660,7 +662,7 @@ function chatRenderMessages() {
     // Panel bot messages render as full-width announcements
     if (m.from === 'panel-bot' || m.isPanelMsg) {
       html += `<div class="chat-panel-msg">
-        <div class="chat-panel-icon">📢</div>
+        <div class="chat-panel-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div>
         <div class="chat-panel-body">
           <div class="chat-panel-name">Server <span class="chat-panel-badge">ADMIN</span></div>
           <div class="chat-panel-bubble">${esc(m.text)}</div>
@@ -787,7 +789,7 @@ function chatShowUserCard(e, uid, name, av) {
     const isPendingOut = chatPendingOut.has(uid);
     const isPendingIn  = !!chatPendingIn[uid];
     if (isFriend) {
-      friendBtn.textContent = '✓ Friends';
+      friendBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:-1px;margin-right:4px"><polyline points="20 6 9 17 4 12"/></svg>Friends';
       friendBtn.className   = 'chat-card-btn chat-card-btn-friends';
       friendBtn.disabled    = true;
       friendBtn.onclick     = null;
@@ -1233,7 +1235,8 @@ function chatUpdateCallBar() {
   const active  = chatInCall && chatCallRoom === chatRoom;
   if (bar) bar.classList.toggle('vis', active);
   if (callBtn) {
-    callBtn.textContent = active ? '📞 Leave' : '📞 Call';
+    const phoneIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>';
+    callBtn.innerHTML = phoneIcon + (active ? ' Leave' : ' Call');
     callBtn.classList.toggle('in-call', active);
   }
   if (active) {
