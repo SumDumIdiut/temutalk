@@ -331,13 +331,6 @@
     .apm-item-check { flex-shrink: 0; color: var(--green); opacity: 0; transition: opacity .15s; }
     .add-playlist-item.apm-added .apm-item-check { opacity: 1; }
 
-    /* ── Lyrics (unused tab, kept for safety) ───────────────────────────────── */
-    #ct-lyrics-section { display: none; flex-direction: column; flex: 1; min-height: 0; overflow-y: auto; padding: 16px 20px; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.1) transparent; }
-    .lyric-line { transition: color .4s ease, opacity .4s ease; }
-    .lyric-line.lyr-active { color: var(--primary); font-weight: 700; }
-    .lyric-line.lyr-past   { color: var(--text-muted); opacity: 0.45; }
-
-
     /* ── Live channels ───────────────────────────────────────────────────────── */
     .live-broadcast-btn {
       display: flex; align-items: center; justify-content: center; gap: 6px; margin: 8px; padding: 8px 12px;

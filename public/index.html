@@ -170,6 +170,9 @@
               <button class="home-mini-ctrl" onclick="action('next')" tabindex="-1">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
               </button>
+              <button class="home-mini-ctrl" onclick="toggleHomeLyrics()" title="Lyrics" tabindex="-1">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h10v2H4v-2z"/></svg>
+              </button>
             </div>
             <div class="home-mini-prog-row">
               <span class="home-mini-time" id="home-np-cur">0:00</span>
@@ -179,6 +182,17 @@
               <span class="home-mini-time" id="home-np-tot">0:00</span>
             </div>
           </div>
+        </div>
+        <!-- Karaoke-style lyrics view -- replaces the row above entirely
+             while open (toggleHomeLyrics() swaps display), no controls
+             except exit so the card reads as just the lyrics. -->
+        <div class="home-lyr-view" id="home-lyr-view" style="display:none;">
+          <button class="home-lyr-exit" onclick="toggleHomeLyrics()" title="Exit lyrics">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          </button>
+          <div class="home-lyr-line home-lyr-prev" id="home-lyr-prev">&nbsp;</div>
+          <div class="home-lyr-line home-lyr-current" id="home-lyr-current">&nbsp;</div>
+          <div class="home-lyr-line home-lyr-next" id="home-lyr-next">&nbsp;</div>
         </div>
       </div>
 
