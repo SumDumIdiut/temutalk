@@ -506,6 +506,29 @@ document.addEventListener('click', e => {
     pop.classList.remove('open');
 });
 
+const SHUFFLE_ICON_SVG = '<svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>';
+const MAGIC_ICON_SVG    = '<svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg>';
+
+// Picking either option closes the menu, swaps the trigger button's own
+// icon to match what was picked (shuffle arrows vs. sparkle), and turns it
+// solid white -- same "engaged" look playContext's play button already has
+// -- instead of leaving it as a plain unlabeled shuffle icon regardless of
+// which mode is actually running.
+function chooseShuffleMode(mode, contextUri) {
+  closeShuffleMenu();
+  const btn = document.getElementById('vpl-shuf-btn');
+  if (btn) {
+    btn.classList.add('engaged');
+    btn.innerHTML = mode === 'magic' ? MAGIC_ICON_SVG : SHUFFLE_ICON_SVG;
+  }
+  if (mode === 'magic') playMagicShuffle(contextUri);
+  else shuffleContext(contextUri);
+}
+function resetShuffleButton() {
+  const btn = document.getElementById('vpl-shuf-btn');
+  if (btn) { btn.classList.remove('engaged'); btn.innerHTML = SHUFFLE_ICON_SVG; }
+}
+
 function _playErr(e) {
   const msg = e?.error || 'Playback failed — make sure Spotify is open on a device';
   alert(msg);
@@ -769,6 +792,7 @@ function openPlaylist(id) {
   document.getElementById('vpl-sub').textContent  = '';
   document.getElementById('vpl-art').src = '';
   document.getElementById('vpl-tracks').innerHTML = '<div style="color:var(--text-muted);padding:20px 16px;font-size:14px;">Loading…</div>';
+  resetShuffleButton();
   openDetail('view-playlist');
   Promise.all([api('/api/playlist/' + id), api('/api/playlist/' + id + '/tracks')]).then(([info, data]) => {
     document.getElementById('vpl-name').textContent = info.name || '';
