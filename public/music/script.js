@@ -393,25 +393,19 @@ function cycleRepeat() {
 
 // ── Autoplay: when whatever's playing finishes naturally and nothing is
 // queued after it, fetch and play something similar instead of leaving
-// silence. There's no track-end event to hook into (Spotify Connect state
-// only reaches this app via the server's ~3s player-state poll), so this is
-// detected by comparing each poll against the last one: playing, near the
-// end of the track, then on a later poll stopped with progress back near
-// zero on the same track -- Spotify's own behavior when a track completes
-// with an empty queue. Auto-advancing into an already-queued next track (a
-// playlist/album context, or repeat) never sets is_playing:false in
-// between, so this deliberately never fires for those cases. ─────────────
-let autoplayEnabled = localStorage.getItem('autoplayEnabled') !== 'false';
+// silence. Always on -- there's no user-facing toggle for it. There's no
+// track-end event to hook into (Spotify Connect state only reaches this app
+// via the server's ~3s player-state poll), so this is detected by comparing
+// each poll against the last one: playing, near the end of the track, then
+// on a later poll stopped with progress back near zero on the same track --
+// Spotify's own behavior when a track completes with an empty queue.
+// Auto-advancing into an already-queued next track (a playlist/album
+// context, or repeat) never sets is_playing:false in between, so this
+// deliberately never fires for those cases. ───────────────────────────────
 let _apLastTrackId = null, _apLastProgress = 0, _apLastDuration = 1, _apLastPlaying = false, _apFiring = false;
 
-function toggleAutoplay() {
-  autoplayEnabled = !autoplayEnabled;
-  localStorage.setItem('autoplayEnabled', autoplayEnabled ? 'true' : 'false');
-  document.getElementById('fp-autoplay')?.classList.toggle('lit', autoplayEnabled);
-}
-
 function _checkAutoplay(data) {
-  if (!autoplayEnabled || _apFiring) { _apRecordPoll(data); return; }
+  if (_apFiring) { _apRecordPoll(data); return; }
   const wasNearEnd = _apLastPlaying && _apLastTrackId && _apLastProgress >= _apLastDuration - 2500;
   const stoppedNow = !data.is_playing
     && (!data.item || data.item.id === _apLastTrackId)
@@ -1284,7 +1278,6 @@ function showApp() {
   if (bar) bar.style.display = 'none';
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('music-app').classList.add('ma-show');
-  document.getElementById('fp-autoplay')?.classList.toggle('lit', autoplayEnabled);
   if (activeService === 'spotify' && !_credsSynced) {
     _credsSynced = true;
     const { cid, csec } = getSpotifyCreds();
