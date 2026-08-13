@@ -420,6 +420,9 @@
 }
 .chat-room-title { font-size: 1.02rem; font-weight: 900; flex: 1; letter-spacing: -.2px; }
 .chat-call-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   background: var(--green-bg);
   color: var(--green);
   border: 2px solid rgba(62,245,168,.28);
@@ -448,7 +451,10 @@
   flex-shrink: 0;
 }
 .chat-ann-icon {
-  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,210,120,.85);
   flex-shrink: 0;
 }
 .chat-ann-label {
@@ -474,14 +480,15 @@
   flex-shrink: 0;
 }
 .chat-ann-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
   outline: none;
   color: rgba(255,210,120,.65);
-  font-size: 15px;
-  line-height: 1;
-  padding: 0 2px;
+  padding: 2px;
   margin-left: 4px;
   cursor: pointer;
   flex-shrink: 0;
@@ -512,7 +519,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  color: var(--orange);
   flex-shrink: 0;
 }
 .chat-panel-body {
