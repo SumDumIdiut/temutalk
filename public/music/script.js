@@ -412,16 +412,20 @@ function _checkAutoplay(data) {
   const stoppedNow = !data.is_playing
     && (!data.item || data.item.id === _apLastTrackId)
     && (data.progress_ms || 0) < 2000;
+  console.log('[autoplay] poll:', { lastTrack: _apLastTrackId, lastPlaying: _apLastPlaying, lastProgress: _apLastProgress, lastDuration: _apLastDuration, wasNearEnd, stoppedNow, incomingPlaying: data.is_playing, incomingItem: data.item?.id, incomingProgress: data.progress_ms });
   if (wasNearEnd && stoppedNow) {
+    console.log('[autoplay] FIRING -- fetching a similar track to', _apLastTrackId);
     _apFiring = true;
     const seedTrackId  = _apLastTrackId;
     const seedArtistId = lastArtistIds ? lastArtistIds.split(',')[0] : '';
     let url = '/api/similar-tracks?seedTrackId=' + encodeURIComponent(seedTrackId) + '&limit=1&exclude=' + encodeURIComponent(seedTrackId);
     if (seedArtistId) url += '&seedArtistId=' + encodeURIComponent(seedArtistId);
     api(url).then(res => {
+      console.log('[autoplay] similar-tracks response:', res);
       const t = res.tracks && res.tracks[0];
-      if (t && t.uri) playUris([t.uri]);
-    }).catch(() => {}).finally(() => { _apFiring = false; });
+      if (t && t.uri) { console.log('[autoplay] playing', t.name, t.uri); playUris([t.uri]); }
+      else console.log('[autoplay] no similar track returned -- staying silent');
+    }).catch(e => console.log('[autoplay] similar-tracks fetch failed:', e)).finally(() => { _apFiring = false; });
   }
   _apRecordPoll(data);
 }
