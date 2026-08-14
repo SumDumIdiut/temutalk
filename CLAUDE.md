@@ -36,7 +36,7 @@ No build step. No lint/test commands. Restart `server.js` to pick up server-side
 
 **Live broadcast** (unrelated to the old cast feature, still live) — A listener can tap their own browser's Web Audio output (`_liveTapAudio()`/`_liveRecord()` in `public/music/script.js`, via a `MediaRecorder` on an intercepted `AudioNode.connect`) and share it with others in a channel. Client sends `live-start`/`live-stop`/`live-join`/`live-leave` over the existing WS; `lib/ws.js` maintains `state.liveChannels` and calls `lib/stream.js`'s `broadcastLiveList()` on every change, which fans out a `live-list` message to all connected devices. `GET /api/live` returns the same roster over REST.
 
-**MSE legacy broadcaster** — A separate, older WebRTC/MSE relay mechanism still exists in `lib/ws.js` (`mse-broadcaster-ready`, `host-play-radio`/`host-stop-radio`, `state.mseBroadcaster`/`mseListeners`). Nothing currently sends `mse-broadcaster-ready`, so it's unreachable in practice — kept as a documented fallback mechanism, not wired to any current UI. `mseSetBroadcasterOnline()` no-op stubs remain in `index.html`/`tw/index.html` only because the `mse-broadcaster-status` WS handler still calls them.
+**MSE legacy broadcaster** — A separate, older WebRTC/MSE relay mechanism still exists in `lib/ws.js` (`mse-broadcaster-ready`, `host-play-radio`/`host-stop-radio`, `state.mseBroadcaster`/`mseListeners`). Nothing currently sends `mse-broadcaster-ready`, so it's unreachable in practice — kept as a documented fallback mechanism, not wired to any current UI. `mseSetBroadcasterOnline()` no-op stub remains in `index.html` only because the `mse-broadcaster-status` WS handler still calls it.
 
 ## Key patterns
 

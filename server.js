@@ -162,13 +162,6 @@ router.get('/', (req, res) => {
   res.setHeader('Cache-Control', 'no-cache');
   res.send(getVersionedHtml('index.html'));
 });
-// /tw is a full duplicate mobile SPA shell (public/tw/index.html) — same
-// versioning/BASE_PATH treatment, served explicitly so express.static below
-// never hands it out unmodified.
-router.get(['/tw', '/tw/'], (req, res) => {
-  res.setHeader('Cache-Control', 'no-cache');
-  res.send(getVersionedHtml('tw/index.html'));
-});
 
 router.use(express.static(path.join(__dirname, 'public'), {
   maxAge: '1h',
