@@ -88,8 +88,17 @@
     }
     #right-sidebar::-webkit-scrollbar       { width: 4px; }
     #right-sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 2px; }
-    #np-header   { padding: 10px 14px 6px; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
+    #np-header   { position: relative; padding: 10px 14px 6px; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
     #fp-ctx      { font-size: 11px; color: var(--text-muted); font-weight: 600; }
+    #np-lyrics-btn {
+      position: absolute; top: 6px; right: 8px;
+      width: 26px; height: 26px; border-radius: 50%; border: none; background: none;
+      color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: color .15s, background .15s; -webkit-tap-highlight-color: transparent;
+    }
+    #np-lyrics-btn:hover { color: var(--text); background: var(--surface-hi); }
+    #np-lyrics-btn.lit   { color: var(--primary); }
+    #np-normal { display: contents; }
     #fp-art      { width: 70%; aspect-ratio: 1; object-fit: cover; display: block; background: var(--surface-hi); margin: 0 auto; border-radius: var(--radius-sm); box-shadow: 0 8px 32px rgba(0,0,0,.5); }
     #fp-art[src=""], #fp-art:not([src]) { display: none; }
     #np-details  { padding: 12px 14px 8px; }
@@ -102,6 +111,38 @@
     .np-a-img    { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; background: var(--surface-hi); flex-shrink: 0; }
     .np-a-name   { font-size: 13px; font-weight: 700; color: var(--text); }
     .np-a-sub    { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+    /* ── Full lyrics (toggleTabLyrics() in music/script.js) ────────────────────
+       Same fetched/parsed lyrics as the home widget's karaoke view, rendered
+       as a normal auto-scrolling list instead of a clipped 3-line viewport --
+       #np-lyrics-section is the static flex slot, #np-lyrics-body is the
+       actual scroller, matching the #center-panel/#center-body split. */
+    #np-lyrics-section { display: none; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
+    #np-lyrics-body {
+      flex: 1; min-height: 0; overflow-y: auto; padding: 6px 16px 20px;
+      scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.1) transparent;
+    }
+    #np-lyrics-body::-webkit-scrollbar       { width: 4px; }
+    #np-lyrics-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 2px; }
+    .np-lyr-line {
+      padding: 6px 0; font-size: 14px; font-weight: 600; line-height: 1.35;
+      color: var(--text-muted); opacity: .45;
+      transition: color .3s ease, opacity .3s ease, font-size .3s ease, font-weight .3s ease;
+    }
+    .np-lyr-line.active { color: var(--text); font-weight: 800; font-size: 17px; opacity: 1; }
+    .np-lyr-line.past   { opacity: .3; }
+    .np-lyr-line.lyr-note { display: flex; align-items: center; padding: 10px 0; }
+    .np-lyr-status { padding: 20px 4px; color: var(--text-muted); font-size: 13px; }
+
+    /* Instrumental-gap note icon -- shared look with the home widget's, a
+       real drawn glyph that lights up (pulsing primary-color glow) instead
+       of just going bold like a sung line does. */
+    .lyr-note-svg { color: var(--text-muted); opacity: .4; transition: color .35s ease, opacity .35s ease; }
+    .active .lyr-note-svg { color: var(--primary); opacity: 1; filter: drop-shadow(0 0 5px var(--primary-glow)); animation: lyr-note-pulse 1.3s ease-in-out infinite; }
+    @keyframes lyr-note-pulse {
+      0%, 100% { filter: drop-shadow(0 0 3px var(--primary-glow)); transform: scale(1); }
+      50%      { filter: drop-shadow(0 0 9px var(--primary-glow)); transform: scale(1.18); }
+    }
 
     /* ── Player bar ─────────────────────────────────────────────────────────── */
     #player-bar {
