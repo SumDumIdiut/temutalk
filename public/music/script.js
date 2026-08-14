@@ -3,6 +3,16 @@ function showAuth() {
   document.getElementById('music-app').classList.remove('ma-show');
 }
 let _credsSynced = false;
+
+// Wall-clock anchor for progMs, so the 500ms ticker (below, and in seekTo/
+// lyrSeekTo) tracks real elapsed time instead of assuming each tick fired
+// exactly on schedule -- setInterval can drift/get throttled (background
+// tab, loaded device), and by the time that drift is corrected by the next
+// authoritative /api/player poll (every ~3s server-side) it was visible as
+// the lyrics highlight running a beat ahead of or behind the actual audio.
+let _progAnchorMs = 0, _progAnchorAt = 0;
+function _syncProgAnchor(ms) { _progAnchorMs = ms; _progAnchorAt = Date.now(); }
+
 function showApp() {
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('music-app').classList.add('ma-show');
@@ -1031,7 +1041,6 @@ function parseLrc(lrc) {
   return out;
 }
 
-const LYR_LINE_H   = 22;   // px -- keep in sync with .home-lyr-ln in home/style.css
 const LYR_GAP_MS   = 8000; // gap between two lines long enough to count as instrumental
 const LYR_SUNG_MS  = 4000; // rough time to finish a line before showing the note
 const LYR_NOTE_SVG = '<svg class="lyr-note-svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>';
@@ -1072,12 +1081,10 @@ function _lyrIndexFor(ms) {
 }
 
 function toggleHomeLyrics() {
-  const center = document.getElementById('home-np-center');
-  const view   = document.getElementById('home-lyr-view');
-  if (!center || !view) return;
+  const view = document.getElementById('home-lyr-overlay');
+  if (!view) return;
   homeLyrOpen = !homeLyrOpen;
-  center.style.display = homeLyrOpen ? 'none' : '';
-  view.style.display   = homeLyrOpen ? 'flex' : 'none';
+  view.style.display = homeLyrOpen ? 'flex' : 'none';
   if (homeLyrOpen) { homeLyrCurrentIdx = -1; loadLyrics(); }
 }
 
@@ -1095,17 +1102,15 @@ function toggleTabLyrics() {
 // sync with the now-playing state -- called at the top of loadLyrics() so
 // both "just opened" and "track changed while open" stay covered by one path.
 function _syncLyrHeader() {
-  const titleEl  = document.getElementById('np-lyrics-title');
-  const artistEl = document.getElementById('np-lyrics-artist');
-  const bgEl     = document.getElementById('np-lyrics-bg');
-  const artEl    = document.getElementById('np-lyrics-art');
   const track  = document.getElementById('home-np-track')?.textContent  || '--';
   const artist = document.getElementById('home-np-artist')?.textContent || '';
   const art    = document.getElementById('fp-art')?.getAttribute('src') || '';
-  if (titleEl)  titleEl.textContent  = track;
-  if (artistEl) artistEl.textContent = artist;
-  if (bgEl)  bgEl.src  = art;
-  if (artEl) artEl.src = art;
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  const setSrc = (id, val) => { const el = document.getElementById(id); if (el) el.src = val; };
+  set('np-lyrics-title', track);   set('np-lyrics-artist', artist);
+  setSrc('np-lyrics-bg', art);     setSrc('np-lyrics-art', art);
+  set('home-lyr-hdr-title', track); set('home-lyr-hdr-artist', artist);
+  setSrc('home-lyr-bg', art);       setSrc('home-lyr-hdr-art', art);
 }
 
 // Lets a synced lyric line be clicked to jump playback there, same seek
@@ -1113,6 +1118,7 @@ function _syncLyrHeader() {
 // that one derives its ms from a click on #fp-bar's own rect).
 function lyrSeekTo(ms) {
   progMs = Math.max(0, Math.min(durMs, ms));
+  _syncProgAnchor(progMs);
   renderProg();
   if (activeService === 'youtube' && ytPlayer && ytPlayerReady) { ytPlayer.seekTo(progMs / 1000, true); return; }
   if (activeService === 'apple' && appleMusic) { appleMusic.seekToTime(progMs / 1000).catch(() => {}); return; }
@@ -1122,17 +1128,14 @@ function lyrSeekTo(ms) {
 
 function _setLyrStatus(msg) {
   const homeTrackEl = document.getElementById('home-lyr-track');
-  if (homeTrackEl) {
-    homeTrackEl.innerHTML = '<div class="home-lyr-ln"></div><div class="home-lyr-ln active">' + esc(msg) + '</div><div class="home-lyr-ln"></div>';
-    homeTrackEl.style.transform = 'translateY(0px)';
-  }
+  if (homeTrackEl) homeTrackEl.innerHTML = '<div class="np-lyr-status">' + esc(msg) + '</div>';
   const tabBodyEl = document.getElementById('np-lyrics-body');
   if (tabBodyEl) tabBodyEl.innerHTML = '<div class="np-lyr-status">' + esc(msg) + '</div>';
 }
 
 function _buildHomeLyrTrack() {
   const trackEl = document.getElementById('home-lyr-track');
-  if (trackEl) trackEl.innerHTML = lyrLines.map(l => _lyrLineHtml(l, 'home-lyr-ln')).join('');
+  if (trackEl) trackEl.innerHTML = lyrLines.map((l, i) => _lyrLineHtml(l, 'home-lyr-ln', lyrTimes[i])).join('');
 }
 function _buildTabLyrList() {
   const bodyEl = document.getElementById('np-lyrics-body');
@@ -1186,11 +1189,13 @@ function renderHomeLyrics() {
   homeLyrCurrentIdx = idx;
   const trackEl = document.getElementById('home-lyr-track');
   if (!trackEl) return;
-  // Shifts the track so line `idx` sits in the viewport's middle slot -- the
-  // CSS transition on transform turns this into a smooth scroll instead of
-  // the lines just swapping text.
-  trackEl.style.transform = 'translateY(' + (-(idx - 1) * LYR_LINE_H) + 'px)';
-  trackEl.querySelectorAll('.home-lyr-ln').forEach((el, i) => el.classList.toggle('active', i === idx));
+  const els = trackEl.querySelectorAll('.home-lyr-ln');
+  els.forEach((el, i) => { el.classList.toggle('active', i === idx); el.classList.toggle('past', i < idx); });
+  const activeEl = els[idx];
+  if (activeEl) {
+    const offset = activeEl.offsetTop - trackEl.clientHeight / 2 + activeEl.offsetHeight / 2;
+    trackEl.scrollTo({ top: offset, behavior: 'smooth' });
+  }
 }
 
 function renderTabLyrics() {
@@ -1572,7 +1577,8 @@ function onPlayer(data) {
   progMs  = data.progress_ms || 0;
   durMs   = data.item.duration_ms || 1;
   clearInterval(ticker);
-  if (playing) ticker = setInterval(() => { progMs = Math.min(progMs + 500, durMs); renderProg(); }, 500);
+  _syncProgAnchor(progMs);
+  if (playing) ticker = setInterval(() => { progMs = Math.min(_progAnchorMs + (Date.now() - _progAnchorAt), durMs); renderProg(); }, 500);
   renderProg();
   setPlayIcons(playing);
   if (data.device?.volume_percent != null) {
@@ -1646,6 +1652,7 @@ function togglePlay() {
 function seekTo(e) {
   const rect = document.getElementById('fp-bar').getBoundingClientRect();
   progMs = Math.floor(Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)) * durMs);
+  _syncProgAnchor(progMs);
   renderProg();
   if (activeService === 'youtube' && ytPlayer && ytPlayerReady) {
     ytPlayer.seekTo(progMs / 1000, true); return;
