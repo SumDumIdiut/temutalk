@@ -163,32 +163,65 @@
 .home-mini-ctrl-play:hover  { border-color: rgba(255,255,255,.4); }
 .home-mini-ctrl-play:active { transform: scale(.92); box-shadow: none; }
 
-/* Karaoke-style lyrics view (toggleHomeLyrics() in music/script.js) --
-   swaps in for #home-np-center only, so .home-np-info (art + track name)
-   stays put. Lines live in a tall scrolling track clipped to a 3-line
-   viewport; the active line is centered by translating the track, which
-   the transition below turns into a smooth scroll instead of a text swap. */
-.home-lyr-view { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; }
-.home-lyr-viewport {
-  flex: 1; min-width: 0; height: 66px; overflow: hidden; position: relative;
-  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 18%, #000 82%, transparent);
-          mask-image: linear-gradient(to bottom, transparent, #000 18%, #000 82%, transparent);
+/* Full-screen karaoke takeover (toggleHomeLyrics() in music/script.js) --
+   covers the whole #view-home (which is already position:fixed, so it's a
+   valid containing block for this) instead of the old 3-line strip clipped
+   inside the music card. Same big Spotify-style presentation as the Music
+   tab's #np-lyrics-section: blurred/darkened album art behind large bold
+   text, current line scaled up and bright, synced lines clickable to seek. */
+.home-lyr-overlay {
+  display: none; flex-direction: column;
+  position: absolute; inset: 0; z-index: 20;
+  background: #0c0b14;
 }
-.home-lyr-track { transition: transform .5s cubic-bezier(.34,1.56,.64,1); }
+.home-lyr-bg {
+  position: absolute; inset: -24px; z-index: 0;
+  width: calc(100% + 48px); height: calc(100% + 48px); object-fit: cover;
+  filter: blur(60px) brightness(.5) saturate(1.35); transform: scale(1.1);
+}
+.home-lyr-scrim {
+  position: absolute; inset: 0; z-index: 1;
+  background: linear-gradient(180deg, rgba(8,7,14,.6), rgba(8,7,14,.86) 55%, rgba(8,7,14,.96));
+}
+.home-lyr-hdr {
+  position: relative; z-index: 2; flex-shrink: 0;
+  display: flex; align-items: center; gap: 14px; padding: 22px 30px 16px;
+}
+.home-lyr-hdr-art  { width: 54px; height: 54px; border-radius: 10px; object-fit: cover; flex-shrink: 0; background: rgba(255,255,255,.08); box-shadow: 0 6px 20px rgba(0,0,0,.5); }
+.home-lyr-hdr-art[src=""] { visibility: hidden; }
+.home-lyr-hdr-meta  { flex: 1; min-width: 0; }
+.home-lyr-hdr-title { font-size: 16px; font-weight: 800; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.home-lyr-hdr-artist{ font-size: 13px; font-weight: 600; color: rgba(255,255,255,.55); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.home-lyr-close {
+  flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; border: none;
+  background: rgba(255,255,255,.08); color: rgba(255,255,255,.75); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: color .15s, background .15s, transform .1s; -webkit-tap-highlight-color: transparent;
+}
+.home-lyr-close:hover  { color: #fff; background: rgba(255,255,255,.16); }
+.home-lyr-close:active { transform: scale(.88); }
+.home-lyr-body {
+  position: relative; z-index: 2; flex: 1; min-height: 0; overflow-y: auto;
+  padding: 12px 48px 48vh; scrollbar-width: none;
+}
+.home-lyr-body::-webkit-scrollbar { display: none; }
 .home-lyr-ln {
-  height: 22px; line-height: 22px; font-size: 12.5px; font-weight: 600; color: var(--text-muted); opacity: .4;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  transition: color .35s ease, opacity .35s ease, font-size .35s ease, font-weight .35s ease;
+  padding: 12px 0; font-size: 25px; font-weight: 800; line-height: 1.3;
+  letter-spacing: -.2px; color: rgba(255,255,255,.35);
+  transition: color .35s ease, transform .35s ease;
+  transform-origin: left center;
 }
-.home-lyr-ln.active { color: var(--text); font-weight: 800; font-size: 15px; opacity: 1; }
-.home-lyr-exit { width: 26px; height: 26px; border-radius: 50%; border: none; background: none; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: color .15s, background .15s; flex-shrink: 0; -webkit-tap-highlight-color: transparent; }
-.home-lyr-exit:hover { color: var(--text); background: var(--surface-hi); }
+.home-lyr-ln[onclick] { cursor: pointer; }
+.home-lyr-ln[onclick]:hover:not(.active) { color: rgba(255,255,255,.65); }
+.home-lyr-ln.active { color: #fff; transform: scale(1.045); }
+.home-lyr-ln.past   { color: rgba(255,255,255,.2); }
 
 /* Instrumental-gap "note" line -- a real drawn icon (shared .lyr-note-svg
    with the music tab's full view) instead of a text glyph, lighting up with
    a pulsing glow while it's the active line, same as the sung lines light
    up by going bold/white. */
-.home-lyr-ln.lyr-note { display: flex; align-items: center; justify-content: center; }
+.home-lyr-ln.lyr-note { display: flex; align-items: center; padding: 15px 0; }
+.home-lyr-ln.lyr-note .lyr-note-svg { width: 28px; height: 28px; }
 .lyr-note-svg { color: var(--text-muted); opacity: .4; transition: color .35s ease, opacity .35s ease; }
 .active .lyr-note-svg { color: var(--primary); opacity: 1; filter: drop-shadow(0 0 5px var(--primary-glow)); animation: lyr-note-pulse 1.3s ease-in-out infinite; }
 @keyframes lyr-note-pulse {
