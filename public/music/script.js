@@ -1027,7 +1027,26 @@ function parseLrc(lrc) {
   return out;
 }
 
-const HOME_LYR_LINE_H = 22; // px -- keep in sync with .home-lyr-ln in home/style.css
+const HOME_LYR_LINE_H  = 22;   // px -- keep in sync with .home-lyr-ln in home/style.css
+const HOME_LYR_NOTE    = '♪'; // shown for instrumental stretches (intro, solos, outro)
+const HOME_LYR_GAP_MS  = 8000; // gap between two lines long enough to count as instrumental
+const HOME_LYR_SUNG_MS = 4000; // rough time to finish a line before showing the note
+
+// Splices a music-note "line" into an intro before the first lyric and into
+// any gap between two lines wide enough to be an instrumental break, so the
+// karaoke view doesn't just sit on a stale line while nothing's being sung.
+function _addInstrumentalGaps(times, lines) {
+  if (!times.length) return { times, lines };
+  const outTimes = [], outLines = [];
+  if (times[0] > HOME_LYR_GAP_MS) { outTimes.push(0); outLines.push(HOME_LYR_NOTE); }
+  for (let i = 0; i < times.length; i++) {
+    outTimes.push(times[i]);
+    outLines.push(lines[i]);
+    const nextTime = i + 1 < times.length ? times[i + 1] : (durMs || Infinity);
+    if (nextTime - times[i] > HOME_LYR_GAP_MS) { outTimes.push(times[i] + HOME_LYR_SUNG_MS); outLines.push(HOME_LYR_NOTE); }
+  }
+  return { times: outTimes, lines: outLines };
+}
 
 function toggleHomeLyrics() {
   const center = document.getElementById('home-np-center');
@@ -1065,8 +1084,9 @@ function loadHomeLyrics() {
     if (key !== homeLyrLoadedFor) return; // track changed again while this was in flight
     if (d.synced) {
       const parsed = parseLrc(d.synced);
-      homeLyrTimes = parsed.map(p => p.time);
-      homeLyrLines = parsed.map(p => p.text);
+      const gapped = _addInstrumentalGaps(parsed.map(p => p.time), parsed.map(p => p.text));
+      homeLyrTimes = gapped.times;
+      homeLyrLines = gapped.lines;
     } else if (d.lyrics) {
       homeLyrLines = d.lyrics.replace(/\r\n/g, '\n').trim().split('\n');
       homeLyrTimes = [];
