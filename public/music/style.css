@@ -9,7 +9,7 @@
     #music-app.ma-show { display: flex; }
 
     /* ── Three-panel body ───────────────────────────────────────────────────── */
-    #app-body { flex: 1; min-height: 0; display: flex; gap: 8px; padding: 8px; }
+    #app-body { position: relative; flex: 1; min-height: 0; display: flex; gap: 8px; padding: 8px; }
 
     /* ── Left sidebar ───────────────────────────────────────────────────────── */
     #left-sidebar {
@@ -91,13 +91,14 @@
     #np-header   { position: relative; padding: 10px 14px 6px; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
     #fp-ctx      { font-size: 11px; color: var(--text-muted); font-weight: 600; }
     #np-lyrics-btn {
-      position: absolute; top: 6px; right: 8px;
-      width: 26px; height: 26px; border-radius: 50%; border: none; background: none;
+      position: absolute; top: 4px; right: 6px;
+      width: 30px; height: 30px; border-radius: 50%; border: none; background: none;
       color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center;
-      transition: color .15s, background .15s; -webkit-tap-highlight-color: transparent;
+      transition: color .15s, background .15s, transform .1s; -webkit-tap-highlight-color: transparent;
     }
-    #np-lyrics-btn:hover { color: var(--text); background: var(--surface-hi); }
-    #np-lyrics-btn.lit   { color: var(--primary); }
+    #np-lyrics-btn:hover  { color: var(--text); background: var(--surface-hi); }
+    #np-lyrics-btn:active { transform: scale(.88); }
+    #np-lyrics-btn.lit    { color: var(--primary); }
     #np-normal { display: contents; }
     #fp-art      { width: 70%; aspect-ratio: 1; object-fit: cover; display: block; background: var(--surface-hi); margin: 0 auto; border-radius: var(--radius-sm); box-shadow: 0 8px 32px rgba(0,0,0,.5); }
     #fp-art[src=""], #fp-art:not([src]) { display: none; }
@@ -112,27 +113,62 @@
     .np-a-name   { font-size: 13px; font-weight: 700; color: var(--text); }
     .np-a-sub    { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
 
-    /* ── Full lyrics (toggleTabLyrics() in music/script.js) ────────────────────
-       Same fetched/parsed lyrics as the home widget's karaoke view, rendered
-       as a normal auto-scrolling list instead of a clipped 3-line viewport --
-       #np-lyrics-section is the static flex slot, #np-lyrics-body is the
-       actual scroller, matching the #center-panel/#center-body split. */
-    #np-lyrics-section { display: none; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
+    /* ── Full lyrics takeover (toggleTabLyrics() in music/script.js) ───────────
+       A big, Spotify-style panel that covers the whole #app-body (all three
+       panes) instead of being squeezed into the 220px right-sidebar column --
+       blurred/darkened album art behind large karaoke-style text. Shares
+       fetched/parsed lyrics with the home widget's clipped 3-line view
+       (loadLyrics()/lyrLines/lyrTimes in music/script.js). */
+    #np-lyrics-section {
+      display: none; flex-direction: column;
+      position: absolute; inset: 0; z-index: 15;
+      border-radius: var(--radius); overflow: hidden;
+      background: #0c0b14;
+    }
+    #np-lyrics-bg {
+      position: absolute; inset: -24px; z-index: 0;
+      width: calc(100% + 48px); height: calc(100% + 48px); object-fit: cover;
+      filter: blur(60px) brightness(.5) saturate(1.35); transform: scale(1.1);
+    }
+    #np-lyrics-scrim {
+      position: absolute; inset: 0; z-index: 1;
+      background: linear-gradient(180deg, rgba(8,7,14,.6), rgba(8,7,14,.86) 55%, rgba(8,7,14,.96));
+    }
+    #np-lyrics-header {
+      position: relative; z-index: 2; flex-shrink: 0;
+      display: flex; align-items: center; gap: 14px; padding: 20px 26px 14px;
+    }
+    #np-lyrics-art  { width: 50px; height: 50px; border-radius: 8px; object-fit: cover; flex-shrink: 0; background: rgba(255,255,255,.08); box-shadow: 0 6px 20px rgba(0,0,0,.5); }
+    #np-lyrics-art[src=""] { visibility: hidden; }
+    #np-lyrics-meta  { flex: 1; min-width: 0; }
+    #np-lyrics-title { font-size: 14.5px; font-weight: 800; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #np-lyrics-artist{ font-size: 12.5px; font-weight: 600; color: rgba(255,255,255,.55); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #np-lyrics-close {
+      flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; border: none;
+      background: rgba(255,255,255,.08); color: rgba(255,255,255,.75); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: color .15s, background .15s, transform .1s; -webkit-tap-highlight-color: transparent;
+    }
+    #np-lyrics-close:hover  { color: #fff; background: rgba(255,255,255,.16); }
+    #np-lyrics-close:active { transform: scale(.88); }
     #np-lyrics-body {
-      flex: 1; min-height: 0; overflow-y: auto; padding: 6px 16px 20px;
-      scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.1) transparent;
+      position: relative; z-index: 2; flex: 1; min-height: 0; overflow-y: auto;
+      padding: 10px 44px 48vh; scrollbar-width: none;
     }
-    #np-lyrics-body::-webkit-scrollbar       { width: 4px; }
-    #np-lyrics-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 2px; }
+    #np-lyrics-body::-webkit-scrollbar { display: none; }
     .np-lyr-line {
-      padding: 6px 0; font-size: 14px; font-weight: 600; line-height: 1.35;
-      color: var(--text-muted); opacity: .45;
-      transition: color .3s ease, opacity .3s ease, font-size .3s ease, font-weight .3s ease;
+      padding: 11px 0; font-size: 23px; font-weight: 800; line-height: 1.32;
+      letter-spacing: -.2px; color: rgba(255,255,255,.35);
+      transition: color .35s ease, transform .35s ease;
+      transform-origin: left center;
     }
-    .np-lyr-line.active { color: var(--text); font-weight: 800; font-size: 17px; opacity: 1; }
-    .np-lyr-line.past   { opacity: .3; }
-    .np-lyr-line.lyr-note { display: flex; align-items: center; padding: 10px 0; }
-    .np-lyr-status { padding: 20px 4px; color: var(--text-muted); font-size: 13px; }
+    .np-lyr-line[onclick] { cursor: pointer; }
+    .np-lyr-line[onclick]:hover:not(.active) { color: rgba(255,255,255,.65); }
+    .np-lyr-line.active { color: #fff; transform: scale(1.045); }
+    .np-lyr-line.past   { color: rgba(255,255,255,.2); }
+    .np-lyr-line.lyr-note { display: flex; align-items: center; padding: 14px 0; }
+    .np-lyr-line.lyr-note .lyr-note-svg { width: 26px; height: 26px; }
+    .np-lyr-status { position: relative; z-index: 2; padding: 40vh 26px 0; text-align: center; color: rgba(255,255,255,.55); font-size: 15px; font-weight: 700; }
 
     /* Instrumental-gap note icon -- shared look with the home widget's, a
        real drawn glyph that lights up (pulsing primary-color glow) instead
@@ -156,11 +192,14 @@
     #bar-info    { flex: 0 0 27%; min-width: 0; display: flex; align-items: center; gap: 12px; }
     #bar-art     { width: 56px; height: 56px; border-radius: 10px; object-fit: cover; flex-shrink: 0; background: var(--surface-hi); box-shadow: 0 4px 16px rgba(0,0,0,.4); }
     #bar-art[src=""], #bar-art:not([src]) { display: none; }
-    #bar-text    { min-width: 0; }
+    #bar-text    { min-width: 0; flex: 1; }
     #fp-track    { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     #fp-artist   { font-size: 12px; font-weight: 600; color: var(--text-dim); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* Lives next to the track text now (Spotify puts its heart here too)
+       instead of crowding the prev/play/next cluster below. */
+    #bar-info .fp-btn { width: 32px; height: 32px; flex-shrink: 0; }
     #bar-center  { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 0 16px; }
-    #bar-btns    { display: flex; align-items: center; gap: 2px; }
+    #bar-btns    { display: flex; align-items: center; gap: 8px; }
     .fp-btn      { background: none; border: none; color: var(--text-dim); cursor: pointer; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; -webkit-tap-highlight-color: transparent; transition: color .15s, transform .1s, background .15s; }
     .fp-btn:hover   { color: var(--text); background: var(--surface-hi); }
     .fp-btn:active  { transform: scale(.88); }
