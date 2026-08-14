@@ -341,7 +341,7 @@ function renderProg() {
   document.getElementById('fp-tot').textContent       = fmt(durMs);
   document.getElementById('home-np-cur').textContent  = fmt(disp);
   document.getElementById('home-np-tot').textContent  = fmt(durMs);
-  if (homeLyrOpen) renderHomeLyrics();
+  _renderOpenLyrViews();
 }
 function setPlayIcons(on) {
   const p = on ? '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>' : '<path d="M8 5v14l11-7z"/>';
@@ -1017,9 +1017,9 @@ function loadNewReleases() {
 }
 
 
-// ── Lyrics (home widget karaoke view) ──────────────────────────────────────
-let homeLyrOpen = false, homeLyrLoadedFor = '';
-let homeLyrLines = [], homeLyrTimes = [], homeLyrCurrentIdx = -1;
+// -- Lyrics (home widget karaoke view + music tab full view) ------------
+let homeLyrOpen = false, tabLyrOpen = false, lyrLoadedFor = '';
+let lyrLines = [], lyrTimes = [], homeLyrCurrentIdx = -1, tabLyrCurrentIdx = -1;
 
 function parseLrc(lrc) {
   // returns [{time: ms, text: string}]
@@ -1031,25 +1031,43 @@ function parseLrc(lrc) {
   return out;
 }
 
-const HOME_LYR_LINE_H  = 22;   // px -- keep in sync with .home-lyr-ln in home/style.css
-const HOME_LYR_NOTE    = '♪'; // shown for instrumental stretches (intro, solos, outro)
-const HOME_LYR_GAP_MS  = 8000; // gap between two lines long enough to count as instrumental
-const HOME_LYR_SUNG_MS = 4000; // rough time to finish a line before showing the note
+const LYR_LINE_H   = 22;   // px -- keep in sync with .home-lyr-ln in home/style.css
+const LYR_GAP_MS   = 8000; // gap between two lines long enough to count as instrumental
+const LYR_SUNG_MS  = 4000; // rough time to finish a line before showing the note
+const LYR_NOTE_SVG = '<svg class="lyr-note-svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>';
 
 // Splices a music-note "line" into an intro before the first lyric and into
 // any gap between two lines wide enough to be an instrumental break, so the
-// karaoke view doesn't just sit on a stale line while nothing's being sung.
+// karaoke view does not just sit on a stale line while nothing is being sung.
 function _addInstrumentalGaps(times, lines) {
   if (!times.length) return { times, lines };
   const outTimes = [], outLines = [];
-  if (times[0] > HOME_LYR_GAP_MS) { outTimes.push(0); outLines.push(HOME_LYR_NOTE); }
+  if (times[0] > LYR_GAP_MS) { outTimes.push(0); outLines.push({ text: '', note: true }); }
   for (let i = 0; i < times.length; i++) {
     outTimes.push(times[i]);
-    outLines.push(lines[i]);
+    outLines.push({ text: lines[i], note: false });
     const nextTime = i + 1 < times.length ? times[i + 1] : (durMs || Infinity);
-    if (nextTime - times[i] > HOME_LYR_GAP_MS) { outTimes.push(times[i] + HOME_LYR_SUNG_MS); outLines.push(HOME_LYR_NOTE); }
+    if (nextTime - times[i] > LYR_GAP_MS) { outTimes.push(times[i] + LYR_SUNG_MS); outLines.push({ text: '', note: true }); }
   }
   return { times: outTimes, lines: outLines };
+}
+
+function _lyrLineHtml(line, cls) {
+  return line.note ? '<div class="' + cls + ' lyr-note">' + LYR_NOTE_SVG + '</div>'
+                    : '<div class="' + cls + '">' + esc(line.text || ' ') + '</div>';
+}
+
+function _lyrIndexFor(ms) {
+  if (lyrTimes.length) {
+    let lo = 0, hi = lyrTimes.length - 1, idx = 0;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (lyrTimes[mid] <= ms) { idx = mid; lo = mid + 1; }
+      else hi = mid - 1;
+    }
+    return idx;
+  }
+  return Math.min(lyrLines.length - 1, Math.floor(ms / durMs * lyrLines.length));
 }
 
 function toggleHomeLyrics() {
@@ -1059,67 +1077,82 @@ function toggleHomeLyrics() {
   homeLyrOpen = !homeLyrOpen;
   center.style.display = homeLyrOpen ? 'none' : '';
   view.style.display   = homeLyrOpen ? 'flex' : 'none';
-  if (homeLyrOpen) loadHomeLyrics();
+  if (homeLyrOpen) { homeLyrCurrentIdx = -1; loadLyrics(); }
 }
 
-// Shows a single centered status line (e.g. "Loading lyrics...") in the
-// viewport's middle slot, blank above and below.
-function showHomeLyrStatus(msg) {
+function toggleTabLyrics() {
+  const normal = document.getElementById('np-normal');
+  const view   = document.getElementById('np-lyrics-section');
+  const btn    = document.getElementById('np-lyrics-btn');
+  if (!normal || !view) return;
+  tabLyrOpen = !tabLyrOpen;
+  normal.style.display = tabLyrOpen ? 'none' : '';
+  view.style.display   = tabLyrOpen ? 'flex' : 'none';
+  btn?.classList.toggle('lit', tabLyrOpen);
+  if (tabLyrOpen) { tabLyrCurrentIdx = -1; loadLyrics(); }
+}
+
+function _setLyrStatus(msg) {
+  const homeTrackEl = document.getElementById('home-lyr-track');
+  if (homeTrackEl) {
+    homeTrackEl.innerHTML = '<div class="home-lyr-ln"></div><div class="home-lyr-ln active">' + esc(msg) + '</div><div class="home-lyr-ln"></div>';
+    homeTrackEl.style.transform = 'translateY(0px)';
+  }
+  const tabBodyEl = document.getElementById('np-lyrics-body');
+  if (tabBodyEl) tabBodyEl.innerHTML = '<div class="np-lyr-status">' + esc(msg) + '</div>';
+}
+
+function _buildHomeLyrTrack() {
   const trackEl = document.getElementById('home-lyr-track');
-  if (!trackEl) return;
-  trackEl.innerHTML = '<div class="home-lyr-ln"></div><div class="home-lyr-ln active">' + esc(msg) + '</div><div class="home-lyr-ln"></div>';
-  trackEl.style.transform = 'translateY(0px)';
+  if (trackEl) trackEl.innerHTML = lyrLines.map(l => _lyrLineHtml(l, 'home-lyr-ln')).join('');
+}
+function _buildTabLyrList() {
+  const bodyEl = document.getElementById('np-lyrics-body');
+  if (bodyEl) bodyEl.innerHTML = lyrLines.map(l => _lyrLineHtml(l, 'np-lyr-line')).join('');
 }
 
-function loadHomeLyrics() {
+function loadLyrics() {
   const track  = document.getElementById('home-np-track')?.textContent.trim()  || '';
   const artist = document.getElementById('home-np-artist')?.textContent.trim() || '';
   const album  = document.getElementById('home-np-album')?.textContent.trim()  || '';
-  if (!track || track === String.fromCharCode(8212)) { showHomeLyrStatus('Nothing playing'); return; }
+  if (!track || track === String.fromCharCode(8212)) { _setLyrStatus('Nothing playing'); return; }
   const key = track + '::' + artist;
-  if (key === homeLyrLoadedFor) { renderHomeLyrics(); return; }
-  homeLyrLoadedFor = key;
-  homeLyrLines = []; homeLyrTimes = []; homeLyrCurrentIdx = -1;
-  showHomeLyrStatus('Loading lyrics...');
+  if (key === lyrLoadedFor) { _buildHomeLyrTrack(); _buildTabLyrList(); _renderOpenLyrViews(); return; }
+  lyrLoadedFor = key;
+  lyrLines = []; lyrTimes = [];
+  _setLyrStatus('Loading lyrics...');
   const url = BASE_PATH + '/api/lyrics?artist=' + encodeURIComponent(artist) +
               '&track=' + encodeURIComponent(track) +
               (album ? '&album=' + encodeURIComponent(album) : '');
   fetch(url).then(r => r.json()).then(d => {
-    if (key !== homeLyrLoadedFor) return; // track changed again while this was in flight
+    if (key !== lyrLoadedFor) return; // track changed again while this was in flight
     if (d.synced) {
       const parsed = parseLrc(d.synced);
       const gapped = _addInstrumentalGaps(parsed.map(p => p.time), parsed.map(p => p.text));
-      homeLyrTimes = gapped.times;
-      homeLyrLines = gapped.lines;
+      lyrTimes = gapped.times;
+      lyrLines = gapped.lines;
     } else if (d.lyrics) {
-      homeLyrLines = d.lyrics.replace(/\r\n/g, '\n').trim().split('\n');
-      homeLyrTimes = [];
+      lyrLines = d.lyrics.replace(/\r\n/g, '\n').trim().split('\n').map(t => ({ text: t, note: false }));
+      lyrTimes = [];
     } else {
-      showHomeLyrStatus('No lyrics found');
+      _setLyrStatus('No lyrics found');
       return;
     }
-    homeLyrCurrentIdx = -1;
-    const trackEl = document.getElementById('home-lyr-track');
-    if (trackEl) trackEl.innerHTML = homeLyrLines.map(l => '<div class="home-lyr-ln">' + esc(l || ' ') + '</div>').join('');
-    renderHomeLyrics();
-  }).catch(() => { if (key === homeLyrLoadedFor) showHomeLyrStatus('Could not load lyrics'); });
+    homeLyrCurrentIdx = -1; tabLyrCurrentIdx = -1;
+    _buildHomeLyrTrack();
+    _buildTabLyrList();
+    _renderOpenLyrViews();
+  }).catch(() => { if (key === lyrLoadedFor) _setLyrStatus('Could not load lyrics'); });
+}
+
+function _renderOpenLyrViews() {
+  if (homeLyrOpen) renderHomeLyrics();
+  if (tabLyrOpen) renderTabLyrics();
 }
 
 function renderHomeLyrics() {
-  if (!homeLyrOpen || !homeLyrLines.length) return;
-  let idx;
-  if (homeLyrTimes.length) {
-    // binary search for the last timestamp <= progMs
-    let lo = 0, hi = homeLyrTimes.length - 1;
-    idx = 0;
-    while (lo <= hi) {
-      const mid = (lo + hi) >> 1;
-      if (homeLyrTimes[mid] <= progMs) { idx = mid; lo = mid + 1; }
-      else hi = mid - 1;
-    }
-  } else {
-    idx = Math.min(homeLyrLines.length - 1, Math.floor(progMs / durMs * homeLyrLines.length));
-  }
+  if (!homeLyrOpen || !lyrLines.length) return;
+  const idx = _lyrIndexFor(progMs);
   if (idx === homeLyrCurrentIdx) return;
   homeLyrCurrentIdx = idx;
   const trackEl = document.getElementById('home-lyr-track');
@@ -1127,8 +1160,24 @@ function renderHomeLyrics() {
   // Shifts the track so line `idx` sits in the viewport's middle slot -- the
   // CSS transition on transform turns this into a smooth scroll instead of
   // the lines just swapping text.
-  trackEl.style.transform = 'translateY(' + (-(idx - 1) * HOME_LYR_LINE_H) + 'px)';
+  trackEl.style.transform = 'translateY(' + (-(idx - 1) * LYR_LINE_H) + 'px)';
   trackEl.querySelectorAll('.home-lyr-ln').forEach((el, i) => el.classList.toggle('active', i === idx));
+}
+
+function renderTabLyrics() {
+  if (!tabLyrOpen || !lyrLines.length) return;
+  const idx = _lyrIndexFor(progMs);
+  if (idx === tabLyrCurrentIdx) return;
+  tabLyrCurrentIdx = idx;
+  const bodyEl = document.getElementById('np-lyrics-body');
+  if (!bodyEl) return;
+  const els = bodyEl.querySelectorAll('.np-lyr-line');
+  els.forEach((el, i) => { el.classList.toggle('active', i === idx); el.classList.toggle('past', i < idx); });
+  const activeEl = els[idx];
+  if (activeEl) {
+    const offset = activeEl.offsetTop - bodyEl.clientHeight / 2 + activeEl.offsetHeight / 2;
+    bodyEl.scrollTo({ top: offset, behavior: 'smooth' });
+  }
 }
 
 // ── Live multi-channel streaming ──────────────────────────────────────────────
@@ -1487,7 +1536,7 @@ function onPlayer(data) {
   if (trackId && trackId !== currentTrackId) {
     currentTrackId = trackId;
     api('/api/like-status?ids=' + trackId).then(res => { if (Array.isArray(res)) updateLikeBtn(res[0]); }).catch(() => {});
-    if (homeLyrOpen) loadHomeLyrics();
+    if (homeLyrOpen || tabLyrOpen) loadLyrics();
   }
 
   playing = data.is_playing;

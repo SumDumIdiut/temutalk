@@ -256,18 +256,31 @@
         <div id="np-header">
           Now Playing
           <div id="fp-ctx" style="margin-top:2px;"></div>
+          <button id="np-lyrics-btn" onclick="toggleTabLyrics()" title="Lyrics">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
+          </button>
         </div>
-        <img id="fp-art" src="" alt="">
-        <div id="np-empty" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:24px;text-align:center;color:var(--text-muted);">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor" style="opacity:.25"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
-          <div style="font-size:12px;opacity:.5;">Nothing playing</div>
+        <div id="np-normal">
+          <img id="fp-art" src="" alt="">
+          <div id="np-empty" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:24px;text-align:center;color:var(--text-muted);">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor" style="opacity:.25"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+            <div style="font-size:12px;opacity:.5;">Nothing playing</div>
+          </div>
+          <div id="np-details" class="np-empty">
+            <div id="np-track">--</div>
+            <div id="np-artist">--</div>
+          </div>
+          <div id="np-divider" class="det-divider" style="display:none;"></div>
+          <div id="np-artist-section"></div>
         </div>
-        <div id="np-details" class="np-empty">
-          <div id="np-track">--</div>
-          <div id="np-artist">--</div>
+        <!-- Full scrolling lyrics (toggleTabLyrics() in music/script.js) --
+             shares fetched/parsed data with the home widget's karaoke view
+             (loadLyrics()/lyrLines/lyrTimes in music/script.js) since it's
+             the same track's lyrics, just rendered as a normal auto-
+             scrolling list here instead of a clipped 3-line viewport. -->
+        <div id="np-lyrics-section" style="display:none;">
+          <div id="np-lyrics-body"></div>
         </div>
-        <div id="np-divider" class="det-divider" style="display:none;"></div>
-        <div id="np-artist-section"></div>
       </div>
 
     </div>

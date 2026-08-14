@@ -183,9 +183,18 @@
 .home-lyr-ln.active { color: var(--text); font-weight: 800; font-size: 15px; opacity: 1; }
 .home-lyr-exit { width: 26px; height: 26px; border-radius: 50%; border: none; background: none; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: color .15s, background .15s; flex-shrink: 0; -webkit-tap-highlight-color: transparent; }
 .home-lyr-exit:hover { color: var(--text); background: var(--surface-hi); }
-.home-lyr-line { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color .25s ease, opacity .25s ease; }
-.home-lyr-prev, .home-lyr-next { font-size: 12px; font-weight: 600; color: var(--text-muted); opacity: .5; }
-.home-lyr-current { font-size: 17px; font-weight: 800; color: var(--text); letter-spacing: -.2px; }
+
+/* Instrumental-gap "note" line -- a real drawn icon (shared .lyr-note-svg
+   with the music tab's full view) instead of a text glyph, lighting up with
+   a pulsing glow while it's the active line, same as the sung lines light
+   up by going bold/white. */
+.home-lyr-ln.lyr-note { display: flex; align-items: center; justify-content: center; }
+.lyr-note-svg { color: var(--text-muted); opacity: .4; transition: color .35s ease, opacity .35s ease; }
+.active .lyr-note-svg { color: var(--primary); opacity: 1; filter: drop-shadow(0 0 5px var(--primary-glow)); animation: lyr-note-pulse 1.3s ease-in-out infinite; }
+@keyframes lyr-note-pulse {
+  0%, 100% { filter: drop-shadow(0 0 3px var(--primary-glow)); transform: scale(1); }
+  50%      { filter: drop-shadow(0 0 9px var(--primary-glow)); transform: scale(1.18); }
+}
 
 /* Recent tracks list */
 .home-mini-recent-row { display: flex; align-items: center; gap: 9px; padding: 6px 0; border-bottom: 1px solid var(--border); cursor: pointer; border-radius: 8px; transition: background .12s; }
