@@ -1016,36 +1016,37 @@ function parseLrc(lrc) {
   return out;
 }
 
+const HOME_LYR_LINE_H = 22; // px -- keep in sync with .home-lyr-ln in home/style.css
+
 function toggleHomeLyrics() {
-  const row  = document.querySelector('#home-np-playing .home-np-row');
-  const view = document.getElementById('home-lyr-view');
-  if (!row || !view) return;
+  const center = document.getElementById('home-np-center');
+  const view   = document.getElementById('home-lyr-view');
+  if (!center || !view) return;
   homeLyrOpen = !homeLyrOpen;
-  row.style.display  = homeLyrOpen ? 'none' : '';
-  view.style.display = homeLyrOpen ? 'flex' : 'none';
+  center.style.display = homeLyrOpen ? 'none' : '';
+  view.style.display   = homeLyrOpen ? 'flex' : 'none';
   if (homeLyrOpen) loadHomeLyrics();
+}
+
+// Shows a single centered status line (e.g. "Loading lyrics...") in the
+// viewport's middle slot, blank above and below.
+function showHomeLyrStatus(msg) {
+  const trackEl = document.getElementById('home-lyr-track');
+  if (!trackEl) return;
+  trackEl.innerHTML = '<div class="home-lyr-ln"></div><div class="home-lyr-ln active">' + esc(msg) + '</div><div class="home-lyr-ln"></div>';
+  trackEl.style.transform = 'translateY(0px)';
 }
 
 function loadHomeLyrics() {
   const track  = document.getElementById('home-np-track')?.textContent.trim()  || '';
   const artist = document.getElementById('home-np-artist')?.textContent.trim() || '';
   const album  = document.getElementById('home-np-album')?.textContent.trim()  || '';
-  const prevEl = document.getElementById('home-lyr-prev');
-  const curEl  = document.getElementById('home-lyr-current');
-  const nextEl = document.getElementById('home-lyr-next');
-  if (!track || track === '—') {
-    if (curEl)  curEl.textContent  = 'Nothing playing';
-    if (prevEl) prevEl.textContent = ' ';
-    if (nextEl) nextEl.textContent = ' ';
-    return;
-  }
+  if (!track || track === String.fromCharCode(8212)) { showHomeLyrStatus('Nothing playing'); return; }
   const key = track + '::' + artist;
   if (key === homeLyrLoadedFor) { renderHomeLyrics(); return; }
   homeLyrLoadedFor = key;
   homeLyrLines = []; homeLyrTimes = []; homeLyrCurrentIdx = -1;
-  if (curEl)  curEl.textContent  = 'Loading lyrics…';
-  if (prevEl) prevEl.textContent = ' ';
-  if (nextEl) nextEl.textContent = ' ';
+  showHomeLyrStatus('Loading lyrics...');
   const url = BASE_PATH + '/api/lyrics?artist=' + encodeURIComponent(artist) +
               '&track=' + encodeURIComponent(track) +
               (album ? '&album=' + encodeURIComponent(album) : '');
@@ -1059,12 +1060,14 @@ function loadHomeLyrics() {
       homeLyrLines = d.lyrics.replace(/\r\n/g, '\n').trim().split('\n');
       homeLyrTimes = [];
     } else {
-      if (curEl) curEl.textContent = 'No lyrics found';
+      showHomeLyrStatus('No lyrics found');
       return;
     }
     homeLyrCurrentIdx = -1;
+    const trackEl = document.getElementById('home-lyr-track');
+    if (trackEl) trackEl.innerHTML = homeLyrLines.map(l => '<div class="home-lyr-ln">' + esc(l || ' ') + '</div>').join('');
     renderHomeLyrics();
-  }).catch(() => { if (key === homeLyrLoadedFor && curEl) curEl.textContent = 'Could not load lyrics'; });
+  }).catch(() => { if (key === homeLyrLoadedFor) showHomeLyrStatus('Could not load lyrics'); });
 }
 
 function renderHomeLyrics() {
@@ -1084,12 +1087,13 @@ function renderHomeLyrics() {
   }
   if (idx === homeLyrCurrentIdx) return;
   homeLyrCurrentIdx = idx;
-  const prevEl = document.getElementById('home-lyr-prev');
-  const curEl  = document.getElementById('home-lyr-current');
-  const nextEl = document.getElementById('home-lyr-next');
-  if (prevEl) prevEl.textContent = homeLyrLines[idx - 1] || ' ';
-  if (curEl)  curEl.textContent  = homeLyrLines[idx]     || ' ';
-  if (nextEl) nextEl.textContent = homeLyrLines[idx + 1] || ' ';
+  const trackEl = document.getElementById('home-lyr-track');
+  if (!trackEl) return;
+  // Shifts the track so line `idx` sits in the viewport's middle slot -- the
+  // CSS transition on transform turns this into a smooth scroll instead of
+  // the lines just swapping text.
+  trackEl.style.transform = 'translateY(' + (-(idx - 1) * HOME_LYR_LINE_H) + 'px)';
+  trackEl.querySelectorAll('.home-lyr-ln').forEach((el, i) => el.classList.toggle('active', i === idx));
 }
 
 // ── Live multi-channel streaming ──────────────────────────────────────────────
