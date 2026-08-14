@@ -542,16 +542,27 @@ function _playErr(e) {
   const msg = e?.error || 'Playback failed — make sure Spotify is open on a device';
   alert(msg);
 }
+function _sendPlay(body) {
+  // Same reasoning as action('play'): if nothing's been active this session,
+  // skip straight to this device's own player instead of waiting on the
+  // server's arbitrary-device fallback (which can take 10s+).
+  if (!hasTrack) { _useOwnDevice(devId => _playOnDevice(devId, body)); return; }
+  api('/api/play-context', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) })
+    .then(r => { if (r.error) _useOwnDevice(devId => _playOnDevice(devId, body)); }).catch(() => _useOwnDevice(devId => _playOnDevice(devId, body)));
+}
+function _playOnDevice(deviceIdSp, body) {
+  api('/api/transfer', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ device_id: deviceIdSp, play: false }) })
+    .then(() => api('/api/play-context', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) }))
+    .then(r => { if (r.error) _playErr(r); });
+}
 function playContext(uri, offset) {
   const body = {};
   if (uri) body.context_uri = uri;
   if (offset != null) body.offset = { position: offset };
-  api('/api/play-context', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) })
-    .then(r => { if (r.error) _playErr(r); }).catch(() => _playErr());
+  _sendPlay(body);
 }
 function playUris(uris) {
-  api('/api/play-context', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ uris }) })
-    .then(r => { if (r.error) _playErr(r); }).catch(() => _playErr());
+  _sendPlay({ uris });
 }
 // True toggle (not "only ever turn on") -- the bottom bar's own shuffle
 // button (which used to be the only way to turn shuffle back off) is gone,
@@ -1491,7 +1502,34 @@ function action(name) {
     if (name === 'next')     { browserPlayer.nextTrack(); return; }
     if (name === 'previous') { browserPlayer.previousTrack(); return; }
   }
-  api('/api/player/' + name, { method: 'POST' });
+  // This device's own Web Playback SDK session isn't ready yet. If nothing
+  // has been active anywhere this session (hasTrack is only ever set once a
+  // real player state with a track comes back), don't wait on the server's
+  // arbitrary-device fallback (which can take 10s+ if it has to launch a
+  // desktop Spotify client) -- go straight for this device's own player,
+  // since the user is looking at (and just pressed play in) this exact tab.
+  if (name === 'play' && !hasTrack) { _useOwnDevice(); return; }
+  api('/api/player/' + name, { method: 'POST' }).then(res => {
+    if (name === 'play' && res?.error) _useOwnDevice();
+  });
+}
+
+// Waits (briefly) for this device's own Web Playback SDK session to come up,
+// then calls onReady(spDeviceId) -- covers "nothing is active anywhere" so
+// playback doesn't need the user to dig into the device picker manually.
+// With no callback, just transfers + resumes (the transport play button's
+// case, where there's no specific track to (re)send).
+function _useOwnDevice(onReady, attempt) {
+  attempt = attempt || 0;
+  if (!browserPlayer) loadBrowserPlayer();
+  if (browserPlayer && browserPlayerReady) {
+    browserPlayer.activateElement();
+    if (onReady) { onReady(browserPlayer._deviceId); return; }
+    api('/api/transfer', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ device_id: browserPlayer._deviceId, play: true }) });
+    return;
+  }
+  if (attempt >= 20) { if (onReady) _playErr(); return; } // ~6s -- SDK isn't coming up (unsupported browser, no Premium, etc.); the device picker is still there to pick manually
+  setTimeout(() => _useOwnDevice(onReady, attempt + 1), 300);
 }
 
 // ── Override togglePlay ───────────────────────────────────────────────────────
