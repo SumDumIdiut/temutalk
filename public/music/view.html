@@ -273,14 +273,29 @@
           <div id="np-divider" class="det-divider" style="display:none;"></div>
           <div id="np-artist-section"></div>
         </div>
-        <!-- Full scrolling lyrics (toggleTabLyrics() in music/script.js) --
-             shares fetched/parsed data with the home widget's karaoke view
-             (loadLyrics()/lyrLines/lyrTimes in music/script.js) since it's
-             the same track's lyrics, just rendered as a normal auto-
-             scrolling list here instead of a clipped 3-line viewport. -->
-        <div id="np-lyrics-section" style="display:none;">
-          <div id="np-lyrics-body"></div>
+      </div>
+
+      <!-- Full-panel lyrics takeover (toggleTabLyrics() in music/script.js) --
+           covers the whole #app-body (all three panes) with a big,
+           Spotify-style view instead of being squeezed into the 220px
+           right-sidebar column. Blurred album art behind the text, synced
+           lines are clickable to seek. Shares fetched/parsed data with the
+           home widget's clipped 3-line karaoke view (loadLyrics()/lyrLines/
+           lyrTimes in music/script.js) since it's the same track's lyrics. -->
+      <div id="np-lyrics-section" style="display:none;">
+        <img id="np-lyrics-bg" src="" alt="">
+        <div id="np-lyrics-scrim"></div>
+        <div id="np-lyrics-header">
+          <img id="np-lyrics-art" src="" alt="">
+          <div id="np-lyrics-meta">
+            <div id="np-lyrics-title">--</div>
+            <div id="np-lyrics-artist"></div>
+          </div>
+          <button id="np-lyrics-close" onclick="toggleTabLyrics()" title="Close lyrics">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          </button>
         </div>
+        <div id="np-lyrics-body"></div>
       </div>
 
     </div>
@@ -292,12 +307,12 @@
           <div id="fp-track">--</div>
           <div id="fp-artist">--</div>
         </div>
+        <button class="fp-btn" id="like-btn" onclick="toggleLike()" title="Save to Liked Songs" tabindex="-1">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" id="like-icon"><path d="M16.5 3c-1.74 0-3.41.81-4.5 2.09C10.91 3.81 9.24 3 7.5 3 4.42 3 2 5.42 2 8.5c0 3.78 3.4 6.86 8.55 11.54L12 21.35l1.45-1.32C18.6 15.36 22 12.28 22 8.5 22 5.42 19.58 3 16.5 3zm-4.4 15.55-.1.1-.1-.1C7.14 14.24 4 11.39 4 8.5 4 6.5 5.5 5 7.5 5c1.54 0 3.04.99 3.57 2.36h1.87C13.46 5.99 14.96 5 16.5 5c2 0 3.5 1.5 3.5 3.5 0 2.89-3.14 5.74-7.9 10.05z"/></svg>
+        </button>
       </div>
       <div id="bar-center">
         <div id="bar-btns">
-          <button class="fp-btn" id="like-btn" onclick="toggleLike()" title="Save to Liked Songs" tabindex="-1">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" id="like-icon"><path d="M16.5 3c-1.74 0-3.41.81-4.5 2.09C10.91 3.81 9.24 3 7.5 3 4.42 3 2 5.42 2 8.5c0 3.78 3.4 6.86 8.55 11.54L12 21.35l1.45-1.32C18.6 15.36 22 12.28 22 8.5 22 5.42 19.58 3 16.5 3zm-4.4 15.55-.1.1-.1-.1C7.14 14.24 4 11.39 4 8.5 4 6.5 5.5 5 7.5 5c1.54 0 3.04.99 3.57 2.36h1.87C13.46 5.99 14.96 5 16.5 5c2 0 3.5 1.5 3.5 3.5 0 2.89-3.14 5.74-7.9 10.05z"/></svg>
-          </button>
           <button class="fp-btn" onclick="action('previous')" title="Previous" tabindex="-1">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
           </button>

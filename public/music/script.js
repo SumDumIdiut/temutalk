@@ -1052,9 +1052,10 @@ function _addInstrumentalGaps(times, lines) {
   return { times: outTimes, lines: outLines };
 }
 
-function _lyrLineHtml(line, cls) {
-  return line.note ? '<div class="' + cls + ' lyr-note">' + LYR_NOTE_SVG + '</div>'
-                    : '<div class="' + cls + '">' + esc(line.text || ' ') + '</div>';
+function _lyrLineHtml(line, cls, ms) {
+  const clickAttr = ms != null ? ' onclick="lyrSeekTo(' + ms + ')"' : '';
+  return line.note ? '<div class="' + cls + ' lyr-note"' + clickAttr + '>' + LYR_NOTE_SVG + '</div>'
+                    : '<div class="' + cls + '"' + clickAttr + '>' + esc(line.text || ' ') + '</div>';
 }
 
 function _lyrIndexFor(ms) {
@@ -1081,15 +1082,42 @@ function toggleHomeLyrics() {
 }
 
 function toggleTabLyrics() {
-  const normal = document.getElementById('np-normal');
-  const view   = document.getElementById('np-lyrics-section');
-  const btn    = document.getElementById('np-lyrics-btn');
-  if (!normal || !view) return;
+  const view = document.getElementById('np-lyrics-section');
+  const btn  = document.getElementById('np-lyrics-btn');
+  if (!view) return;
   tabLyrOpen = !tabLyrOpen;
-  normal.style.display = tabLyrOpen ? 'none' : '';
-  view.style.display   = tabLyrOpen ? 'flex' : 'none';
+  view.style.display = tabLyrOpen ? 'flex' : 'none';
   btn?.classList.toggle('lit', tabLyrOpen);
   if (tabLyrOpen) { tabLyrCurrentIdx = -1; loadLyrics(); }
+}
+
+// Keeps the lyrics overlay's own header (art/title/artist/blurred bg) in
+// sync with the now-playing state -- called at the top of loadLyrics() so
+// both "just opened" and "track changed while open" stay covered by one path.
+function _syncLyrHeader() {
+  const titleEl  = document.getElementById('np-lyrics-title');
+  const artistEl = document.getElementById('np-lyrics-artist');
+  const bgEl     = document.getElementById('np-lyrics-bg');
+  const artEl    = document.getElementById('np-lyrics-art');
+  const track  = document.getElementById('home-np-track')?.textContent  || '--';
+  const artist = document.getElementById('home-np-artist')?.textContent || '';
+  const art    = document.getElementById('fp-art')?.getAttribute('src') || '';
+  if (titleEl)  titleEl.textContent  = track;
+  if (artistEl) artistEl.textContent = artist;
+  if (bgEl)  bgEl.src  = art;
+  if (artEl) artEl.src = art;
+}
+
+// Lets a synced lyric line be clicked to jump playback there, same seek
+// backends the progress bar itself uses (seekTo(), duplicated here since
+// that one derives its ms from a click on #fp-bar's own rect).
+function lyrSeekTo(ms) {
+  progMs = Math.max(0, Math.min(durMs, ms));
+  renderProg();
+  if (activeService === 'youtube' && ytPlayer && ytPlayerReady) { ytPlayer.seekTo(progMs / 1000, true); return; }
+  if (activeService === 'apple' && appleMusic) { appleMusic.seekToTime(progMs / 1000).catch(() => {}); return; }
+  if (browserPlayer && browserPlayerReady) browserPlayer.seek(progMs);
+  else fetch(BASE_PATH + '/api/player/seek?device=' + deviceId + '&ms=' + progMs, { method: 'POST' });
 }
 
 function _setLyrStatus(msg) {
@@ -1108,10 +1136,11 @@ function _buildHomeLyrTrack() {
 }
 function _buildTabLyrList() {
   const bodyEl = document.getElementById('np-lyrics-body');
-  if (bodyEl) bodyEl.innerHTML = lyrLines.map(l => _lyrLineHtml(l, 'np-lyr-line')).join('');
+  if (bodyEl) bodyEl.innerHTML = lyrLines.map((l, i) => _lyrLineHtml(l, 'np-lyr-line', lyrTimes[i])).join('');
 }
 
 function loadLyrics() {
+  _syncLyrHeader();
   const track  = document.getElementById('home-np-track')?.textContent.trim()  || '';
   const artist = document.getElementById('home-np-artist')?.textContent.trim() || '';
   const album  = document.getElementById('home-np-album')?.textContent.trim()  || '';
