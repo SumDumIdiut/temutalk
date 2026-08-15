@@ -87,6 +87,23 @@ const chat                  = require('./lib/chat');
 const setupYtMusicRoutes    = require('./lib/yt-music');
 const setupAppleMusicRoutes = require('./lib/apple-music');
 const setupAssistantRoutes  = require('./lib/assistant');
+const telemetry             = require('./lib/telemetry');
+
+// Logged before exiting so launcher.js's existing 5s crash-restart watchdog
+// still recovers exactly as it did before -- this only adds visibility,
+// it doesn't change the recovery behavior. Node's own default for both of
+// these is already to terminate the process; continuing after either is
+// explicitly discouraged since app state may be corrupted by that point.
+process.on('uncaughtException', err => {
+  telemetry.logEvent('error', { source: 'uncaughtException', message: err.message, stack: err.stack });
+  console.error(err);
+  process.exit(1);
+});
+process.on('unhandledRejection', err => {
+  telemetry.logEvent('error', { source: 'unhandledRejection', message: err?.message || String(err), stack: err?.stack });
+  console.error(err);
+  process.exit(1);
+});
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // EXPRESS + SERVER
@@ -126,6 +143,7 @@ app.use((req, res, next) => {
 
 router.use(express.json({ limit: '4mb' }));
 router.use(express.urlencoded({ extended: true, limit: '4mb' }));
+router.use(telemetry.httpMiddleware(resolveDevice));
 
 // ─── Control panel proxy (/panel → localhost:PORT+1) ─────────────────────────
 router.use('/panel', (req, res) => {
@@ -325,4 +343,5 @@ mainServer.listen(MAIN_PORT, '0.0.0.0', () => {
   console.log(`\n  TemuTalk: ${MAIN_BASE}${BASE_PATH}`);
   console.log(`  Redirect URI (add to Spotify app): ${REDIRECT_URI}\n`);
   console.log(`  ${devices.size} device(s) with stored tokens.\n`);
+  telemetry.logEvent('server-start', { assetVersion: ASSET_VERSION, pid: process.pid, nodeVersion: process.version });
 });
