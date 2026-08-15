@@ -315,22 +315,29 @@ body[data-tab="weather"] .b3 { background: radial-gradient(circle, rgba(62,245,1
    treatments for the play button itself. One shared class now. */
 .ctrl-btn {
   display: flex; align-items: center; justify-content: center;
-  width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+  width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0;
   border: 2px solid var(--glass-border);
   background: var(--surface-hi);
   color: var(--text-dim);
   cursor: pointer;
+  /* Own drop shadow (not just the border/background) so the button stays
+     legible sitting on top of anything -- needed because the lyrics
+     overlay's scrim gradient is much lighter near the top (clock/close
+     row) than lower down (track info/transport row), and a background
+     that's only translucent-white-on-dark reads as a near-invisible thin
+     ring once the backdrop itself turns light there. */
+  box-shadow: 0 2px 8px rgba(0,0,0,.35);
   transition: color .15s, background .15s, border-color .15s, transform .1s;
   -webkit-tap-highlight-color: transparent;
 }
 .ctrl-btn:hover  { background: var(--surface-highest); color: var(--text); border-color: rgba(255,255,255,.32); }
 .ctrl-btn:active { transform: scale(.9); }
 .ctrl-btn.lit    { color: var(--primary); }
-.ctrl-btn-lg     { width: 44px; height: 44px; }
+.ctrl-btn-lg     { width: 50px; height: 50px; }
 .ctrl-btn-play {
   background: var(--surface-highest);
   color: #fff;
-  box-shadow: 0 2px 0 rgba(0,0,0,.45);
+  box-shadow: 0 2px 0 rgba(0,0,0,.45), 0 2px 8px rgba(0,0,0,.35);
 }
 .ctrl-btn-play:hover  { border-color: rgba(255,255,255,.4); color: #fff; }
 .ctrl-btn-play:active { transform: translateY(2px); box-shadow: none; }
