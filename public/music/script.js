@@ -236,8 +236,9 @@ function loadArtAccent(src) {
 }
 
 function renderProg() {
-  const delay = typeof getCastDelay === 'function' ? getCastDelay() : 0;
-  const disp  = Math.max(0, progMs - delay);
+  // getCastDelay() was part of the old server-side Cast pipeline (removed --
+  // see CLAUDE.md); progMs has never had anything to offset against since.
+  const disp = Math.max(0, progMs);
   const pct   = Math.min(100, disp / durMs * 100) + '%';
   document.getElementById('fp-fill').style.width      = pct;
   document.getElementById('home-np-bar').style.width  = pct;
