@@ -151,6 +151,21 @@
     }
     #np-lyrics-close:hover  { color: #fff; background: rgba(255,255,255,.16); }
     #np-lyrics-close:active { transform: scale(.88); }
+
+    /* Clock (js-clock-time, tick() in index.html) shared by both full-screen
+       lyrics takeovers -- same gradient/weight/tabular-nums treatment as the
+       Home tab's own hero clock (.home-time), just fixed to a light-on-dark
+       palette instead of var(--text)/var(--text-dim): this overlay is
+       always dark regardless of the site's actual theme (legibility over
+       arbitrary album art), so a theme that happens to be light would make
+       the hero clock's own text-color-based gradient unreadable here. */
+    .lyr-clock { flex-shrink: 0; text-align: right; }
+    .lyr-clock-time {
+      font-size: 34px; font-weight: 200; font-variant-numeric: tabular-nums;
+      letter-spacing: -1px; line-height: 1; color: #fff;
+      background-image: linear-gradient(135deg, #fff 0%, var(--primary) 60%, var(--pink) 100%);
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    }
     #np-lyrics-body {
       position: relative; z-index: 2; flex: 1; min-height: 0; overflow-y: auto;
       padding: 10px 44px 48vh; scrollbar-width: none;
