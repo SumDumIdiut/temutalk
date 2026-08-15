@@ -78,7 +78,7 @@ if (fs.existsSync(CERT_KEY_FILE) && fs.existsSync(CERT_CERT_FILE) && savedIp ===
 
 // ─── Modules ──────────────────────────────────────────────────────────────────
 const state      = require('./lib/state');
-const { devices, resolveDevice, getDeviceToken } = require('./lib/devices');
+const { devices, saveDevices, resolveDevice, getDeviceToken } = require('./lib/devices');
 const setupSpotifyRoutes    = require('./lib/spotify');
 const setupDataRoutes       = require('./lib/data');
 const setupStreamRoutes     = require('./lib/stream');
@@ -200,9 +200,30 @@ router.get('/api/status', (req, res) => {
   res.json({ authenticated: !!(dev?.tokens?.access_token) });
 });
 
+// A device's own persisted label (System tab), independent of whichever
+// chat/Discord account happens to be signed in on it -- devices.json
+// already stores other per-deviceId state (Spotify tokens), so this reuses
+// that same load/save plumbing rather than a parallel store.
+router.get('/api/device-name', (req, res) => {
+  const deviceId = resolveDevice(req);
+  res.json({ name: (deviceId && devices.get(deviceId)?.name) || '' });
+});
+router.put('/api/device-name', (req, res) => {
+  const deviceId = resolveDevice(req);
+  if (!deviceId) return res.status(400).json({ error: 'device required' });
+  const name = String(req.body?.name || '').trim().slice(0, 40);
+  devices.set(deviceId, { ...(devices.get(deviceId) || {}), name });
+  saveDevices();
+  res.json({ name });
+});
+
 // Other TemuTalk devices currently online — used by the radio "play on..."
 // picker (radio has no Connect-style protocol of its own, unlike Spotify,
-// so this is the roster of valid remote-command targets).
+// so this is the roster of valid remote-command targets). Named by each
+// device's own saved name (above) rather than its chat identity -- those
+// are independent concepts, and defaulting to "whoever's signed into chat"
+// made devices hard to tell apart if e.g. the same Discord account was
+// linked on more than one of them.
 router.get('/api/devices/online', (req, res) => {
   const selfId = resolveDevice(req);
   const list = [];
@@ -211,7 +232,7 @@ router.get('/api/devices/online', (req, res) => {
     list.push({
       deviceId: id,
       self: id === selfId,
-      name: chat.chatGetName(id),
+      name: devices.get(id)?.name || ('Device-' + id.slice(0, 6)),
       avatarUrl: chat.chatGetAvatarUrl(id),
       radio: state.radioNowPlaying.get(id) || null,
     });

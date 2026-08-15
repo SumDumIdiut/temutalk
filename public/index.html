@@ -481,7 +481,7 @@ async function navigate(tab) {
   if (tab === 'timer')   initTimerView();
   if (tab === 'finance' && !financeLoaded) { financeLoaded = true; finSwitch('crypto'); }
 
-  if (tab === 'system')  { renderThemePanel(); }
+  if (tab === 'system')  { renderThemePanel(); if (typeof loadDeviceName === 'function') loadDeviceName(); }
   if (tab === 'radio') initRadioMap();
   if (tab === 'news' && !newsLoaded) loadNews();
   if (tab === 'chat') ensureTab('chat').then(() => { if (typeof chatInit === 'function') chatInit(); });

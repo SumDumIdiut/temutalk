@@ -261,8 +261,7 @@
        top of (not instead of) the engaged-white state above. */
     .det-shuf-btn.lit { animation: magic-pulse 1s ease-in-out infinite; }
     @keyframes magic-pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
-    /* Shuffle / Magic Shuffle picker -- same small-popover convention as
-       .sp-device-pop (the output-device picker) elsewhere in this file,
+    /* Shuffle / Magic Shuffle picker -- a small anchored popover,
        with an actual open/close transition instead of a hard display
        toggle (display can't be animated, so opacity/transform/visibility
        carry the animation and display stays out of it entirely). Snaps out
