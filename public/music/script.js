@@ -1,7 +1,3 @@
-function showAuth() {
-  document.getElementById('auth-screen').style.display = 'flex';
-  document.getElementById('music-app').classList.remove('ma-show');
-}
 let _credsSynced = false;
 
 // Wall-clock anchor for progMs, so the 500ms ticker (below, and in seekTo/
@@ -12,19 +8,6 @@ let _credsSynced = false;
 // the lyrics highlight running a beat ahead of or behind the actual audio.
 let _progAnchorMs = 0, _progAnchorAt = 0;
 function _syncProgAnchor(ms) { _progAnchorMs = ms; _progAnchorAt = Date.now(); }
-
-function showApp() {
-  document.getElementById('auth-screen').style.display = 'none';
-  document.getElementById('music-app').classList.add('ma-show');
-  if (!_credsSynced) {
-    _credsSynced = true;
-    const { cid, csec } = getSpotifyCreds();
-    if (cid && csec) {
-      api('/api/save-creds', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientId: cid, clientSecret: csec }) }).catch(() => {});
-    }
-    loadBrowserPlayer();
-  }
-}
 
 // ── Spotify Web Playback SDK (browser player) ─────────────────────────────────
 let browserPlayer = null;
@@ -372,43 +355,6 @@ function renderRepeat() {
     : '<path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/>';
 }
 
-function action(name) {
-  if (browserPlayer && browserPlayerReady) {
-    if (name === 'play') {
-      browserPlayer.activateElement();
-      browserPlayer.getCurrentState().then(state => {
-        if (state) {
-          browserPlayer.resume();
-        } else {
-          // Nothing queued on browser player — transfer playback to it first
-          api('/api/transfer', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ device_id: browserPlayer._deviceId }) })
-            .then(() => setTimeout(() => browserPlayer.resume(), 600))
-            .catch(() => api('/api/player/play', { method: 'POST' }));
-        }
-      });
-      return;
-    }
-    if (name === 'pause')    { browserPlayer.pause(); return; }
-    if (name === 'next')     { browserPlayer.nextTrack(); return; }
-    if (name === 'previous') { browserPlayer.previousTrack(); return; }
-  }
-  api('/api/player/' + name, { method: 'POST' });
-}
-function togglePlay() {
-  if (browserPlayer) browserPlayer.activateElement();
-  playing = !playing; setPlayIcons(playing); action(playing ? 'play' : 'pause');
-}
-function toggleShuffle() {
-  shuffled = !shuffled;
-  document.getElementById('fp-shuffle')?.classList.toggle('lit', shuffled);
-  api('/api/player/shuffle', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ state: shuffled }) });
-}
-function cycleRepeat() {
-  repeatState = repeatState === 'off' ? 'context' : repeatState === 'context' ? 'track' : 'off';
-  renderRepeat();
-  api('/api/player/repeat', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ state: repeatState }) });
-}
-
 // ── Autoplay: when whatever's playing finishes naturally and nothing is
 // queued after it, fetch and play something similar instead of leaving
 // silence. Always on -- there's no user-facing toggle for it. There's no
@@ -449,19 +395,6 @@ function _apRecordPoll(data) {
   if (data.item) { _apLastTrackId = data.item.id; _apLastDuration = data.item.duration_ms || 1; }
   _apLastProgress = data.progress_ms || 0;
   _apLastPlaying  = !!data.is_playing;
-}
-function seekTo(e) {
-  const rect = document.getElementById('fp-bar').getBoundingClientRect();
-  progMs = Math.floor(Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)) * durMs);
-  renderProg();
-  if (browserPlayer && browserPlayerReady) browserPlayer.seek(progMs);
-  else fetch(BASE_PATH + '/api/player/seek?device=' + deviceId + '&ms=' + progMs, { method: 'POST' });
-}
-function setVolume(val) {
-  if (_serverVolume) return;
-  if (browserPlayer) browserPlayer.setVolume(val / 100).catch(() => {});
-  clearTimeout(volTimer);
-  volTimer = setTimeout(() => api('/api/player/volume', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ volume: val }) }), 250);
 }
 // ── Output device icons ─────────────────────────────────────────────────────
 // Still used by the global device-picker modal (openDevicePickerModal(),
@@ -753,11 +686,6 @@ function ownerLabel(p) {
   return name;
 }
 
-function loadMusicHome() {
-  if (musicHomeLoaded) return; musicHomeLoaded = true;
-  loadMe().then(() => setLibTab('playlists'));
-  if (!discoverLoaded) { discoverLoaded = true; loadStats('medium_term'); loadNewReleases(); }
-}
 function onSearchInput() {
   const val = document.getElementById('search-input').value;
   document.getElementById('search-clear').style.display = val ? 'block' : 'none';
@@ -778,57 +706,6 @@ function clearSearch() {
   document.getElementById('search-clear').style.display = 'none';
   onSearchInput();
 }
-function doSearch(q) {
-  api('/api/search?q=' + encodeURIComponent(q)).then(data => {
-    let html = '';
-    const tracks = data.tracks?.items?.filter(Boolean) || [];
-    if (tracks.length) {
-      html += '<div class="browse-section">Songs</div><div>';
-      tracks.slice(0, 5).forEach(t => {
-        html += '<div class="sr-row" data-uri="' + t.uri + '" onclick="playUris([this.dataset.uri])">' +
-          '<img class="sr-art" src="' + (t.album?.images?.at(-1)?.url || '') + '" alt="" loading="lazy">' +
-          '<div class="sr-info"><div class="sr-name">' + esc(t.name) + '</div><div class="sr-sub">' + esc(t.artists.map(a => a.name).join(', ')) + '</div></div>' +
-          '<span class="sr-dur">' + fmt(t.duration_ms) + '</span></div>';
-      });
-      html += '</div>';
-    }
-    const artists = data.artists?.items?.filter(Boolean) || [];
-    if (artists.length) {
-      html += '<div class="browse-section">Artists</div><div>';
-      artists.slice(0, 4).forEach(a => {
-        html += '<div class="sr-row" data-id="' + a.id + '" onclick="openArtist(this.dataset.id)">' +
-          '<img class="sr-art round" src="' + (a.images?.at(-1)?.url || '') + '" alt="" loading="lazy">' +
-          '<div class="sr-info"><div class="sr-name">' + esc(a.name) + '</div><div class="sr-sub">' + ((a.genres || []).slice(0, 1).join(', ') || 'Artist') + '</div></div>' +
-          '<svg width="18" height="18" viewBox="0 0 24 24" fill="var(--text-muted)"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></div>';
-      });
-      html += '</div>';
-    }
-    const albums = data.albums?.items?.filter(Boolean) || [];
-    if (albums.length) {
-      html += '<div class="browse-section">Albums</div><div>';
-      albums.slice(0, 4).forEach(a => {
-        html += '<div class="sr-row" data-id="' + a.id + '" onclick="openAlbum(this.dataset.id)">' +
-          '<img class="sr-art" src="' + (a.images?.at(-1)?.url || '') + '" alt="" loading="lazy">' +
-          '<div class="sr-info"><div class="sr-name">' + esc(a.name) + '</div><div class="sr-sub">' + esc(a.artists[0]?.name || '') + ' · ' + (a.release_date?.slice(0, 4) || '') + '</div></div>' +
-          '<svg width="18" height="18" viewBox="0 0 24 24" fill="var(--text-muted)"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></div>';
-      });
-      html += '</div>';
-    }
-    const playlists = data.playlists?.items?.filter(Boolean) || [];
-    if (playlists.length) {
-      html += '<div class="browse-section">Playlists</div><div>';
-      playlists.slice(0, 4).forEach(p => {
-        html += '<div class="sr-row" data-id="' + p.id + '" onclick="openPlaylist(this.dataset.id)">' +
-          '<img class="sr-art" src="' + (p.images?.at(-1)?.url || '') + '" alt="" loading="lazy">' +
-          '<div class="sr-info"><div class="sr-name">' + esc(p.name) + '</div><div class="sr-sub">' + (p.tracks?.total || '') + ' songs</div></div>' +
-          '<svg width="18" height="18" viewBox="0 0 24 24" fill="var(--text-muted)"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></div>';
-      });
-      html += '</div>';
-    }
-    document.getElementById('search-results').innerHTML = html || '<div style="color:var(--text-muted);padding:16px 0;font-size:14px;">No results for "' + esc(q) + '"</div>';
-  }).catch(() => { document.getElementById('search-results').innerHTML = '<div style="color:var(--text-muted);padding:16px 0;font-size:14px;">Search failed</div>'; });
-}
-
 function openDetail(id) {
   viewStack.push({ id });
   const overlay = document.getElementById('view-overlay');
@@ -956,55 +833,6 @@ let libTab = 'playlists';
 let discoverLoaded = false, libArtistsCache = null;
 
 let libSidebarCache = {};
-function setLibTab(tab) {
-  libTab = tab;
-  ['playlists','artists','recent','live'].forEach(t =>
-    document.getElementById('lt-' + t)?.classList.toggle('active', t === tab)
-  );
-  const el = document.getElementById('sidebar-list');
-  if (!el) return;
-  if (tab === 'playlists') {
-    if (libSidebarCache.playlists) { el.innerHTML = libSidebarCache.playlists; return; }
-    api('/api/playlists').then(d => {
-      allPlaylists = d.items || [];
-      libSidebarCache.playlists = allPlaylists.map(p =>
-        '<div class="sl-item" data-id="' + p.id + '" onclick="openPlaylist(this.dataset.id)">' +
-        '<img src="' + (p.images?.[0]?.url || '') + '" alt="" loading="lazy">' +
-        '<div class="sl-item-info"><div class="sl-item-name">' + esc(p.name) + '</div>' +
-        '<div class="sl-item-sub">Playlist · ' + esc(ownerLabel(p)) + '</div></div></div>'
-      ).join('') || '<div style="color:var(--text-muted);font-size:13px;padding:8px;">No playlists</div>';
-      el.innerHTML = libSidebarCache.playlists;
-    }).catch(() => {});
-  } else if (tab === 'artists') {
-    if (libSidebarCache.artists) { el.innerHTML = libSidebarCache.artists; return; }
-    el.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:8px;">Loading…</div>';
-    api('/api/top-artists?range=medium_term').then(d => {
-      libSidebarCache.artists = (d.items || []).map(a =>
-        '<div class="sl-item" data-id="' + a.id + '" onclick="openArtist(this.dataset.id)">' +
-        '<img src="' + (a.images?.at(-1)?.url || '') + '" alt="" loading="lazy" style="border-radius:50%;">' +
-        '<div class="sl-item-info"><div class="sl-item-name">' + esc(a.name) + '</div>' +
-        '<div class="sl-item-sub">' + (a.genres?.slice(0,1).join('') || 'Artist') + '</div></div></div>'
-      ).join('') || '<div style="color:var(--text-muted);font-size:13px;padding:8px;">No artists</div>';
-      el.innerHTML = libSidebarCache.artists;
-    }).catch(() => {});
-  } else if (tab === 'live') {
-    liveRenderSidebar();
-    return;
-  } else if (tab === 'recent') {
-    el.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:8px;">Loading…</div>';
-    api('/api/recently-played').then(d => {
-      const seen = new Set();
-      const items = (d.items || []).filter(i => { if (seen.has(i.track?.id)) return false; seen.add(i.track?.id); return true; }).slice(0, 30);
-      el.innerHTML = items.map(i => {
-        const t = i.track;
-        return '<div class="sl-item" data-uri="' + t.uri + '" onclick="playUris([this.dataset.uri])">' +
-          '<img src="' + (t.album?.images?.at(-1)?.url || '') + '" alt="" loading="lazy">' +
-          '<div class="sl-item-info"><div class="sl-item-name">' + esc(t.name) + '</div>' +
-          '<div class="sl-item-sub">' + esc(t.artists.map(a => a.name).join(', ')) + '</div></div></div>';
-      }).join('') || '<div style="color:var(--text-muted);font-size:13px;padding:8px;">No history</div>';
-    }).catch(() => {});
-  }
-}
 
 // ── Stats tab ─────────────────────────────────────────────────────────────
 let statsLoaded = false, statsRange = 'medium_term';
@@ -2066,11 +1894,6 @@ function ytOpenPlaylist(id, title) {
     });
 }
 
-function ytDisconnect() {
-  fetch(BASE_PATH + '/api/yt/disconnect?device=' + deviceId, { method: 'POST' }).catch(() => {});
-  ytPlayer = null; ytPlayerReady = false;
-  showAuth();
-}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // APPLE MUSIC
@@ -2290,9 +2113,3 @@ async function appleOpenPlaylist(id, title) {
   }
 }
 
-function appleDisconnect() {
-  if (appleMusic) { try { appleMusic.unauthorize(); } catch {} appleMusic = null; }
-  clearInterval(appleTicker);
-  fetch(BASE_PATH + '/api/apple/disconnect', { method: 'POST' }).catch(() => {});
-  showAuth();
-}

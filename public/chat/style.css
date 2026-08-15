@@ -885,13 +885,9 @@
 }
 .chat-name-save-btn:hover  { background: var(--surface-highest); }
 .chat-name-save-btn:active { transform: translateY(2px); box-shadow: none; }
-.chat-login-note { font-size: .72rem; font-weight: 600; color: var(--text-muted); margin-top: -4px; }
 .chat-login-discord-btn { background: #5865F2; border-color: #5865F2; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 3px 0 #3a45b8; }
 .chat-login-discord-btn:hover  { background: #4752c4; }
 .chat-login-discord-btn:active { box-shadow: none; }
-.chat-login-divider { display: flex; align-items: center; gap: 10px; color: var(--text-muted); font-weight: 700; font-size: .72rem; text-transform: uppercase; letter-spacing: .6px; }
-.chat-login-divider::before, .chat-login-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-.chat-login-secondary-btn { background: none; box-shadow: none; }
 
 /* ── Modals ───────────────────────────────────────────────────────────────────── */
 .chat-modal-overlay {

@@ -103,12 +103,6 @@ function _fmtChartY(v, rateMode) {
   return '$' + v.toFixed(4);
 }
 
-function _pct(v, ref) {
-  if (!ref) return '';
-  const p = (v - ref) / ref * 100;
-  return (p >= 0 ? '+' : '') + p.toFixed(2) + '%';
-}
-
 function setLastUpdate() {
   const el = document.getElementById('fin-updated');
   if (el) el.textContent = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
@@ -516,14 +510,6 @@ function stockAdd(sym, name) {
   }
   renderWatchlist();
   stockOpen(sym, name);
-}
-
-function stockRemove(sym, e) {
-  e.stopPropagation();
-  stockWatchlist = stockWatchlist.filter(s => s.sym !== sym);
-  localStorage.setItem('stockWatchlist', JSON.stringify(stockWatchlist));
-  if (_stockDetSym === sym) { _stockDetSym = null; document.getElementById('stock-det-wrap').style.display='none'; document.getElementById('stocks-list-wrap').style.display=''; }
-  renderWatchlist();
 }
 
 async function renderWatchlist() {
