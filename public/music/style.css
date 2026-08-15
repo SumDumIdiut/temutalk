@@ -148,7 +148,26 @@
        lyrics takeovers) -- a passive progress readout under the track
        info, same width% math the player bar's own #fp-fill already does. */
     .lyr-progress { margin-top: 8px; max-width: 320px; height: 3px; background: rgba(255,255,255,.15); border-radius: 999px; overflow: hidden; }
-    .lyr-progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--primary), var(--pink)); border-radius: 999px; transition: width .6s linear; }
+    .lyr-progress-fill { height: 100%; width: 0%; background: #fff; border-radius: 999px; transition: width .6s linear; }
+
+    /* Prev/play/next (any lyrics overlay) -- same white-on-glass look as
+       the mini widget's own transport row. */
+    .lyr-ctrls { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+    .lyr-ctrl-btn {
+      background: none; border: none; color: rgba(255,255,255,.8); cursor: pointer;
+      width: 34px; height: 34px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      transition: color .15s, background .15s, transform .1s; -webkit-tap-highlight-color: transparent;
+    }
+    .lyr-ctrl-btn:hover  { color: #fff; background: rgba(255,255,255,.1); }
+    .lyr-ctrl-btn:active { transform: scale(.88); }
+    .lyr-ctrl-play {
+      width: 40px; height: 40px; margin: 0 2px;
+      background: #fff; color: #0c0b14;
+      border: none; box-shadow: 0 2px 8px rgba(0,0,0,.4);
+    }
+    .lyr-ctrl-play:hover  { background: #fff; color: #0c0b14; opacity: .9; }
+    .lyr-ctrl-play:active { transform: scale(.92); }
     #np-lyrics-close {
       position: absolute; top: 50%; right: 26px; transform: translateY(-50%);
       flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%; border: none;
