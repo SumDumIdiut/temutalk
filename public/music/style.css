@@ -120,10 +120,25 @@
        fetched/parsed lyrics with the home widget's clipped 3-line view
        (loadLyrics()/lyrLines/lyrTimes in music/script.js). */
     #np-lyrics-section {
-      display: none; flex-direction: column;
+      display: flex; flex-direction: column;
       position: absolute; inset: 0; z-index: 15;
       border-radius: var(--radius); overflow: hidden;
       background: #0c0b14;
+      /* Same opacity+scale open/close treatment as the Home tab's lyrics
+         overlay (home/style.css .home-lyr-overlay) instead of an instant
+         display:none/flex cut. */
+      opacity: 0; visibility: hidden; transform: scale(.97);
+      pointer-events: none;
+      transition: opacity .28s cubic-bezier(0.4,0,0.2,1),
+                  transform .28s cubic-bezier(0.4,0,0.2,1),
+                  visibility 0s linear .28s;
+    }
+    #np-lyrics-section.lyr-open {
+      opacity: 1; visibility: visible; transform: scale(1);
+      pointer-events: auto;
+      transition: opacity .28s cubic-bezier(0.4,0,0.2,1),
+                  transform .28s cubic-bezier(0.4,0,0.2,1),
+                  visibility 0s linear 0s;
     }
     #np-lyrics-bg {
       position: absolute; inset: -24px; z-index: 0;

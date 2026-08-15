@@ -342,6 +342,13 @@ body[data-tab="weather"] .b3 { background: radial-gradient(circle, rgba(62,245,1
 .ctrl-btn-play:hover  { border-color: rgba(255,255,255,.4); color: #fff; }
 .ctrl-btn-play:active { transform: translateY(2px); box-shadow: none; }
 
+/* Small bounce on the play/pause glyph itself whenever it swaps (see
+   _popIcon() in music/script.js) -- the icon used to just snap between the
+   two paths instantly on every single play/pause press, the single most
+   frequent interaction in the player. */
+@keyframes ctrl-pop { 0% { transform: scale(.55); } 65% { transform: scale(1.18); } 100% { transform: scale(1); } }
+.ctrl-pop { animation: ctrl-pop .3s cubic-bezier(0.34,1.56,0.64,1); }
+
 /* ── Chips ──────────────────────────────────────────────────────────────── */
 .chip {
   display: inline-flex;
