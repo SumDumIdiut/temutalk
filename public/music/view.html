@@ -40,30 +40,6 @@
 
     /* Web Playback SDK status — hidden while ready, surfaces the failure reason otherwise */
     #browser-player-status { display:none; font-size:10px; color:var(--red); margin-left:10px; max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex-shrink:0; }
-
-    /* Output device picker */
-    .sp-target-wrap { position:relative; flex-shrink:0; }
-    .sp-target-btn { display:flex; align-items:center; justify-content:center; background:none; border:none; color:var(--text-muted); padding:4px; cursor:pointer; border-radius:8px; transition:color .15s, background .15s, transform .1s; -webkit-tap-highlight-color: transparent; }
-    .sp-target-btn:hover  { color:var(--text); background:var(--surface-hi); }
-    .sp-target-btn:active { transform: scale(.88); }
-    .sp-target-btn.active { color:var(--primary); }
-    .sp-device-pop {
-      position:absolute; bottom:calc(100% + 8px); right:0; width:240px; max-height:280px; overflow-y:auto;
-      background: rgba(16,15,26,.92); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
-      border:2px solid var(--glass-border); border-radius: var(--radius); box-shadow: var(--card-shadow-hover);
-      z-index:20; display:none; padding:6px;
-    }
-    .sp-device-pop.open { display:block; }
-    .sp-dev-loading { color:var(--text-muted); font-size:12px; font-weight: 600; padding:10px 8px; line-height:1.5; }
-    .sp-dev-row { display:flex; align-items:center; gap:9px; padding:8px; border-radius:var(--radius-sm); cursor:pointer; transition:background .12s; }
-    .sp-dev-row:hover { background:var(--surface-hi); }
-    .sp-dev-row.active { background:var(--primary-dim); }
-    .sp-dev-icon { color:var(--text-muted); flex-shrink:0; }
-    .sp-dev-row.active .sp-dev-icon { color:var(--primary); }
-    .sp-dev-info { flex:1; min-width:0; }
-    .sp-dev-name { font-size:12.5px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .sp-dev-sub { font-size:10.5px; color:var(--text-muted); margin-top:1px; }
-    .sp-dev-check { color:var(--primary); font-size:13px; flex-shrink:0; }
   </style>
 
   <!-- Service switcher — always visible when music tab is open -->
@@ -336,12 +312,6 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 9v6h4l5 5V4l-5 5H7z"/></svg>
         <input type="range" class="vol-slider" id="fp-vol" min="0" max="100" value="50" oninput="setVolume(+this.value)">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
-      </div>
-      <div class="sp-target-wrap">
-        <button class="sp-target-btn" id="sp-target-btn" onclick="toggleSpotifyDevicePicker(event)" title="Play on…">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-        </button>
-        <div class="sp-device-pop" id="sp-device-pop"></div>
       </div>
       <div id="browser-player-status" title="Web Playback SDK connection status"></div>
     </div>
