@@ -193,13 +193,14 @@
 .home-lyr-hdr-title { font-size: 16px; font-weight: 800; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .home-lyr-hdr-artist{ font-size: 13px; font-weight: 600; color: rgba(255,255,255,.55); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .home-lyr-close {
+  position: absolute; top: 50%; right: 30px; transform: translateY(-50%);
   flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%; border: none;
   background: rgba(255,255,255,.08); color: rgba(255,255,255,.75); cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   transition: color .15s, background .15s, transform .1s; -webkit-tap-highlight-color: transparent;
 }
 .home-lyr-close:hover  { color: #fff; background: rgba(255,255,255,.16); }
-.home-lyr-close:active { transform: scale(.88); }
+.home-lyr-close:active { transform: translateY(-50%) scale(.88); }
 .home-lyr-body {
   position: relative; z-index: 2; flex: 1; min-height: 0; overflow-y: auto;
   padding: 12px 48px 48vh; scrollbar-width: none;

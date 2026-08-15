@@ -150,13 +150,14 @@
     .lyr-progress { margin-top: 8px; max-width: 320px; height: 3px; background: rgba(255,255,255,.15); border-radius: 999px; overflow: hidden; }
     .lyr-progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--primary), var(--pink)); border-radius: 999px; transition: width .6s linear; }
     #np-lyrics-close {
+      position: absolute; top: 50%; right: 26px; transform: translateY(-50%);
       flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%; border: none;
       background: rgba(255,255,255,.08); color: rgba(255,255,255,.75); cursor: pointer;
       display: flex; align-items: center; justify-content: center;
       transition: color .15s, background .15s, transform .1s; -webkit-tap-highlight-color: transparent;
     }
     #np-lyrics-close:hover  { color: #fff; background: rgba(255,255,255,.16); }
-    #np-lyrics-close:active { transform: scale(.88); }
+    #np-lyrics-close:active { transform: translateY(-50%) scale(.88); }
 
     /* Clock (js-clock-time, tick() in index.html) shared by both full-screen
        lyrics takeovers -- same gradient/weight/tabular-nums treatment as the
