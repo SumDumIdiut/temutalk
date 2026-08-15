@@ -148,7 +148,11 @@
       position: absolute; inset: -24px; z-index: 0;
       width: calc(100% + 48px); height: calc(100% + 48px); object-fit: cover;
       filter: blur(60px) brightness(.5) saturate(1.35); transform: scale(1.1);
+      /* Same crossfade-on-load treatment as the Home tab's version
+         (home/style.css .home-lyr-bg / _setBgArt() in music/script.js). */
+      opacity: 0; transition: opacity .5s ease;
     }
+    #np-lyrics-bg.art-loaded { opacity: 1; }
     #np-lyrics-scrim {
       position: absolute; inset: 0; z-index: 1;
       background: linear-gradient(180deg, rgba(8,7,14,.6), rgba(8,7,14,.86) 55%, rgba(8,7,14,.96));

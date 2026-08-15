@@ -418,6 +418,27 @@ function clearCreds() {
   updateAuthScreen();
 }
 
+// Auto-reloads a stale tab the moment the server reports a newer
+// ASSET_VERSION (pushed on WS join -- see lib/ws.js) than what this page
+// was actually loaded with. The server restarts on every deploy, but an
+// already-open tab has no other way to learn that: nothing re-fetches an
+// already-loaded <script>/<link> just because the origin changed, so a
+// kiosk display left open across a deploy would otherwise keep silently
+// running the old code indefinitely. Defers (instead of reloading
+// mid-keystroke) while a text field is actively focused, so an in-progress
+// chat message or credential entry isn't lost.
+function _checkAssetVersion(v) {
+  if (!window.__ASSET_V || String(v) === String(window.__ASSET_V)) return;
+  const tryReload = () => {
+    const el = document.activeElement;
+    const typing = el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+    if (typing) { setTimeout(tryReload, 10000); return; }
+    _reloadPage();
+  };
+  tryReload();
+}
+function _reloadPage() { location.reload(); }
+
 // ── Lazy tab loader ───────────────────────────────────────────────────────
 const _tabLoaded = { home: true }; // home is inline — already loaded
 
@@ -1210,6 +1231,7 @@ function wsConnect() {
           if (m.authenticated) { showApp(); onPlayer(m); } else showAuth();
         });
       }
+      if (m.type === 'asset-version') _checkAssetVersion(m.v);
       if (m.type === 'mse-broadcaster-status') mseSetBroadcasterOnline(m.online, m.mimeType);
       if (m.type && m.type.startsWith('chat:') && typeof chatOnMessage === 'function') chatOnMessage(m);
       if ((m.type === 'live-list' || m.type === 'live-channel-ended') && typeof liveOnMessage === 'function') liveOnMessage(m);
