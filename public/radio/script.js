@@ -111,11 +111,12 @@ function loadRadioDeviceList() {
       const isSelf  = d.deviceId === deviceId;
       const active  = isSelf ? !radioTargetId : radioTargetId === d.deviceId;
       const label   = isSelf ? 'This device' : d.name;
-      const sub     = d.radio ? '♪ ' + esc(d.radio.name) : (isSelf ? '' : 'Idle');
+      const sub     = d.radio ? esc(d.radio.name) : (isSelf ? '' : 'Idle');
+      const subIcon = d.radio ? '<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-1px"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg> ' : '';
       return `<div class="rmap-dev-row${active ? ' active' : ''}" data-id="${esc(d.deviceId)}" data-name="${esc(label)}" onclick="radioSetTarget(this.dataset.id,this.dataset.name)">
         ${d.avatarUrl ? `<img class="rmap-dev-av" src="${esc(d.avatarUrl)}" alt="">` : '<div class="rmap-dev-av rmap-dev-av-ph"></div>'}
-        <div class="rmap-dev-info"><div class="rmap-dev-name">${esc(label)}</div>${sub ? `<div class="rmap-dev-sub">${esc(sub)}</div>` : ''}</div>
-        ${active ? '<span class="rmap-dev-check">✓</span>' : ''}
+        <div class="rmap-dev-info"><div class="rmap-dev-name">${esc(label)}</div>${sub ? `<div class="rmap-dev-sub">${subIcon}${sub}</div>` : ''}</div>
+        ${active ? '<span class="rmap-dev-check"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg></span>' : ''}
       </div>`;
     }).join('');
   }).catch(() => { pop.innerHTML = '<div class="rmap-dev-loading">Could not load devices</div>'; });

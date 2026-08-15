@@ -116,7 +116,7 @@
 
 .rate-card { display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--surface); border:2px solid var(--glass-border); border-radius:var(--radius-sm); margin-bottom:5px; cursor:pointer; box-shadow:var(--card-shadow); transition:border-color .15s, box-shadow .15s; }
 .rate-card:hover { border-color:var(--green); box-shadow:var(--card-shadow-hover); }
-.rate-flag { font-size:22px; width:32px; text-align:center; flex-shrink:0; }
+.rate-icon { display:flex; align-items:center; justify-content:center; width:32px; flex-shrink:0; color:var(--text-dim); }
 .rate-info { flex:1; min-width:0; }
 .rate-sym  { font-size:14px; font-weight:700; color:var(--text); display:block; }
 .rate-name { font-size:11px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }

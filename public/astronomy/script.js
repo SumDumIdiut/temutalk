@@ -3,6 +3,58 @@ let astroLoaded = false, astroLat = null, astroLng = null;
 let issTimer = null, lastSunData = null;
 let _issData = null, _cssData = null;
 
+// Drawn (not emoji) icons, same filled single-color convention as the rest
+// of the app's icon set.
+const ASTRO_ICON_SVG = {
+  galaxy:    '<circle cx="12" cy="12" r="2" fill="currentColor"/><g fill="none" stroke="currentColor" stroke-width="1.3" opacity=".8"><ellipse cx="12" cy="12" rx="10" ry="4"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(120 12 12)"/></g>',
+  satellite: '<g fill="currentColor"><rect x="9.5" y="9.5" width="5" height="5" rx="1" transform="rotate(45 12 12)"/><rect x="1" y="7" width="6" height="3" rx="1" transform="rotate(45 4 8.5)"/><rect x="17" y="14" width="6" height="3" rx="1" transform="rotate(45 20 15.5)"/></g><line x1="15" y1="9" x2="18" y2="6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="18.3" cy="5.7" r="1" fill="currentColor"/>',
+  moon:      '<path d="M12.3 3a9 9 0 109.7 9.7A7.2 7.2 0 0112.3 3z" fill="currentColor"/>',
+  planet:    '<circle cx="12" cy="12" r="5" fill="currentColor"/><ellipse cx="12" cy="12" rx="10" ry="3.2" fill="none" stroke="currentColor" stroke-width="1.6" transform="rotate(-18 12 12)"/>',
+  sparkle:   '<path d="M12 2l1.8 6.2L20 10l-6.2 1.8L12 18l-1.8-6.2L4 10l6.2-1.8z" fill="currentColor"/>',
+  meteor:    '<circle cx="17" cy="7" r="2.2" fill="currentColor"/><path d="M15.5 8.5L4 20" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><g stroke="currentColor" stroke-width="1.4" stroke-linecap="round" opacity=".6"><path d="M13 9l1.5-1.5"/><path d="M11 11l1.5-1.5"/><path d="M9 13l1.5-1.5"/></g>',
+  earth:     '<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18" stroke="currentColor" stroke-width="1.1" fill="none" opacity=".55"/><path d="M6 8c2 1.5 4 1 6-.5s4-1.5 5 .5" stroke="currentColor" stroke-width="1.4" fill="none" opacity=".8"/>',
+};
+function astroIconSvg(key, size) {
+  size = size || 16;
+  return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" style="vertical-align:-3px">' + (ASTRO_ICON_SVG[key] || ASTRO_ICON_SVG.sparkle) + '</svg>';
+}
+
+// Moon-phase mini icons (lunar calendar, 8 discrete phases) -- a filled
+// disc with a smaller offset disc removed via evenodd fill-rule (no
+// clipPath id needed, so many of these can sit in the same innerHTML
+// string safely). approxIllum/waxing roughly match astroCalcMoon()'s own
+// phase boundaries; this is a calendar glyph, not the precise render
+// (that's _drawMoon()'s canvas, driven by the real calculated illum).
+const MOON_PHASE_ICONS = [
+  { illum: .02, waxing: true  }, // New
+  { illum: .25, waxing: true  }, // Waxing Crescent
+  { illum: .5,  waxing: true  }, // First Quarter
+  { illum: .75, waxing: true  }, // Waxing Gibbous
+  { illum: .98, waxing: true  }, // Full
+  { illum: .75, waxing: false }, // Waning Gibbous
+  { illum: .5,  waxing: false }, // Last Quarter
+  { illum: .25, waxing: false }, // Waning Crescent
+];
+function moonPhaseSvg(idx, size) {
+  size = size || 14;
+  const r = 9, cx = 11, cy = 11;
+  const circle = (rr, ox) => 'M' + (cx+ox) + ',' + (cy-rr) + ' A' + rr + ',' + rr + ' 0 1,0 ' + (cx+ox) + ',' + (cy+rr) + ' A' + rr + ',' + rr + ' 0 1,0 ' + (cx+ox) + ',' + (cy-rr) + 'Z ';
+  let path;
+  if (idx === 0)      path = '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="currentColor" stroke-width="1.3" opacity=".5"/>'; // New -- outline only
+  else if (idx === 4)  path = '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="currentColor"/>'; // Full -- solid disc
+  else {
+    const p = MOON_PHASE_ICONS[idx] || MOON_PHASE_ICONS[1];
+    // Bite circle offset outward on the dark side -- illum near .5 pushes it
+    // far off-disc (leaves a half-moon straight edge via a huge radius arc
+    // instead), illum near 0/1 keeps it barely offset (thin crescent/near-full).
+    const dir = p.waxing ? -1 : 1; // dark side is left when waxing, right when waning
+    const off = dir * (2 + (1 - Math.abs(p.illum - .5) * 2) * 11);
+    const biteR = p.illum < .5 ? r * 1.35 : r * 0.62;
+    path = '<path fill-rule="evenodd" fill="currentColor" d="' + circle(r, 0) + circle(biteR, off) + '"/>';
+  }
+  return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 22 22">' + path + '</svg>';
+}
+
 // ── Init ───────────────────────────────────────────────────────────────────────
 function astroInit() {
   if (astroLoaded) { _redrawStatic(); return; }
@@ -425,12 +477,13 @@ function drawStationMap() {
   if (astroLat!==null) _dot(astroLat,astroLng,'#34d399',3.5,'');
 }
 
+const NEARBY_DOT = '<span style="color:#34d399;font-weight:700">&#9679;</span>';
 function _checkOverhead() {
   const el=document.getElementById('station-overhead'); if(!el||astroLat===null)return;
   const msgs=[];
-  if(_issData){const d=_distKm(astroLat,astroLng,_issData.latitude,_issData.longitude);msgs.push('ISS '+_fmtKm(d)+' away'+(d<1000?' 🟢':''));}
-  if(_cssData){const d=_distKm(astroLat,astroLng,_cssData.latitude,_cssData.longitude);msgs.push('Tiangong '+_fmtKm(d)+' away'+(d<1000?' 🟢':''));}
-  el.textContent=msgs.join('  ·  ');
+  if(_issData){const d=_distKm(astroLat,astroLng,_issData.latitude,_issData.longitude);msgs.push('ISS '+_fmtKm(d)+' away'+(d<1000?' '+NEARBY_DOT:''));}
+  if(_cssData){const d=_distKm(astroLat,astroLng,_cssData.latitude,_cssData.longitude);msgs.push('Tiangong '+_fmtKm(d)+' away'+(d<1000?' '+NEARBY_DOT:''));}
+  el.innerHTML=msgs.join('  ·  ');
 }
 function _distKm(la1,lo1,la2,lo2){const R=6371,dL=(la2-la1)*Math.PI/180,dO=(lo2-lo1)*Math.PI/180,a=Math.sin(dL/2)**2+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dO/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
 function _fmtKm(km){return km>=1000?(km/1000).toFixed(1)+'k km':Math.round(km)+' km';}
@@ -492,14 +545,13 @@ function astroCalcMoon() {
   const age=((jd-kNM)%SYN+SYN)%SYN;
   const illum=.5*(1-Math.cos(2*Math.PI*age/SYN));
   const phases=[{m:1,n:'New Moon'},{m:7.4,n:'Waxing Crescent'},{m:9,n:'First Quarter'},{m:14.8,n:'Waxing Gibbous'},{m:16.6,n:'Full Moon'},{m:22.2,n:'Waning Gibbous'},{m:24,n:'Last Quarter'},{m:SYN,n:'Waning Crescent'}];
-  const emojis=['🌑','🌒','🌓','🌔','🌕','🌖','🌗','🌘'];
   let pi=phases.findIndex(p=>age<p.m); if(pi<0)pi=7;
   _setText('moon-phase',phases[pi].n);
   _setText('moon-illum',Math.round(illum*100)+'% illuminated');
   _setText('moon-age','Age: '+age.toFixed(1)+' days');
   _setText('moon-next','Full: '+(SYN/2-age>0?SYN/2-age:SYN*1.5-age).toFixed(1)+'d · New: '+(SYN-age).toFixed(1)+'d');
   _drawMoon(illum,age<SYN/2);
-  _buildLunarCal(now,SYN,kNM,emojis);
+  _buildLunarCal(now,SYN,kNM);
 }
 
 function _drawMoon(illum,waxing) {
@@ -526,7 +578,7 @@ function _drawMoon(illum,waxing) {
   ctx.beginPath(); ctx.fillStyle=ld; ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill();
 }
 
-function _buildLunarCal(today,syn,kNM,emojis) {
+function _buildLunarCal(today,syn,kNM) {
   const el=document.getElementById('moon-cal'); if(!el)return;
   const y=today.getFullYear(),m=today.getMonth();
   const dim=new Date(y,m+1,0).getDate(), fdow=new Date(y,m,1).getDay();
@@ -536,7 +588,7 @@ function _buildLunarCal(today,syn,kNM,emojis) {
     const jd=_jd(new Date(y,m,day,12));
     const age=((jd-kNM)%syn+syn)%syn;
     const pi=[[1,0],[7.4,1],[9,2],[14.8,3],[16.6,4],[22.2,5],[24,6],[syn,7]].findIndex(([mx])=>age<mx);
-    h+='<div class="mc-day'+(day===today.getDate()?' today':'')+'"><span class="mc-e">'+emojis[pi<0?7:pi]+'</span><span class="mc-n">'+day+'</span></div>';
+    h+='<div class="mc-day'+(day===today.getDate()?' today':'')+'"><span class="mc-e">'+moonPhaseSvg(pi<0?7:pi)+'</span><span class="mc-n">'+day+'</span></div>';
   }
   el.innerHTML=h;
 }
@@ -580,11 +632,11 @@ function astroGenEvents() {
     {mo:[11],n:'Ursids',p:'Dec 22',z:'~10/hr'},
   ];
   const evs=[
-    ...SHOWERS.filter(s=>s.mo.some(sm=>Math.abs(sm-m)<=1)).map(s=>({i:'🌠',t:s.n+' Meteor Shower',d:'Peak: '+s.p+' · '+s.z+' · Best after midnight in dark skies.'})),
-    {i:'🌌',t:'Milky Way',d:m>=3&&m<=9?'Core well-placed tonight — best 10pm–3am away from city lights.':'Core below horizon. Good for Andromeda & Orion Nebula region.'},
-    {i:'🛰',t:'ISS Passes',d:'~16 passes per day. Check Heavens-Above.com for exact times for your location.'},
-    {i:'🪐',t:'Saturn\'s Rings',d:'Rings tilted ~27° toward Earth in 2026 — excellent for small telescopes.'},
-    {i:'🌍',t:'Earthshine',d:'Look for the faint glow on the dark lunar limb during crescent phases — sunlight reflected from Earth\'s oceans.'},
+    ...SHOWERS.filter(s=>s.mo.some(sm=>Math.abs(sm-m)<=1)).map(s=>({i:astroIconSvg('meteor'),t:s.n+' Meteor Shower',d:'Peak: '+s.p+' · '+s.z+' · Best after midnight in dark skies.'})),
+    {i:astroIconSvg('galaxy'),t:'Milky Way',d:m>=3&&m<=9?'Core well-placed tonight — best 10pm–3am away from city lights.':'Core below horizon. Good for Andromeda & Orion Nebula region.'},
+    {i:astroIconSvg('satellite'),t:'ISS Passes',d:'~16 passes per day. Check Heavens-Above.com for exact times for your location.'},
+    {i:astroIconSvg('planet'),t:'Saturn\'s Rings',d:'Rings tilted ~27° toward Earth in 2026 — excellent for small telescopes.'},
+    {i:astroIconSvg('earth'),t:'Earthshine',d:'Look for the faint glow on the dark lunar limb during crescent phases — sunlight reflected from Earth\'s oceans.'},
   ];
   const el=document.getElementById('astro-events-list'); if(!el)return;
   el.innerHTML=evs.map(e=>'<div class="ev-item"><div class="ev-icon">'+e.i+'</div><div><div class="ev-title">'+e.t+'</div><div class="ev-desc">'+e.d+'</div></div></div>').join('');

@@ -516,10 +516,9 @@ function switchTab(name){
 
 // ── Room list ─────────────────────────────────────────────────────────────────
 function roomIcon(type){
-  if(type==='global')return '🌐';
-  if(type==='server')return '👥';
-  if(type==='dm')    return '💬';
-  return '💬';
+  if(type==='global')return '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm6.9 6H15.7a15.6 15.6 0 00-1.4-4.4A8.03 8.03 0 0118.9 8zM12 4.1c.9 1.3 1.6 2.7 2.1 3.9H9.9c.5-1.2 1.2-2.6 2.1-3.9zM4.3 14a7.9 7.9 0 010-4h3.6a16.6 16.6 0 000 4H4.3zm.8 2h3.2c.3 1.6.8 3.1 1.4 4.4A8.03 8.03 0 015.1 16zm3.2-8H5.1a8.03 8.03 0 014.6-4.4A15.6 15.6 0 008.3 8zM12 19.9c-.9-1.3-1.6-2.7-2.1-3.9h4.2c-.5 1.2-1.2 2.6-2.1 3.9zM14.5 14h-5a14.5 14.5 0 010-4h5a14.5 14.5 0 010 4zm.2 5.4c.6-1.3 1.1-2.8 1.4-4.4h3.2a8.03 8.03 0 01-4.6 4.4zM16.1 14a16.6 16.6 0 000-4h3.6a7.9 7.9 0 010 4h-3.6z"/></svg>';
+  if(type==='server')return '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 3-1.34 3-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05C16.16 13.9 17 15.02 17 16.5V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>';
+  return '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>';
 }
 
 function renderRooms(){
@@ -578,7 +577,7 @@ function selectRoom(id){
   if(nameEl)nameEl.textContent=r.name||id;
   if(typeEl){
     var labels={global:'Global',server:'Channel',dm:'DM'};
-    typeEl.textContent=roomIcon(r.type||'dm')+' '+(labels[r.type]||'DM');
+    typeEl.textContent=(labels[r.type]||'DM');
     typeEl.style.display='';
     // Only allow clearing global and server-channel rooms (not DMs) — or allow all
     typeEl.style.display='';
@@ -896,7 +895,7 @@ async function pmSave(){
 async function doRestart(){
   var btn=document.getElementById('restart-btn');
   btn.textContent='Restarting…';btn.disabled=true;
-  try{var r=await fetch(P+'/api/restart-server',{method:'POST'});var d=await r.json();btn.textContent=d.ok?'Done ✓':'Failed';}
+  try{var r=await fetch(P+'/api/restart-server',{method:'POST'});var d=await r.json();btn.textContent=d.ok?'Done':'Failed';}
   catch(e){btn.textContent='Error';}
   setTimeout(function(){btn.innerHTML='&#8635; Restart';btn.disabled=false;},3000);
 }
