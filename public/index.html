@@ -103,7 +103,7 @@
   <!-- Hero clock -->
   <div class="home-hero">
     <div class="home-greeting" id="home-greeting">Good morning</div>
-    <div class="home-time" id="clock">--:--</div>
+    <div class="home-time js-clock-time" id="clock">--:--</div>
     <div class="home-datestr" id="dateline">--</div>
   </div>
 
@@ -229,6 +229,7 @@
         <div class="home-lyr-hdr-title" id="home-lyr-hdr-title">--</div>
         <div class="home-lyr-hdr-artist" id="home-lyr-hdr-artist"></div>
       </div>
+      <div class="lyr-clock"><div class="lyr-clock-time js-clock-time">--:--</div></div>
       <button class="home-lyr-close" onclick="toggleHomeLyrics()" title="Close lyrics">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
       </button>
@@ -925,14 +926,19 @@ function tick() {
     : '';
   const greetEl = document.getElementById('home-greeting');
   if (greetEl) greetEl.textContent = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
-  const clk = document.getElementById('clock');
+  let clockHtml;
   if (themeClock === '12') {
     const ampm = h >= 12 ? 'pm' : 'am';
     h = h % 12 || 12;
-    clk.innerHTML = h + ':' + m + secs + '<span style="font-size:.32em;letter-spacing:0;margin-left:8px;vertical-align:middle;color:#a0a8c8;background-image:linear-gradient(135deg,#a0a8c8,#b09ffc);background-image:linear-gradient(135deg,var(--text-dim),var(--primary));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">' + ampm + '</span>';
+    clockHtml = h + ':' + m + secs + '<span style="font-size:.32em;letter-spacing:0;margin-left:8px;vertical-align:middle;color:#a0a8c8;background-image:linear-gradient(135deg,#a0a8c8,#b09ffc);background-image:linear-gradient(135deg,var(--text-dim),var(--primary));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">' + ampm + '</span>';
   } else {
-    clk.innerHTML = h.toString().padStart(2,'0') + ':' + m + secs;
+    clockHtml = h.toString().padStart(2,'0') + ':' + m + secs;
   }
+  // .js-clock-time -- every styled clock face on the page (the Home hero
+  // clock, plus the smaller ones in the full-screen lyrics views), not just
+  // the one #clock id, so they all stay in perfect sync with each other and
+  // with the 12h/24h + seconds theme settings from a single tick().
+  document.querySelectorAll('.js-clock-time').forEach(el => { el.innerHTML = clockHtml; });
   document.getElementById('dateline').textContent =
     DAYS[n.getDay()] + ', ' + MONTHS[n.getMonth()] + ' ' + n.getDate();
 }
