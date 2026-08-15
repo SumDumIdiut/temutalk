@@ -61,9 +61,8 @@
     .th-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--primary); border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); cursor: pointer; }
     .th-slider::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--primary); border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); cursor: pointer; }
     .th-slider::-moz-range-track { background: var(--surface-highest); height: 6px; border-radius: 999px; }
-    body.no-glow .fp-btn-play,
-    body.no-glow .det-play-btn,
-    body.no-glow .home-mini-ctrl-play { box-shadow: none !important; }
+    body.no-glow .ctrl-btn-play,
+    body.no-glow .det-play-btn { box-shadow: none !important; }
     body.no-glow .nav-item.active .nav-pill { box-shadow: none !important; }
     body.no-nav-labels .nav-label { display: none !important; }
 
