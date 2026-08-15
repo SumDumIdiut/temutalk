@@ -168,13 +168,13 @@
 }
 .home-lyr-hdr {
   position: relative; z-index: 2; flex-shrink: 0;
-  display: flex; align-items: center; gap: 14px; padding: 22px 30px 16px;
+  display: flex; align-items: center; gap: 18px; padding: 22px 30px 16px;
 }
-.home-lyr-hdr-art  { width: 44px; height: 44px; border-radius: 9px; object-fit: cover; flex-shrink: 0; background: rgba(255,255,255,.08); box-shadow: 0 6px 20px rgba(0,0,0,.5); }
+.home-lyr-hdr-art  { width: 60px; height: 60px; border-radius: 12px; object-fit: cover; flex-shrink: 0; background: rgba(255,255,255,.08); box-shadow: 0 6px 20px rgba(0,0,0,.5); }
 .home-lyr-hdr-art[src=""] { visibility: hidden; }
 .home-lyr-hdr-meta  { flex: 1; min-width: 0; }
-.home-lyr-hdr-title { font-size: 16px; font-weight: 800; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.home-lyr-hdr-artist{ font-size: 13px; font-weight: 600; color: rgba(255,255,255,.55); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.home-lyr-hdr-title { font-size: 18px; font-weight: 800; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.home-lyr-hdr-artist{ font-size: 15px; font-weight: 600; color: rgba(255,255,255,.55); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Position only -- chrome comes from the shared .ctrl-btn/.ctrl-btn-lg classes. */
 .home-lyr-close { position: absolute; top: 50%; right: 30px; transform: translateY(-50%); }
 .home-lyr-close:active { transform: translateY(-50%) scale(.9); }
