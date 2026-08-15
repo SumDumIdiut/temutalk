@@ -876,6 +876,19 @@ function toggleTabLyrics() {
 // Keeps the lyrics overlay's own header (art/title/artist/blurred bg) in
 // sync with the now-playing state -- called at the top of loadLyrics() so
 // both "just opened" and "track changed while open" stay covered by one path.
+// Crossfades the blurred backdrop instead of snapping straight to the new
+// image -- .art-loaded (style.css) holds it at opacity:0 until the new
+// image has actually finished loading, so the fade-in always lines up with
+// real pixels on screen instead of fading in a half-decoded frame.
+function _setBgArt(id, url) {
+  const el = document.getElementById(id);
+  if (!el || el.src === url) return;
+  el.classList.remove('art-loaded');
+  if (!url) return;
+  el.onload = () => el.classList.add('art-loaded');
+  el.src = url;
+}
+
 function _syncLyrHeader() {
   const track  = document.getElementById('home-np-track')?.textContent  || '--';
   const artist = document.getElementById('home-np-artist')?.textContent || '';
@@ -883,9 +896,9 @@ function _syncLyrHeader() {
   const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
   const setSrc = (id, val) => { const el = document.getElementById(id); if (el) el.src = val; };
   set('np-lyrics-title', track);   set('np-lyrics-artist', artist);
-  setSrc('np-lyrics-bg', art);     setSrc('np-lyrics-art', art);
+  _setBgArt('np-lyrics-bg', art);  setSrc('np-lyrics-art', art);
   set('home-lyr-hdr-title', track); set('home-lyr-hdr-artist', artist);
-  setSrc('home-lyr-bg', art);       setSrc('home-lyr-hdr-art', art);
+  _setBgArt('home-lyr-bg', art);    setSrc('home-lyr-hdr-art', art);
 }
 
 // Lets a synced lyric line be clicked to jump playback there, same seek

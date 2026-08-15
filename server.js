@@ -249,7 +249,7 @@ setupAppleMusicRoutes(router);
 setupAssistantRoutes(router, resolveDevice, WEATHER_CITY);
 
 // ─── WebSocket ────────────────────────────────────────────────────────────────
-setupWebSocket(wss, broadcastLiveList);
+setupWebSocket(wss, broadcastLiveList, ASSET_VERSION);
 
 // ─── Admin overview (localhost only) ─────────────────────────────────────────
 router.get('/api/admin/overview', (req, res) => {
