@@ -48,7 +48,7 @@
 .home-mini-wx { display: flex; flex-direction: column; justify-content: center; min-width: 190px; border-top: 4px solid #60a5fa; flex: 1; }
 .home-mini-wx:hover { border-color: rgba(96,165,250,.7); }
 .home-mini-wx-main { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
-.home-mini-wx-icon { font-size: 32px; line-height: 1; flex-shrink: 0; }
+.home-mini-wx-icon { display: flex; flex-shrink: 0; color: var(--text); }
 .home-mini-wx-temp { font-size: 28px; font-weight: 800; line-height: 1; letter-spacing: -.5px; }
 .home-mini-wx-desc { font-size: 12.5px; font-weight: 600; color: var(--text-dim); }
 .home-mini-wx-city { font-size: 11px; color: var(--text-muted); margin-top: 2px; opacity: .8; }
