@@ -146,7 +146,7 @@ function _initBrowserPlayer() {
     browserPlayerReady = true;
     _bpNotReadySince = null;
     browserPlayer._deviceId = device_id;
-    _setBrowserPlayerStatus('ready ✓ ' + device_id.slice(0,8));
+    _setBrowserPlayerStatus('ready: ' + device_id.slice(0,8));
     const wasPaused = localStorage.getItem('tt_was_paused') === '1';
     localStorage.removeItem('tt_was_paused');
     if (wasPaused) _suppressPlay = true;
@@ -565,7 +565,7 @@ function loadDevicePickerModalList() {
       return `<div class="dpm-row${dev.is_active ? ' active' : ''}" data-id="${esc(dev.id)}" onclick="devicePickerModalSetDevice(this.dataset.id)">
         <svg class="dpm-row-icon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">${icon}</svg>
         <div class="dpm-row-info"><div class="dpm-row-name">${esc(dev.name)}</div><div class="dpm-row-sub">${dev.volume_percent != null ? dev.volume_percent + '% volume' : dev.type || ''}</div></div>
-        ${dev.is_active ? '<span class="dpm-row-check">✓</span>' : ''}
+        ${dev.is_active ? '<span class="dpm-row-check"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg></span>' : ''}
       </div>`;
     }).join('');
   }).catch(() => { list.innerHTML = '<div class="dpm-loading">Could not load devices</div>'; });
@@ -732,7 +732,7 @@ function addCurrentTrackToPlaylist(btnEl, playlistId) {
     if (r.error) { btnEl.disabled = false; alert(r.error); return; }
     btnEl.classList.add('apm-added');
     const sub = btnEl.querySelector('.apm-item-sub');
-    if (sub) sub.textContent = 'Added ✓';
+    if (sub) sub.textContent = 'Added';
     setTimeout(closeAddToPlaylistModal, 650);
   }).catch(() => { btnEl.disabled = false; alert('Could not add track — check your connection.'); });
 }
@@ -1258,15 +1258,17 @@ function liveRenderSidebar() {
   if (!el) return;
   const myChannel = liveChannelList.find(c => c.id === deviceId);
   const broadcastBtn = `<div class="live-broadcast-btn ${liveBroadcasting ? 'live-active' : ''}" onclick="liveToggle()">
-    ${liveBroadcasting ? '⏹ Stop Broadcasting' : '🎙 Start Broadcasting'}
+    ${liveBroadcasting
+      ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-2px"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg> Stop Broadcasting'
+      : '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-2px"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg> Start Broadcasting'}
   </div>`;
   const channels = liveChannelList.filter(c => c.id !== deviceId);
   const channelHtml = channels.length ? channels.map(c => `
     <div class="live-card ${liveActiveChannel === c.id ? 'live-card-active' : ''}" onclick="liveJoin('${c.id}')">
-      ${c.avatarUrl ? `<img class="live-card-av" src="${esc(c.avatarUrl)}" alt="">` : '<div class="live-card-av live-card-av-placeholder">🎵</div>'}
+      ${c.avatarUrl ? `<img class="live-card-av" src="${esc(c.avatarUrl)}" alt="">` : '<div class="live-card-av live-card-av-placeholder">' + LYR_NOTE_SVG + '</div>'}
       <div class="live-card-info">
         <div class="live-card-name">${esc(c.name)}</div>
-        <div class="live-card-sub">🎧 ${c.listeners} listener${c.listeners !== 1 ? 's' : ''}</div>
+        <div class="live-card-sub"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-2px"><path d="M12 3a8 8 0 00-8 8v6a2 2 0 002 2h1a1 1 0 001-1v-5a1 1 0 00-1-1H5v-1a7 7 0 0114 0v1h-2a1 1 0 00-1 1v5a1 1 0 001 1h1a2 2 0 002-2v-6a8 8 0 00-8-8z"/></svg> ${c.listeners} listener${c.listeners !== 1 ? 's' : ''}</div>
       </div>
       ${liveActiveChannel === c.id ? '<div class="live-card-badge">Listening</div>' : ''}
     </div>`).join('') : '<div class="live-empty">No one is broadcasting right now.</div>';

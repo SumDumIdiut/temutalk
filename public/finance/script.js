@@ -693,17 +693,17 @@ function stockConvert(dir) {
 // EXCHANGE RATES
 // ══════════════════════════════════════════════════════════════════════════════
 const CURR_META = {
-  USD:{f:'🇺🇸',n:'US Dollar'},EUR:{f:'🇪🇺',n:'Euro'},GBP:{f:'🇬🇧',n:'British Pound'},
-  JPY:{f:'🇯🇵',n:'Japanese Yen'},ZAR:{f:'🇿🇦',n:'S. African Rand'},AUD:{f:'🇦🇺',n:'Australian Dollar'},
-  CAD:{f:'🇨🇦',n:'Canadian Dollar'},CHF:{f:'🇨🇭',n:'Swiss Franc'},CNY:{f:'🇨🇳',n:'Chinese Yuan'},
-  INR:{f:'🇮🇳',n:'Indian Rupee'},BRL:{f:'🇧🇷',n:'Brazilian Real'},MXN:{f:'🇲🇽',n:'Mexican Peso'},
-  KRW:{f:'🇰🇷',n:'South Korean Won'},SGD:{f:'🇸🇬',n:'Singapore Dollar'},NOK:{f:'🇳🇴',n:'Norwegian Krone'},
-  SEK:{f:'🇸🇪',n:'Swedish Krona'},DKK:{f:'🇩🇰',n:'Danish Krone'},NZD:{f:'🇳🇿',n:'New Zealand Dollar'},
-  HKD:{f:'🇭🇰',n:'Hong Kong Dollar'},TRY:{f:'🇹🇷',n:'Turkish Lira'},
-  AED:{f:'🇦🇪',n:'UAE Dirham'},SAR:{f:'🇸🇦',n:'Saudi Riyal'},PKR:{f:'🇵🇰',n:'Pakistani Rupee'},
-  IDR:{f:'🇮🇩',n:'Indonesian Rupiah'},MYR:{f:'🇲🇾',n:'Malaysian Ringgit'},PHP:{f:'🇵🇭',n:'Philippine Peso'},
-  THB:{f:'🇹🇭',n:'Thai Baht'},CZK:{f:'🇨🇿',n:'Czech Koruna'},PLN:{f:'🇵🇱',n:'Polish Zloty'},
-  TWD:{f:'🇹🇼',n:'Taiwan Dollar'},ILS:{f:'🇮🇱',n:'Israeli Shekel'},HUF:{f:'🇭🇺',n:'Hungarian Forint'},
+  USD:{n:'US Dollar'},EUR:{n:'Euro'},GBP:{n:'British Pound'},
+  JPY:{n:'Japanese Yen'},ZAR:{n:'S. African Rand'},AUD:{n:'Australian Dollar'},
+  CAD:{n:'Canadian Dollar'},CHF:{n:'Swiss Franc'},CNY:{n:'Chinese Yuan'},
+  INR:{n:'Indian Rupee'},BRL:{n:'Brazilian Real'},MXN:{n:'Mexican Peso'},
+  KRW:{n:'South Korean Won'},SGD:{n:'Singapore Dollar'},NOK:{n:'Norwegian Krone'},
+  SEK:{n:'Swedish Krona'},DKK:{n:'Danish Krone'},NZD:{n:'New Zealand Dollar'},
+  HKD:{n:'Hong Kong Dollar'},TRY:{n:'Turkish Lira'},
+  AED:{n:'UAE Dirham'},SAR:{n:'Saudi Riyal'},PKR:{n:'Pakistani Rupee'},
+  IDR:{n:'Indonesian Rupiah'},MYR:{n:'Malaysian Ringgit'},PHP:{n:'Philippine Peso'},
+  THB:{n:'Thai Baht'},CZK:{n:'Czech Koruna'},PLN:{n:'Polish Zloty'},
+  TWD:{n:'Taiwan Dollar'},ILS:{n:'Israeli Shekel'},HUF:{n:'Hungarian Forint'},
 };
 const RATES_PRIORITY = ['EUR','GBP','JPY','ZAR','AUD','CAD','CHF','CNY','INR','BRL','MXN','KRW','SGD','NZD','HKD'];
 
@@ -740,7 +740,7 @@ function _renderRatesList(data) {
   el.innerHTML = filtered.map(c => {
     const m = CURR_META[c] || {};
     return `<div class="rate-card" id="rc-${c}" onclick="ratesOpen('${c}')">
-      <span class="rate-flag">${m.f||'🏳'}</span>
+      <span class="rate-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M9 15.5c0 1.1 1.3 2 3 2s3-.7 3-1.7c0-2.7-6-1.3-6-4 0-1 1.3-1.8 3-1.8s3 .7 3 1.8" stroke-linecap="round"/><line x1="12" y1="6.5" x2="12" y2="8"/><line x1="12" y1="16" x2="12" y2="17.5"/></svg></span>
       <div class="rate-info">
         <span class="rate-sym">${c}</span>
         <span class="rate-name">${m.n||c}</span>
@@ -795,7 +795,7 @@ function ratesOpen(pair) {
   document.getElementById('rates-det').innerHTML = `
     <div class="fin-det-hero">
       <div>
-        <div class="fin-det-name">${mf.f||''} ${_ratesBase} / ${mt.f||''} ${pair}</div>
+        <div class="fin-det-name">${_ratesBase} / ${pair}</div>
         <div class="fin-det-subname">${mf.n||_ratesBase} to ${mt.n||pair}</div>
         <div class="fin-det-price">1 ${_ratesBase} = ${_fmtRate(_ratesConvRate)} ${pair}</div>
       </div>
