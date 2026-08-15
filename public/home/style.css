@@ -145,23 +145,6 @@
 .home-mini-time:last-child { text-align: right; }
 
 .home-mini-ctrls { display: flex; align-items: center; gap: 6px; }
-.home-mini-ctrl { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--glass-border); background: var(--surface-hi); color: var(--text); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .15s, border-color .15s, transform .1s; flex-shrink: 0; -webkit-tap-highlight-color: transparent; }
-.home-mini-ctrl:hover  { background: var(--surface-highest); }
-.home-mini-ctrl:active { transform: scale(.9); }
-/* Dark surface + white glass border, matching the site's .btn-surface
-   convention and every other button's chrome -- a plain white icon instead
-   of a colored fill or colored icon, so this composites with the user's
-   actual surface/border theme instead of overriding it with a fixed color. */
-.home-mini-ctrl-play {
-  width: 42px;
-  height: 42px;
-  background: var(--surface-highest);
-  border: 2px solid var(--glass-border);
-  color: #fff;
-  box-shadow: 0 2px 0 rgba(0,0,0,.45);
-}
-.home-mini-ctrl-play:hover  { border-color: rgba(255,255,255,.4); }
-.home-mini-ctrl-play:active { transform: scale(.92); box-shadow: none; }
 
 /* Full-screen karaoke takeover (toggleHomeLyrics() in music/script.js) --
    covers the whole #view-home (which is already position:fixed, so it's a
@@ -192,15 +175,9 @@
 .home-lyr-hdr-meta  { flex: 1; min-width: 0; }
 .home-lyr-hdr-title { font-size: 16px; font-weight: 800; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .home-lyr-hdr-artist{ font-size: 13px; font-weight: 600; color: rgba(255,255,255,.55); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.home-lyr-close {
-  position: absolute; top: 50%; right: 30px; transform: translateY(-50%);
-  flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%; border: none;
-  background: rgba(255,255,255,.08); color: rgba(255,255,255,.75); cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  transition: color .15s, background .15s, transform .1s; -webkit-tap-highlight-color: transparent;
-}
-.home-lyr-close:hover  { color: #fff; background: rgba(255,255,255,.16); }
-.home-lyr-close:active { transform: translateY(-50%) scale(.88); }
+/* Position only -- chrome comes from the shared .ctrl-btn/.ctrl-btn-lg classes. */
+.home-lyr-close { position: absolute; top: 50%; right: 30px; transform: translateY(-50%); }
+.home-lyr-close:active { transform: translateY(-50%) scale(.9); }
 .home-lyr-body {
   position: relative; z-index: 2; flex: 1; min-height: 0; overflow-y: auto;
   padding: 12px 48px 48vh; scrollbar-width: none;
