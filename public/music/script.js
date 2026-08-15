@@ -347,12 +347,25 @@ function renderProg() {
   if (homeLyrFill) homeLyrFill.style.width = pct;
   _renderOpenLyrViews();
 }
+// Restarts the .ctrl-pop bounce (style.css) even if it's still finishing
+// from the last press -- just re-adding the class does nothing if it's
+// already present, since CSS won't replay a running animation on its own.
+function _popIcon(el) {
+  if (!el) return;
+  el.classList.remove('ctrl-pop');
+  void el.offsetWidth; // force a reflow so the removal actually takes before re-adding
+  el.classList.add('ctrl-pop');
+}
+
 function setPlayIcons(on) {
   const p = on ? '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>' : '<path d="M8 5v14l11-7z"/>';
-  document.getElementById('fp-play-icon').innerHTML = p;
-  document.getElementById('home-play-icon').innerHTML = p;
-  const npLyrIcon = document.getElementById('np-lyr-play-icon');     if (npLyrIcon)  npLyrIcon.innerHTML  = p;
-  const homeLyrIcon = document.getElementById('home-lyr-play-icon'); if (homeLyrIcon) homeLyrIcon.innerHTML = p;
+  const npLyrIcon = document.getElementById('np-lyr-play-icon');
+  const homeLyrIcon = document.getElementById('home-lyr-play-icon');
+  [document.getElementById('fp-play-icon'), document.getElementById('home-play-icon'), npLyrIcon, homeLyrIcon].forEach(el => {
+    if (!el) return;
+    el.innerHTML = p;
+    _popIcon(el);
+  });
 }
 function renderRepeat() {
   document.getElementById('fp-repeat')?.classList.toggle('lit', repeatState !== 'off');
@@ -942,7 +955,7 @@ function toggleHomeLyrics() {
   const view = document.getElementById('home-lyr-overlay');
   if (!view) return;
   homeLyrOpen = !homeLyrOpen;
-  view.style.display = homeLyrOpen ? 'flex' : 'none';
+  view.classList.toggle('lyr-open', homeLyrOpen);
   if (homeLyrOpen) { homeLyrCurrentIdx = -1; loadLyrics(); }
 }
 
@@ -951,7 +964,7 @@ function toggleTabLyrics() {
   const btn  = document.getElementById('np-lyrics-btn');
   if (!view) return;
   tabLyrOpen = !tabLyrOpen;
-  view.style.display = tabLyrOpen ? 'flex' : 'none';
+  view.classList.toggle('lyr-open', tabLyrOpen);
   btn?.classList.toggle('lit', tabLyrOpen);
   if (tabLyrOpen) { tabLyrCurrentIdx = -1; loadLyrics(); }
 }
