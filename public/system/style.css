@@ -1,33 +1,3 @@
-    /* ── System tab ─────────────────────────────────────────────────────── */
-    .sys-page-header { display: flex; align-items: center; justify-content: space-between; padding: 4px 0 14px; }
-    .sys-refresh-btn {
-      background: var(--surface-hi); border: 2px solid var(--glass-border); border-radius: 999px;
-      color: var(--text-muted); font-family: inherit; font-size: 12px; font-weight: 700; padding: 6px 15px;
-      cursor: pointer; box-shadow: 0 2px 0 rgba(0,0,0,.4);
-      transition: color .15s, border-color .15s, background .15s, transform .1s; -webkit-tap-highlight-color: transparent;
-    }
-    .sys-refresh-btn:hover  { color: var(--text); border-color: var(--text-muted); background: var(--surface-highest); }
-    .sys-refresh-btn:active { transform: translateY(2px); box-shadow: none; }
-    .sys-auto-toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); cursor: pointer; -webkit-tap-highlight-color: transparent; }
-    .sys-auto-toggle input { accent-color: var(--primary); cursor: pointer; }
-    .sys-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 4px; }
-    .sys-card { background: var(--surface); backdrop-filter: blur(12px); border: 2px solid var(--glass-border); border-radius: var(--radius-sm); padding: 14px 14px; box-shadow: var(--card-shadow); }
-    .sys-card-label { font-size: 11px; font-weight: 700; letter-spacing: .7px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
-    .sys-card-val   { font-size: 22px; font-weight: 700; color: var(--text); line-height: 1; }
-    .sys-card-sub   { font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.4; }
-    .sys-bar-wrap { height: 6px; background: var(--surface-hi); border-radius: 999px; margin-top: 10px; overflow: hidden; }
-    .sys-bar { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #0ea5e9, #38bdf8); transition: width .5s ease; }
-    .sys-bar.warn   { background: #f59e0b; }
-    .sys-bar.danger { background: var(--red); }
-    .sys-row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--surface); backdrop-filter: blur(12px); border: 2px solid var(--glass-border); border-radius: var(--radius-sm); margin-bottom: 4px; box-shadow: var(--card-shadow); }
-    .sys-row-label { flex: 1; font-size: 13px; color: var(--text-muted); min-width: 0; }
-    .sys-row-val   { font-size: 13px; font-weight: 600; color: var(--text); text-align: right; flex-shrink: 0; max-width: 60%; word-break: break-all; }
-    .sys-net-card { background: var(--surface); backdrop-filter: blur(12px); border: 2px solid var(--glass-border); border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 6px; box-shadow: var(--card-shadow); }
-    .sys-net-name { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
-    .sys-net-addr { font-size: 12px; color: var(--text-muted); font-family: monospace; }
-    .sys-last-update { font-size: 12px; color: var(--text-muted); }
-
-
     /* ── Theme settings panel ───────────────────────────────────────────── */
     .theme-card { background: var(--surface); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 2px solid var(--glass-border); border-radius: var(--radius); padding: 22px 24px 24px; margin-bottom: 20px; box-shadow: var(--card-shadow); }
     .theme-card-hdr { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
@@ -93,8 +63,7 @@
     .th-slider::-moz-range-track { background: var(--surface-highest); height: 6px; border-radius: 999px; }
     body.no-glow .fp-btn-play,
     body.no-glow .det-play-btn,
-    body.no-glow .home-mini-ctrl-play,
-    body.no-glow .home-ctrl-play { box-shadow: none !important; }
+    body.no-glow .home-mini-ctrl-play { box-shadow: none !important; }
     body.no-glow .nav-item.active .nav-pill { box-shadow: none !important; }
     body.no-nav-labels .nav-label { display: none !important; }
 

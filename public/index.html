@@ -736,7 +736,6 @@ function _setThemeAuto(val) {
   localStorage.setItem('themeAutoAccent', val);
   applyTheme(); renderThemePanel();
 }
-function _th(k,v,lk) { window[k]=v; localStorage.setItem(lk,v); applyTheme(); renderThemePanel(); }
 function _setThemeDark(v)      { themeDark=v;      localStorage.setItem('themeDark',v);      applyTheme(); renderThemePanel(); }
 function _setThemeBlobsShow(v) { themeBlobsShow=v; localStorage.setItem('themeBlobsShow',v); applyTheme(); renderThemePanel(); }
 function _setThemeBlobs(v)     { themeBlobs=v;     localStorage.setItem('themeBlobs',v);     applyTheme(); renderThemePanel(); }
@@ -1079,8 +1078,6 @@ function api(path, opts = {}) {
 }
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function fmt(ms) { const s = Math.floor(ms / 1000); return Math.floor(s / 60) + ':' + (s % 60).toString().padStart(2, '0'); }
-function showToast(msg) {} // stub — no toast UI
-
 // ── Player state (global — cross-tab references) ──────────────────────────
 let playing = false, hasTrack = false, shuffled = false, repeatState = 'off';
 let progMs = 0, durMs = 1, ticker = null, volTimer = null, searchTimer = null;

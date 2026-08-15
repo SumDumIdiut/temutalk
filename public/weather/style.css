@@ -50,7 +50,6 @@
     .wx-day-rain  { font-size: 11px; color: #38bdf8; flex-shrink: 0; width: 42px; display: flex; align-items: center; justify-content: flex-end; gap: 2px; font-variant-numeric: tabular-nums; }
     .wx-day-rain svg { flex-shrink: 0; }
     .wx-skeleton  { height: 180px; border-radius: var(--radius); margin-bottom: 10px; }
-    .wx-stat-skeleton { height: 82px; border-radius: var(--radius-sm); }
 
     /* ── Mobile ──────────────────────────────────────────────────────────── */
     @media (max-width: 720px) {

@@ -186,8 +186,6 @@ router.get('/cert.crt', (req, res) => {
 });
 
 // ─── App config ───────────────────────────────────────────────────────────────
-router.get('/api/auth-info', (req, res) => { res.json({ redirectUri: REDIRECT_URI }); });
-
 router.get('/api/config', (req, res) => {
   const deviceId = resolveDevice(req);
   const dev      = deviceId ? devices.get(deviceId) : null;
