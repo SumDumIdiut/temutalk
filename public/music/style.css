@@ -126,9 +126,13 @@
       background: #0c0b14;
       /* Same opacity+scale open/close treatment as the Home tab's lyrics
          overlay (home/style.css .home-lyr-overlay) instead of an instant
-         display:none/flex cut. */
+         display:none/flex cut. will-change promotes it to its own
+         compositor layer so the transition doesn't re-rasterize
+         #np-lyrics-bg's 60px blur every frame -- that recompute (not the
+         transition itself) was the actual source of the jank. */
       opacity: 0; visibility: hidden; transform: scale(.97);
       pointer-events: none;
+      will-change: opacity, transform;
       transition: opacity .28s cubic-bezier(0.4,0,0.2,1),
                   transform .28s cubic-bezier(0.4,0,0.2,1),
                   visibility 0s linear .28s;

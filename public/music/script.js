@@ -172,102 +172,6 @@ function _initBrowserPlayer() {
   }, { once: true });
 }
 
-function onPlayer(data) {
-  if (!data.authenticated) { showAuth(); return; }
-  showApp();
-  if (!data.item) return;
-
-  const name    = data.item.name;
-  const artists = data.item.artists.map(a => a.name).join(', ');
-  const album   = data.item.album?.name || '';
-  const images  = data.item.album?.images || [];
-  const src     = (images[1] || images[0])?.url || '';
-
-  // Music tab — bottom bar
-  document.getElementById('fp-track').textContent  = name;
-  document.getElementById('fp-artist').textContent = artists;
-  // Music tab — right sidebar
-  document.getElementById('fp-ctx').textContent    = album;
-  document.getElementById('np-track').textContent  = name;
-  document.getElementById('np-artist').textContent = artists;
-  const npEmpty = document.getElementById('np-empty');
-  const npDetails = document.getElementById('np-details');
-  const npDivider = document.getElementById('np-divider');
-  if (npEmpty)   npEmpty.style.display = 'none';
-  if (npDetails) npDetails.classList.remove('np-empty');
-  if (npDivider) npDivider.style.display = '';
-  // Home now-playing card
-  document.getElementById('home-np-track').textContent  = name;
-  document.getElementById('home-np-artist').textContent = artists;
-  document.getElementById('home-np-album').textContent  = album;
-  if (src) document.getElementById('home-np-art').src = src;
-
-  if (src && src !== lastArtSrc) {
-    lastArtSrc = src;
-    document.getElementById('fp-art').src  = src;
-    document.getElementById('bar-art').src = src;
-    tintMusicCard(src);
-    loadArtAccent(src);
-  }
-
-  // Artist section
-  const artistIds = data.item.artists.map(a => a.id).join(',');
-  if (artistIds !== lastArtistIds) {
-    lastArtistIds = artistIds;
-    document.getElementById('np-artist-section').innerHTML = data.item.artists.map(a =>
-      '<div class="np-a-row" data-id="' + a.id + '" onclick="openArtist(this.dataset.id)">' +
-      '<img class="np-a-img" id="np-ai-' + a.id + '" src="" alt="">' +
-      '<div><div class="np-a-name">' + esc(a.name) + '</div><div class="np-a-sub" id="np-ag-' + a.id + '">Artist</div></div></div>'
-    ).join('');
-    data.item.artists.forEach(a => {
-      if (artistCache[a.id]) {
-        applyArtistCache(a.id);
-      } else {
-        api('/api/artist/' + a.id).then(d => {
-          artistCache[a.id] = d.artist || {};
-          applyArtistCache(a.id);
-        }).catch(() => {});
-      }
-    });
-  }
-
-  hasTrack = true;
-  // Stop radio if Spotify starts playing (only one audio source at a time)
-  if (data.is_playing && radioStation) stopRadio();
-  // Only show Spotify NP if radio isn't taking the card
-  if (!radioStation) {
-    const npPlaying = document.getElementById('home-np-playing');
-    const npRecent  = document.getElementById('home-np-recent');
-    const musicLbl  = document.getElementById('home-music-label');
-    if (npPlaying) npPlaying.style.display = 'block';
-    if (npRecent)  npRecent.style.display  = 'none';
-    if (musicLbl)  { musicLbl.textContent = 'Now Playing'; musicLbl.style.color = ''; }
-  }
-
-  // Like status + lyrics reset on track change
-  const trackId = data.item.id;
-  if (trackId && trackId !== currentTrackId) {
-    currentTrackId = trackId;
-    api('/api/like-status?ids=' + trackId).then(res => { if (Array.isArray(res)) updateLikeBtn(res[0]); }).catch(() => {});
-  }
-
-  playing = data.is_playing;
-  progMs  = data.progress_ms || 0;
-  durMs   = data.item.duration_ms || 1;
-  clearInterval(ticker);
-  if (playing) ticker = setInterval(() => { progMs = Math.min(progMs + 500, durMs); renderProg(); }, 500);
-  renderProg();
-  setPlayIcons(playing);
-  if (data.device?.volume_percent != null) {
-    _serverVolume = true;
-    document.getElementById('fp-vol').value = data.device.volume_percent;
-    _serverVolume = false;
-  }
-  shuffled = data.shuffle_state;
-  document.getElementById('fp-shuffle')?.classList.toggle('lit', shuffled);
-  if (data.repeat_state) { repeatState = data.repeat_state; renderRepeat(); }
-}
-
 function applyArtistCache(id) {
   const a = artistCache[id];
   if (!a) return;
@@ -1270,6 +1174,17 @@ function _updateSvcBtns() {
   );
 }
 
+// Shared by _updateNowPlaying() (YouTube/Apple) and onPlayer() (Spotify) --
+// both used to duplicate this exact block inline.
+function _showNowPlayingCard() {
+  const npPlaying = document.getElementById('home-np-playing');
+  const npRecent  = document.getElementById('home-np-recent');
+  const musicLbl  = document.getElementById('home-music-label');
+  if (npPlaying) npPlaying.style.display = 'block';
+  if (npRecent)  npRecent.style.display  = 'none';
+  if (musicLbl)  { musicLbl.textContent = 'Now Playing'; musicLbl.style.color = ''; }
+}
+
 function _updateNowPlaying(title, artist, album, artUrl) {
   document.getElementById('fp-track').textContent  = title;
   document.getElementById('fp-artist').textContent = artist;
@@ -1293,12 +1208,7 @@ function _updateNowPlaying(title, artist, album, artUrl) {
   document.getElementById('home-np-artist').textContent = artist;
   document.getElementById('home-np-album').textContent  = album;
   if (artUrl) document.getElementById('home-np-art').src = artUrl;
-  const npPlaying = document.getElementById('home-np-playing');
-  const npRecent  = document.getElementById('home-np-recent');
-  const musicLbl  = document.getElementById('home-music-label');
-  if (npPlaying) npPlaying.style.display = 'block';
-  if (npRecent)  npRecent.style.display  = 'none';
-  if (musicLbl)  { musicLbl.textContent = 'Now Playing'; musicLbl.style.color = ''; }
+  _showNowPlayingCard();
 }
 
 // ── Override showAuth ─────────────────────────────────────────────────────────
@@ -1429,14 +1339,7 @@ function onPlayer(data) {
 
   hasTrack = true;
   if (data.is_playing && radioStation) stopRadio();
-  if (!radioStation) {
-    const npPlaying = document.getElementById('home-np-playing');
-    const npRecent  = document.getElementById('home-np-recent');
-    const musicLbl  = document.getElementById('home-music-label');
-    if (npPlaying) npPlaying.style.display = 'block';
-    if (npRecent)  npRecent.style.display  = 'none';
-    if (musicLbl)  { musicLbl.textContent = 'Now Playing'; musicLbl.style.color = ''; }
-  }
+  if (!radioStation) _showNowPlayingCard();
 
   const trackId = data.item.id;
   if (trackId && trackId !== currentTrackId) {

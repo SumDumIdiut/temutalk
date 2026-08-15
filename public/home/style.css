@@ -167,6 +167,13 @@
      hidden, same as display:none did. */
   opacity: 0; visibility: hidden; transform: scale(.97);
   pointer-events: none;
+  /* Promotes this to its own compositor layer so the transition just fades/
+     scales a cached bitmap instead of re-rasterizing the subtree every
+     frame -- without it, .home-lyr-bg's 60px blur (expensive on its own)
+     was getting recomputed each frame of the transition, which is what
+     actually made the open/close animation janky, same class of fix as
+     the existing .view.v-on rule in index.html. */
+  will-change: opacity, transform;
   transition: opacity .28s cubic-bezier(0.4,0,0.2,1),
               transform .28s cubic-bezier(0.4,0,0.2,1),
               visibility 0s linear .28s;
