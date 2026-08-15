@@ -351,6 +351,10 @@ function renderProg() {
   document.getElementById('fp-tot').textContent       = fmt(durMs);
   document.getElementById('home-np-cur').textContent  = fmt(disp);
   document.getElementById('home-np-tot').textContent  = fmt(durMs);
+  const npLyrFill  = document.getElementById('np-lyrics-progress-fill');
+  const homeLyrFill = document.getElementById('home-lyr-progress-fill');
+  if (npLyrFill)   npLyrFill.style.width   = pct;
+  if (homeLyrFill) homeLyrFill.style.width = pct;
   _renderOpenLyrViews();
 }
 function setPlayIcons(on) {
