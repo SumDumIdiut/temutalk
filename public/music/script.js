@@ -641,7 +641,7 @@ function playMagicShuffle(contextUri) {
       // The uris array is already shuffled and mixed with similar tracks --
       // Spotify's own native shuffle would re-shuffle this explicit queue on
       // top of that, undoing the deliberate interleaving. Turn it off.
-      if (shuffled) { shuffled = false; document.getElementById('fp-shuffle').classList.remove('lit'); api('/api/player/shuffle', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ state: false }) }); }
+      if (shuffled) { shuffled = false; document.getElementById('fp-shuffle')?.classList.remove('lit'); api('/api/player/shuffle', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ state: false }) }); }
       playUris(uris);
     }).finally(stopLoading);
   }).catch(() => { _playErr({ error: 'Failed to load playlist' }); stopLoading(); });
