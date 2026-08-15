@@ -552,9 +552,50 @@ function resetShuffleButton() {
   if (btn) { btn.classList.remove('engaged'); btn.innerHTML = SHUFFLE_ICON_SVG; }
 }
 
+// Callers that pass a specific reason (e.g. "Playlist has no playable
+// tracks") keep the alert -- a device picker wouldn't fix that. The bare
+// "we couldn't find/activate any device at all" case (no e.error, from
+// _useOwnDevice()'s own timeout) opens the picker instead, since that one
+// genuinely is solvable by picking a different device -- e.g. the real
+// Spotify app the user already has open, per the modal below.
 function _playErr(e) {
-  const msg = e?.error || 'Playback failed — make sure Spotify is open on a device';
-  alert(msg);
+  if (e?.error) { alert(e.error); return; }
+  openDevicePickerModal();
+}
+
+// Global "pick a device" modal (any tab, see index.html) -- shown from
+// _playErr() above when this device's own in-browser Web Playback SDK
+// session (needs EME/DRM support) doesn't come up in time.
+function openDevicePickerModal() {
+  document.getElementById('device-picker-modal')?.classList.add('open');
+  loadDevicePickerModalList();
+}
+function closeDevicePickerModal() {
+  document.getElementById('device-picker-modal')?.classList.remove('open');
+}
+function loadDevicePickerModalList() {
+  const list = document.getElementById('dpm-list');
+  if (!list) return;
+  list.innerHTML = '<div class="dpm-loading">Loading…</div>';
+  api('/api/devices').then(d => {
+    const devices = d?.devices || [];
+    if (!devices.length) { list.innerHTML = '<div class="dpm-loading">No Spotify devices found — open Spotify on this device or another one, then try again</div>'; return; }
+    list.innerHTML = devices.map(dev => {
+      const icon = SP_DEVICE_ICONS[dev.type?.toLowerCase()] || SP_DEVICE_ICONS.speaker;
+      return `<div class="dpm-row${dev.is_active ? ' active' : ''}" data-id="${esc(dev.id)}" onclick="devicePickerModalSetDevice(this.dataset.id)">
+        <svg class="dpm-row-icon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">${icon}</svg>
+        <div class="dpm-row-info"><div class="dpm-row-name">${esc(dev.name)}</div><div class="dpm-row-sub">${dev.volume_percent != null ? dev.volume_percent + '% volume' : dev.type || ''}</div></div>
+        ${dev.is_active ? '<span class="dpm-row-check">✓</span>' : ''}
+      </div>`;
+    }).join('');
+  }).catch(() => { list.innerHTML = '<div class="dpm-loading">Could not load devices</div>'; });
+}
+function devicePickerModalSetDevice(id) {
+  const list = document.getElementById('dpm-list');
+  if (list) list.innerHTML = '<div class="dpm-loading">Switching…</div>';
+  api('/api/transfer', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ device_id: id, play: true }) })
+    .then(() => closeDevicePickerModal())
+    .catch(() => loadDevicePickerModalList());
 }
 function _sendPlay(body) {
   // Same reasoning as action('play'): if nothing's been active this session,
