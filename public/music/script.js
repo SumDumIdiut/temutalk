@@ -361,6 +361,8 @@ function setPlayIcons(on) {
   const p = on ? '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>' : '<path d="M8 5v14l11-7z"/>';
   document.getElementById('fp-play-icon').innerHTML = p;
   document.getElementById('home-play-icon').innerHTML = p;
+  const npLyrIcon = document.getElementById('np-lyr-play-icon');     if (npLyrIcon)  npLyrIcon.innerHTML  = p;
+  const homeLyrIcon = document.getElementById('home-lyr-play-icon'); if (homeLyrIcon) homeLyrIcon.innerHTML = p;
 }
 function renderRepeat() {
   document.getElementById('fp-repeat')?.classList.toggle('lit', repeatState !== 'off');
@@ -1143,8 +1145,7 @@ function lyrSeekTo(ms) {
   renderProg();
   if (activeService === 'youtube' && ytPlayer && ytPlayerReady) { ytPlayer.seekTo(progMs / 1000, true); return; }
   if (activeService === 'apple' && appleMusic) { appleMusic.seekToTime(progMs / 1000).catch(() => {}); return; }
-  if (browserPlayer && browserPlayerReady) browserPlayer.seek(progMs);
-  else fetch(BASE_PATH + '/api/player/seek?device=' + deviceId + '&ms=' + progMs, { method: 'POST' });
+  _spotifySeek(progMs);
 }
 
 function _setLyrStatus(msg) {
@@ -1629,9 +1630,21 @@ function action(name) {
       });
       return;
     }
-    if (name === 'pause')    { browserPlayer.pause(); return; }
-    if (name === 'next')     { browserPlayer.nextTrack(); return; }
-    if (name === 'previous') { browserPlayer.previousTrack(); return; }
+    if (name === 'pause' || name === 'next' || name === 'previous') {
+      // Same "confirm this device is actually active before using the fast
+      // local path" guard as _spotifySeek() -- browserPlayer being ready
+      // doesn't mean it's the device that's actually playing.
+      browserPlayer.getCurrentState().then(state => {
+        if (state) {
+          if (name === 'pause') browserPlayer.pause();
+          else if (name === 'next') browserPlayer.nextTrack();
+          else browserPlayer.previousTrack();
+        } else {
+          api('/api/player/' + name, { method: 'POST' });
+        }
+      });
+      return;
+    }
   }
   // This device's own Web Playback SDK session isn't ready yet. If nothing
   // has been active anywhere this session (hasTrack is only ever set once a
@@ -1671,6 +1684,26 @@ function togglePlay() {
   playing = !playing; setPlayIcons(playing); action(playing ? 'play' : 'pause');
 }
 
+// Only takes the fast local SDK path if this device's own player is
+// confirmed (via a live getCurrentState() check, not just "the SDK loaded
+// ok") to actually be the one currently playing -- browserPlayer existing
+// and being ready doesn't mean it's the ACTIVE device (e.g. a real phone/
+// desktop Spotify app could be). Calling .seek()/.pause()/etc. on an
+// inactive local SDK instance is a silent no-op on whatever's actually
+// playing -- this was the cause of clicking a lyric line not moving the
+// song. REST fallback has no such ambiguity: it always targets Spotify's
+// own notion of the current active device.
+function _spotifySeek(ms) {
+  if (browserPlayer && browserPlayerReady) {
+    browserPlayer.getCurrentState().then(state => {
+      if (state) browserPlayer.seek(ms);
+      else fetch(BASE_PATH + '/api/player/seek?device=' + deviceId + '&ms=' + ms, { method: 'POST' });
+    });
+    return;
+  }
+  fetch(BASE_PATH + '/api/player/seek?device=' + deviceId + '&ms=' + ms, { method: 'POST' });
+}
+
 // ── Override seekTo ───────────────────────────────────────────────────────────
 function seekTo(e) {
   const rect = document.getElementById('fp-bar').getBoundingClientRect();
@@ -1683,8 +1716,7 @@ function seekTo(e) {
   if (activeService === 'apple' && appleMusic) {
     appleMusic.seekToTime(progMs / 1000).catch(() => {}); return;
   }
-  if (browserPlayer && browserPlayerReady) browserPlayer.seek(progMs);
-  else fetch(BASE_PATH + '/api/player/seek?device=' + deviceId + '&ms=' + progMs, { method: 'POST' });
+  _spotifySeek(progMs);
 }
 
 // ── Override setVolume ────────────────────────────────────────────────────────
