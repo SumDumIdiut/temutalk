@@ -377,15 +377,24 @@ body[data-tab="weather"] .b3 { background: radial-gradient(circle, rgba(62,245,1
 .lyr-bg {
   position: absolute; inset: -24px; z-index: 0;
   width: calc(100% + 48px); height: calc(100% + 48px); object-fit: cover;
-  /* 60px was heavy to rasterize on weaker kiosk hardware (a filter this
-     large over a full-screen layer is real GPU cost) -- 36px still reads
-     as a fully soft, abstracted backdrop. */
-  filter: blur(36px) brightness(.5) saturate(1.35); transform: scale(1.1);
+  /* Blur is pre-baked into the tiny thumbnail _setBgArt() draws (see
+     music/script.js) instead of a live filter here -- blurring a
+     full-resolution full-screen image on every frame of the open/close
+     transition was real, ongoing GPU cost, still janky on weaker hardware
+     even after cutting the live-blur radius from 60px to 36px once
+     already. brightness/saturate stay live since per-pixel color math
+     (no neighborhood sampling, unlike blur) is comparatively free. */
+  filter: brightness(.5) saturate(1.35); transform: scale(1.1);
   /* Crossfades to a new track's art instead of popping straight to it --
      driven by _setBgArt() in music/script.js, which only adds art-loaded
      once the new image has actually finished loading. */
   opacity: 0; transition: opacity .5s ease;
 }
+/* Fallback for the rare track whose art CDN response doesn't include CORS
+   headers -- canvas pixel access silently fails for those (see
+   _blurredThumb()'s .catch() in music/script.js), so this restores a live
+   blur rather than showing an unblurred image. */
+.lyr-bg.needs-live-blur { filter: blur(36px) brightness(.5) saturate(1.35); }
 .lyr-bg.art-loaded { opacity: 1; }
 
 /* Small bounce on the play/pause glyph itself whenever it swaps (see
