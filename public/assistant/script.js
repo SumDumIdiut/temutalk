@@ -39,16 +39,18 @@
   // same as the wake glow) plus live speech-to-text as it comes in, so
   // it's possible to tell just by looking whether the mic is picking
   // anything up at all and what it's actually transcribing.
+  // No auto-hide -- this is a debugging aid meant to be watched
+  // continuously while testing, not a toast. It used to fade out after 8s,
+  // which meant it could disappear before there was time to read it, or
+  // between one status update and the next; it now just always shows
+  // whatever the latest message was, replaced in place by the next one.
   const transcriptEl = document.createElement('div');
   transcriptEl.id = 'va-transcript';
   document.body.appendChild(transcriptEl);
-  let _transcriptHideTimer = null;
   function showTranscript(text) {
     if (!text) return;
     transcriptEl.textContent = text;
     transcriptEl.classList.add('on');
-    clearTimeout(_transcriptHideTimer);
-    _transcriptHideTimer = setTimeout(() => transcriptEl.classList.remove('on'), 8000);
   }
 
   // ── State ───────────────────────────────────────────────────────────────
