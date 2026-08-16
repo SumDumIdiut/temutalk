@@ -148,7 +148,7 @@
       let preLen = 0;
       const rec = [];
       let started = false, finished = false, cancelled = false;
-      let noise = 0.004, lastLoud = 0, startedAt = 0;
+      let noise = 0.004, lastLoud = 0, startedAt = 0, lastLevelShown = 0;
       const t0 = Date.now();
 
       function finish(blob) {
@@ -175,9 +175,22 @@
           noise = Math.min(0.02, noise * 0.95 + rms * 0.05);
           preRoll.push(chunk); preLen += chunk.length;
           while (preLen - preRoll[0].length > PRE_MAX) preLen -= preRoll.shift().length;
-          if (rms > Math.max(0.012, noise * 3.5)) {
+          const threshold = Math.max(0.012, noise * 3.5);
+          // Live mic-level readout (temporary debug aid) -- this is the one
+          // place that can actually answer "is the mic bad": a level that
+          // never leaves ~0 means the mic isn't being captured at all; a
+          // nonzero level that just never crosses the threshold means it's
+          // a real but quiet/weak mic, not a total failure. Both looked
+          // identical from outside before this -- "Armed" and nothing else,
+          // for up to startTimeoutMs (previously 1 full hour).
+          if (now - lastLevelShown > 700) {
+            lastLevelShown = now;
+            showTranscript('Listening… level ' + rms.toFixed(4) + ' / need ' + threshold.toFixed(4));
+          }
+          if (rms > threshold) {
             started = true; startedAt = now; lastLoud = now;
             rec.push(...preRoll); // include the pre-roll so the first word survives
+            showTranscript('Recording…');
           } else if (now - t0 > startTimeoutMs) {
             return finish(null); // nobody spoke
           }
