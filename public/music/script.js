@@ -918,7 +918,7 @@ function _blurredThumb(url, maxSize) {
         // small canvas render is reused as-is for both the contain-fit
         // sharp layer and the cover-fit ambient fill layer (_setBgArt
         // below), so neither needs its own live CSS filter at all.
-        cx.filter = 'blur(3px) brightness(.75) saturate(1.35)';
+        cx.filter = 'blur(3px) brightness(1.1) saturate(1.35)';
         cx.drawImage(img, 0, 0, w, h);
         resolve(c.toDataURL('image/jpeg', 0.7));
       } catch (e) { reject(e); }
