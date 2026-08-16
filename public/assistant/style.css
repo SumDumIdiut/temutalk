@@ -69,5 +69,6 @@
   font-weight: 600;
   letter-spacing: .02em;
   pointer-events: none;
-  white-space: nowrap;
+  white-space: pre-line;
+  max-width: 92vw;
 }

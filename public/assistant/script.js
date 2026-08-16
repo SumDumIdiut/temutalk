@@ -91,11 +91,19 @@
     micPerm = 'n/a';
   }
 
+  // Set once _logMicDiagnostics() runs (see ensureMic() below) and rendered
+  // as a permanent second line here instead of only ever flashing through
+  // showTranscript() -- that one-shot message was getting overwritten by
+  // the very next status update (e.g. the level readout) within about a
+  // second, too fast to actually read off a tablet screen. This line never
+  // gets overwritten by anything else, so there's no time pressure to catch it.
+  let micDiagText = '';
+
   setInterval(() => {
     hbSeconds++;
     const c = window._vaCounters;
     hbEl.textContent = 'alive ' + hbSeconds + 's · mic:' + micPerm + ' · engine ' + (SR ? 'SR' : 'recorder') +
-      ' · SR#' + c.srCalls + ' rec#' + c.recorderCalls;
+      ' · SR#' + c.srCalls + ' rec#' + c.recorderCalls + (micDiagText ? '\n' + micDiagText : '');
   }, 1000);
 
   // ── State ───────────────────────────────────────────────────────────────
@@ -168,6 +176,7 @@
         ' state=' + (track && track.readyState) + ' · ' + inputs.length + ' input device(s) on system';
       console.log('[assistant]', msg, '| settings:', settings, '| all inputs:', inputs.map(d => d.label || d.deviceId));
       showTranscript(msg);
+      micDiagText = msg;
     }).catch((e) => console.error('[assistant] enumerateDevices failed:', e));
   }
 
