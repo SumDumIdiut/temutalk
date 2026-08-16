@@ -354,6 +354,20 @@
   }
 
   // Background loop, SR engine: continuous recognition, restart on end.
+  // If a recognition session never fires a single event (no result, no
+  // error, no end) it's not "nothing said yet" -- a real continuous
+  // session at least ends and restarts on its own periodically. This is a
+  // *different* failure mode than an explicit error: the engine looks
+  // started (no exception, no onerror) but never actually gets fed real
+  // microphone audio, so it just sits there forever with nothing to show
+  // -- which is exactly "always Armed, never changes." Counts consecutive
+  // fully-silent sessions and falls back to the recorder engine (same as
+  // srBroken) once that streak gets suspicious, same threshold logic as
+  // the explicit-error path above.
+  const SR_WATCHDOG_MS = 8000;
+  const SR_SILENT_STREAK_LIMIT = 3;
+  let srSilentStreak = 0;
+
   function wakeLoopSR() {
     if (!wakeEnabled || busy || speaking || srBroken) return;
     const rec = new SR();
@@ -365,7 +379,26 @@
     // Wake-word matching below still only ever acts on isFinal results,
     // exactly as before -- this only adds visibility, not new match attempts.
     rec.interimResults = true;
+
+    let gotEvent = false;
+    const watchdog = setTimeout(() => {
+      if (gotEvent) return;
+      srSilentStreak++;
+      console.error('[assistant] SpeechRecognition produced no events at all for', SR_WATCHDOG_MS, 'ms (streak', srSilentStreak, ') -- treating as hung, not just quiet');
+      try { rec.onresult = rec.onerror = rec.onend = null; rec.abort(); } catch (_) {}
+      srSession = null;
+      if (srSilentStreak >= SR_SILENT_STREAK_LIMIT) {
+        srBroken = true;
+        setStatus('Speech recognition unresponsive after ' + srSilentStreak + ' attempts — falling back to recorder engine.', true);
+        if (!wakeLoopOn) { wakeLoopOn = true; wakeLoopRecorder().finally(() => { wakeLoopOn = false; }); }
+      } else {
+        setStatus('Speech recognition unresponsive, retrying (' + srSilentStreak + '/' + SR_SILENT_STREAK_LIMIT + ')…', true);
+        setTimeout(wakeLoopSR, 500);
+      }
+    }, SR_WATCHDOG_MS);
+
     rec.onresult = (e) => {
+      gotEvent = true; clearTimeout(watchdog); srSilentStreak = 0;
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const transcript = e.results[i][0].transcript;
         if (!e.results[i].isFinal) { showTranscript('Hearing: ' + transcript); continue; }
@@ -392,6 +425,7 @@
     // work -- fall back to the recorder engine instead, which does call
     // getUserMedia and gives that permission prompt an actual chance to fire.
     rec.onerror = (e) => {
+      gotEvent = true; clearTimeout(watchdog);
       if (e.error === 'no-speech' || e.error === 'aborted') return;
       console.error('[assistant] SpeechRecognition error:', e.error);
       if (e.error === 'not-allowed' || e.error === 'audio-capture' || e.error === 'service-not-allowed') {
@@ -402,8 +436,11 @@
         if (!wakeLoopOn) { wakeLoopOn = true; wakeLoopRecorder().finally(() => { wakeLoopOn = false; }); }
       }
     };
-    rec.onend = () => { srSession = null; if (wakeEnabled && !srBroken) setTimeout(wakeLoopSR, 500); };
-    try { rec.start(); } catch (_) { setTimeout(wakeLoopSR, 2000); }
+    rec.onend = () => {
+      gotEvent = true; clearTimeout(watchdog);
+      srSession = null; if (wakeEnabled && !srBroken) setTimeout(wakeLoopSR, 500);
+    };
+    try { rec.start(); } catch (_) { clearTimeout(watchdog); setTimeout(wakeLoopSR, 2000); }
   }
 
   function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
