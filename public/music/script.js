@@ -898,19 +898,24 @@ function toggleTabLyrics() {
 // already. Blurring a ~64px canvas is nearly free on any hardware, and once
 // stretched to fill the screen it reads the same as blurring the full image
 // would -- blur destroys detail regardless of source resolution, so there's
-// nothing the bigger version was showing that this doesn't.
-function _blurredThumb(url, size) {
+// nothing the bigger version was showing that this doesn't. Keeps the
+// source's full aspect ratio (scaled to fit within maxSize, not cropped to
+// a square) -- paired with .lyr-bg's object-fit:contain in style.css, this
+// is the whole album photo blurred, not a cropped snippet of it.
+function _blurredThumb(url, maxSize) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
       try {
+        const scale = maxSize / Math.max(img.naturalWidth, img.naturalHeight);
+        const w = Math.max(1, Math.round(img.naturalWidth * scale));
+        const h = Math.max(1, Math.round(img.naturalHeight * scale));
         const c = document.createElement('canvas');
-        c.width = c.height = size;
+        c.width = w; c.height = h;
         const cx = c.getContext('2d');
         cx.filter = 'blur(3px)';
-        const s = Math.min(img.naturalWidth, img.naturalHeight);
-        cx.drawImage(img, (img.naturalWidth - s) / 2, (img.naturalHeight - s) / 2, s, s, 0, 0, size, size);
+        cx.drawImage(img, 0, 0, w, h);
         resolve(c.toDataURL('image/jpeg', 0.7));
       } catch (e) { reject(e); }
     };
