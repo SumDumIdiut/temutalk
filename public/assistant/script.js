@@ -148,11 +148,34 @@
 
   async function ensureMic() {
     if (micStream && micStream.active) return micStream;
-    micStream = await _withTimeout(navigator.mediaDevices.getUserMedia({ audio: true }), 6000, 'getUserMedia');
+    const constraints = await _pickMicConstraints();
+    micStream = await _withTimeout(navigator.mediaDevices.getUserMedia(constraints), 6000, 'getUserMedia');
     unlockAudio(); // closest thing to a user gesture we get in the headless flow
     _resumeAllContexts();
     _logMicDiagnostics(micStream);
     return micStream;
+  }
+
+  // The generic unconstrained request landed on "Default", which measured
+  // an RMS level of exactly 0.0000 on the actual device even while speaking
+  // directly into it (confirmed via the on-screen level readout), despite
+  // the resulting track reporting itself live/unmuted. The 3 registered
+  // inputs this device exposes -- Default / Speakerphone / Headset earpiece
+  // -- are Android's own audio-routing profile names, not 3 separate
+  // physical mics: this tablet almost certainly has one physical mic,
+  // exposed under whichever routing profile is currently "active", and
+  // Default apparently isn't landing on a profile that's actually wired up
+  // right now. Speakerphone is the hands-free/ambient routing (mic + external
+  // speaker, nothing held to an ear) -- the correct one for an
+  // always-listening kiosk -- so request it explicitly by label when
+  // present, instead of leaving the choice to the browser's own default.
+  async function _pickMicConstraints() {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const speakerphone = devices.find(d => d.kind === 'audioinput' && /speakerphone/i.test(d.label));
+      if (speakerphone) return { audio: { deviceId: { exact: speakerphone.deviceId } } };
+    } catch (_) {}
+    return { audio: true };
   }
 
   // One-time diagnostic the moment mic access is actually granted --
