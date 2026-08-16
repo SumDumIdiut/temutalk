@@ -1,12 +1,15 @@
 // ── Voice assistant ──────────────────────────────────────────────────────────
-// Fully headless — no UI at all. Wake word listening starts automatically on
-// page load and runs continuously in the background; say the wake word, then
-// the command. STT → POST /api/assistant → server runs a tool loop on a local
-// Ollama model → reply is synthesized server-side (POST /api/assistant/tts,
-// local Piper install) and played back through a plain <audio> element, so no
-// client needs anything installed for voice replies to work. Device actions
-// (radio, timers, chat, navigation) are executed here using the globals the
-// tab scripts already define (playStation, addTimer, ws, …).
+// Wake word listening starts automatically on page load and runs
+// continuously in the background — no toggle, no button. Say the wake word,
+// then the command; a popup shows the exchange (see the "Response popup"
+// section below) — a status line while listening/thinking, then the
+// spoken reply with each word highlighted as it's read aloud. STT → POST
+// /api/assistant → server runs a tool loop on a local Ollama model → reply
+// is synthesized server-side (POST /api/assistant/tts, local Piper install)
+// and played back through a plain <audio> element, so no client needs
+// anything installed for voice replies to work. Device actions (radio,
+// timers, chat, navigation) are executed here using the globals the tab
+// scripts already define (playStation, addTimer, ws, …).
 //
 // Speech-to-text engines, best first:
 //   1. Web Speech API (Chrome/Edge with Google STT)
@@ -32,86 +35,71 @@
   function glowOn()  { glow.classList.add('on'); }
   function glowOff() { glow.classList.remove('on'); }
 
-  // ── Debug transcript overlay (temporary) ───────────────────────────────
-  // The assistant is headless by design -- every status/error is
-  // console-only, which isn't reachable on a kiosk tablet with no easy
-  // devtools access. This surfaces the same messages on screen (any tab,
-  // same as the wake glow) plus live speech-to-text as it comes in, so
-  // it's possible to tell just by looking whether the mic is picking
-  // anything up at all and what it's actually transcribing.
-  // No auto-hide -- this is a debugging aid meant to be watched
-  // continuously while testing, not a toast. It used to fade out after 8s,
-  // which meant it could disappear before there was time to read it, or
-  // between one status update and the next; it now just always shows
-  // whatever the latest message was, replaced in place by the next one.
-  const transcriptEl = document.createElement('div');
-  transcriptEl.id = 'va-transcript';
-  document.body.appendChild(transcriptEl);
-  function showTranscript(text) {
-    if (!text) return;
-    transcriptEl.textContent = text;
-    transcriptEl.classList.add('on');
+  // ── Response popup ─────────────────────────────────────────────────────
+  // A real, visible UI for the wake exchange: a status line while
+  // listening/thinking, then the assistant's spoken reply with each word
+  // highlighted roughly in time with the voice playback (see speak() below).
+  // Opens the instant the wake word fires (alongside the glow) and closes
+  // once the whole exchange — including the spoken reply — is done.
+  const popup = document.createElement('div');
+  popup.id = 'va-popup';
+  popup.innerHTML = '<div class="va-popup-status"></div><div class="va-popup-text"></div>';
+  document.body.appendChild(popup);
+  const popupStatusEl = popup.querySelector('.va-popup-status');
+  const popupTextEl   = popup.querySelector('.va-popup-text');
+  function popupOn() { popup.classList.add('on'); }
+  function popupOff() {
+    popup.classList.remove('on');
+    popupStatusEl.textContent = '';
+    popupTextEl.textContent = '';
   }
+  function popupStatus(text) { popupStatusEl.textContent = text || ''; }
 
-  // ── Heartbeat (temporary diagnostic) ────────────────────────────────────
-  // Deliberately separate from showTranscript()/setStatus() -- every
-  // previous fix tonight has been individually verified in isolation to
-  // produce a visible message when its specific failure mode trips, yet the
-  // on-device report after every single one has stayed exactly "Armed",
-  // never anything else. That means either this tab still isn't running
-  // today's code (checked -- it is: codecade.co.za serves the current
-  // ASSET_VERSION, matching the latest deploy), or something is dying
-  // silently in a spot none of those specific fixes cover. This counter is
-  // untouched by any wake-loop/engine logic, so it answers the first
-  // question directly (does this script run at all, continuously) and the
-  // engine/call counts answer the second (which engine got picked, and is
-  // it actually still being re-entered or did it run once and stop).
-  const hbEl = document.createElement('div');
-  hbEl.id = 'va-heartbeat';
-  document.body.appendChild(hbEl);
-  let hbSeconds = 0;
-  window._vaCounters = { srCalls: 0, recorderCalls: 0 };
-
-  // Android's own app-level mic permission (Settings > Apps > ... >
-  // Permissions) is a *different* thing from the browser's own per-origin
-  // permission for this specific page -- the OS one can say Allowed while
-  // the browser still silently blocks/never-asks for this exact site, and
-  // the on-page address-bar UI that would normally show that isn't always
-  // reachable (e.g. a kiosk browser with no visible chrome). Querying it
-  // directly here sidesteps needing to find that UI at all -- this is the
-  // actual, direct ground truth getUserMedia()/SpeechRecognition check
-  // against, straight from the browser itself.
-  let micPerm = 'checking…';
-  if (navigator.permissions && navigator.permissions.query) {
-    navigator.permissions.query({ name: 'microphone' }).then((status) => {
-      micPerm = status.state; // 'granted' | 'denied' | 'prompt'
-      status.onchange = () => { micPerm = status.state; };
-    }).catch(() => { micPerm = 'n/a'; });
-  } else {
-    micPerm = 'n/a';
+  // ── Karaoke-style reply captions ───────────────────────────────────────
+  // Piper (server-side TTS, see speak() below) doesn't provide word-level
+  // timing, so this approximates it: each word is weighted by character
+  // count (longer words get proportionally more of the audio's total
+  // duration than short ones) to build a rough start-time for each word,
+  // then a rAF loop highlights whichever word's range contains the
+  // <audio> element's current playback position. Not frame-perfect, but
+  // close enough to read along with.
+  let _karaokeRaf = null;
+  function _stopKaraoke() {
+    if (_karaokeRaf) { cancelAnimationFrame(_karaokeRaf); _karaokeRaf = null; }
   }
-
-  // Set once _logMicDiagnostics() runs (see ensureMic() below) and rendered
-  // as a permanent second line here instead of only ever flashing through
-  // showTranscript() -- that one-shot message was getting overwritten by
-  // the very next status update (e.g. the level readout) within about a
-  // second, too fast to actually read off a tablet screen. This line never
-  // gets overwritten by anything else, so there's no time pressure to catch it.
-  let micDiagText = '';
-  // Separate from micDiagText above -- both are set independently
-  // (_probeAllMicDevices() runs once at startup, before the wake loop's own
-  // ensureMic() call ever runs and sets micDiagText) and both need to
-  // survive on screen at once; sharing one variable meant the second one to
-  // fire silently erased the first before it could be read.
-  let probeText = '';
-
-  setInterval(() => {
-    hbSeconds++;
-    const c = window._vaCounters;
-    hbEl.textContent = 'alive ' + hbSeconds + 's · mic:' + micPerm + ' · engine ' + (SR ? 'SR' : 'recorder') +
-      ' · SR#' + c.srCalls + ' rec#' + c.recorderCalls +
-      (probeText ? '\n' + probeText : '') + (micDiagText ? '\n' + micDiagText : '');
-  }, 1000);
+  function _renderKaraoke(text) {
+    popupTextEl.textContent = '';
+    const words = text.split(/\s+/).filter(Boolean);
+    const spans = words.map((w) => {
+      const s = document.createElement('span');
+      s.className = 'va-word';
+      s.textContent = w;
+      popupTextEl.appendChild(s);
+      popupTextEl.appendChild(document.createTextNode(' '));
+      return s;
+    });
+    return { words, spans };
+  }
+  function _startKaraoke(words, spans) {
+    const weights = words.map((w) => Math.max(1, w.length));
+    const totalWeight = weights.reduce((a, b) => a + b, 0);
+    let acc = 0;
+    const startFracs = weights.map((w) => {
+      const f = acc / totalWeight;
+      acc += w;
+      return f;
+    });
+    _stopKaraoke();
+    (function tick() {
+      if (!player.paused && !player.ended && isFinite(player.duration) && player.duration > 0) {
+        const frac = player.currentTime / player.duration;
+        let idx = 0;
+        for (let i = 0; i < startFracs.length; i++) if (frac >= startFracs[i]) idx = i;
+        spans.forEach((s, i) => s.classList.toggle('va-word-active', i === idx));
+      }
+      _karaokeRaf = requestAnimationFrame(tick);
+    })();
+  }
 
   // ── State ───────────────────────────────────────────────────────────────
   let busy        = false;  // command round-trip in flight
@@ -131,7 +119,6 @@
   function setStatus(msg, isErr) {
     if (!msg) return;
     console.log('[assistant]', isErr ? 'error:' : 'status:', msg);
-    showTranscript((isErr ? 'Error: ' : '') + msg);
   }
   function setListening(on) { listening = on; }
   function setBotSpeaking() { /* no-op — kept for call-site symmetry, no UI to update */ }
@@ -159,7 +146,6 @@
     micStream = await _withTimeout(navigator.mediaDevices.getUserMedia(constraints), 6000, 'getUserMedia');
     unlockAudio(); // closest thing to a user gesture we get in the headless flow
     _resumeAllContexts();
-    _logMicDiagnostics(micStream);
     return micStream;
   }
 
@@ -185,101 +171,6 @@
       if (speakerphone) return { audio: { ...base, deviceId: { exact: speakerphone.deviceId } } };
     } catch (_) {}
     return { audio: base };
-  }
-
-  // One-time diagnostic the moment mic access is actually granted --
-  // permission reporting 'granted' (confirmed via the heartbeat) only
-  // proves the browser is *allowed* to use a microphone, not that a real,
-  // working one is attached/selected behind that permission. A track can be
-  // granted and still report itself muted if the OS/hardware has silenced
-  // input, and a device with multiple registered audio inputs could be
-  // defaulting to a dead/virtual one instead of the physical mic. Shows
-  // exactly which device got selected and whether it self-reports muted,
-  // which no permission check alone can reveal.
-  let _micDiagShown = false;
-  function _logMicDiagnostics(stream) {
-    if (_micDiagShown) return;
-    _micDiagShown = true;
-    const track = stream.getAudioTracks()[0];
-    const settings = (track && track.getSettings) ? track.getSettings() : {};
-    navigator.mediaDevices.enumerateDevices().then((devices) => {
-      const inputs = devices.filter(d => d.kind === 'audioinput');
-      // Listing every registered input (not just whichever one got auto-
-      // selected) -- a level reading stuck at exactly 0.0000 even while
-      // speaking directly into the mic (confirmed on-device) means real
-      // audio samples aren't reaching the code at all, despite the track
-      // itself reporting live/unmuted. The most likely explanation left is
-      // that the browser defaulted to the wrong one of several registered
-      // inputs (e.g. a virtual/inactive device that still reports as
-      // healthy) instead of the real physical mic -- seeing all of their
-      // labels is needed to tell which one that might be.
-      const msg = 'Mic: "' + (track && track.label || '?') + '" muted=' + !!(track && track.muted) +
-        ' state=' + (track && track.readyState) + ' · all inputs: [' +
-        inputs.map((d, i) => i + ':"' + (d.label || d.deviceId.slice(0, 8)) + '"').join(', ') + ']';
-      console.log('[assistant]', msg, '| settings:', settings);
-      showTranscript(msg);
-      micDiagText = msg;
-    }).catch((e) => console.error('[assistant] enumerateDevices failed:', e));
-  }
-
-  // One-time startup probe (temporary diagnostic) -- neither device
-  // selection (Default vs. Speakerphone) nor disabling built-in audio
-  // processing has produced a level that actually responds to real speech
-  // on the actual device (0.0000, then a flat unresponsive 0.0001). Rather
-  // than keep guessing one device at a time across separate deploy-and-
-  // reload cycles, this tests every registered audio input in turn for 2s
-  // each, tracking the peak RMS level seen on each one, so a single test
-  // session (just keep talking for the ~6s this takes) shows definitively
-  // whether *any* of them actually hears anything. Runs once before the
-  // normal wake loop starts.
-  function _probeOneDevice(deviceInfo) {
-    return new Promise((resolve) => {
-      let stream, ac, src, proc, mute;
-      const cleanup = () => {
-        try { src && src.disconnect(); proc && proc.disconnect(); mute && mute.disconnect(); } catch (_) {}
-        if (ac) ac.close().catch(() => {});
-        if (stream) stream.getTracks().forEach(t => t.stop());
-      };
-      navigator.mediaDevices.getUserMedia({
-        audio: {
-          deviceId: { exact: deviceInfo.deviceId },
-          echoCancellation: false, noiseSuppression: false, autoGainControl: false,
-        },
-      }).then((s) => {
-        stream = s;
-        ac = new (window.AudioContext || window.webkitAudioContext)();
-        if (ac.state === 'suspended') ac.resume().catch(() => {});
-        src = ac.createMediaStreamSource(stream);
-        proc = ac.createScriptProcessor(2048, 1, 1);
-        mute = ac.createGain(); mute.gain.value = 0;
-        let peak = 0;
-        proc.onaudioprocess = (e) => {
-          const input = e.inputBuffer.getChannelData(0);
-          let sum = 0;
-          for (let i = 0; i < input.length; i++) sum += input[i] * input[i];
-          const rms = Math.sqrt(sum / input.length);
-          if (rms > peak) peak = rms;
-        };
-        src.connect(proc); proc.connect(mute); mute.connect(ac.destination);
-        setTimeout(() => { cleanup(); resolve(peak); }, 2000);
-      }).catch(() => { cleanup(); resolve(-1); });
-    });
-  }
-  async function _probeAllMicDevices() {
-    try {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const inputs = devices.filter(d => d.kind === 'audioinput');
-      const results = [];
-      for (const d of inputs) {
-        showTranscript('Probing mics (keep talking)… ' + (results.length + 1) + '/' + inputs.length + ': ' + d.label);
-        const peak = await _probeOneDevice(d);
-        results.push(d.label + '=' + (peak < 0 ? 'ERR' : peak.toFixed(4)));
-      }
-      const msg = 'Probe peaks: ' + results.join('  ');
-      console.log('[assistant]', msg);
-      probeText = msg;
-      showTranscript(msg);
-    } catch (e) { console.error('[assistant] mic probe failed:', e); }
   }
 
   // A suspended AudioContext just never runs its audio graph -- resume() is
@@ -360,7 +251,7 @@
       let preLen = 0;
       const rec = [];
       let started = false, finished = false, cancelled = false;
-      let noise = 0.004, lastLoud = 0, startedAt = 0, lastLevelShown = 0;
+      let noise = 0.004, lastLoud = 0, startedAt = 0;
       const t0 = Date.now();
 
       function finish(blob) {
@@ -409,21 +300,9 @@
           preRoll.push(chunk); preLen += chunk.length;
           while (preLen - preRoll[0].length > PRE_MAX) preLen -= preRoll.shift().length;
           const threshold = Math.max(0.012, noise * 3.5);
-          // Live mic-level readout (temporary debug aid) -- this is the one
-          // place that can actually answer "is the mic bad": a level that
-          // never leaves ~0 means the mic isn't being captured at all; a
-          // nonzero level that just never crosses the threshold means it's
-          // a real but quiet/weak mic, not a total failure. Both looked
-          // identical from outside before this -- "Armed" and nothing else,
-          // for up to startTimeoutMs (previously 1 full hour).
-          if (now - lastLevelShown > 700) {
-            lastLevelShown = now;
-            showTranscript('Listening… level ' + rms.toFixed(4) + ' / need ' + threshold.toFixed(4));
-          }
           if (rms > threshold) {
             started = true; startedAt = now; lastLoud = now;
             rec.push(...preRoll); // include the pre-roll so the first word survives
-            showTranscript('Recording…');
           } else if (now - t0 > startTimeoutMs) {
             return finish(null); // nobody spoke
           }
@@ -553,15 +432,17 @@
   async function handleWokenCommand(command) {
     chime();
     glowOn();
+    popupOn();
     try {
       if (!command) {
         // Wake word alone — listen for the command as the next utterance
         setListening(true);
         setStatus('Yes?');
+        popupStatus('Listening…');
         if (SR) command = await srListenOnce();
         else {
           const blob = await captureUtterance({ startTimeoutMs: 6000 });
-          if (blob) { setStatus('Transcribing…'); command = await sttBlob(blob).catch(() => ''); }
+          if (blob) { setStatus('Transcribing…'); popupStatus('Transcribing…'); command = await sttBlob(blob).catch(() => ''); }
         }
         setListening(false);
       }
@@ -569,13 +450,13 @@
       else setStatus('');
     } finally {
       glowOff();
+      popupOff();
     }
   }
 
   // Background loop, recorder engine: VAD-gated utterances → STT → wake check.
   async function wakeLoopRecorder() {
     while (wakeEnabled) {
-      window._vaCounters.recorderCalls++;
       if (busy || speaking || listening) { await sleep(300); continue; }
       const blob = await captureUtterance({ startTimeoutMs: 3600000, maxMs: 10000, silenceMs: 1100 });
       if (!wakeEnabled) break;
@@ -587,14 +468,9 @@
       // getUserMedia repeatedly instead of backing off.
       if (!blob) { await sleep(2000); continue; }
       if (busy || speaking || listening) continue;
-      // Fires the moment voice-activity detection actually captured
-      // something, before the transcription round-trip -- confirms the mic
-      // is picking up audio at all even before there's text to show.
-      showTranscript('Transcribing…');
       let text = '';
       try { text = await sttBlob(blob); }
       catch (e) { setStatus(e.message, true); await sleep(5000); continue; }
-      showTranscript('Heard: ' + (text || '(nothing)'));
       const m = matchWake(text);
       if (m) await handleWokenCommand(m.command);
     }
@@ -628,17 +504,12 @@
   let srEmptyStreak = 0;
 
   function wakeLoopSR() {
-    window._vaCounters.srCalls++;
     if (!wakeEnabled || busy || speaking || srBroken) return;
     const rec = new SR();
     srSession = rec;
     rec.lang = navigator.language || 'en-US';
     rec.continuous = true;
-    // Was false -- turned on so partial results can be shown live via
-    // showTranscript() as they come in (temporary debug aid, see above).
-    // Wake-word matching below still only ever acts on isFinal results,
-    // exactly as before -- this only adds visibility, not new match attempts.
-    rec.interimResults = true;
+    rec.interimResults = false;
 
     let gotEvent = false;
     const watchdog = setTimeout(() => {
@@ -662,8 +533,7 @@
       gotEvent = true; gotResult = true; clearTimeout(watchdog); srSilentStreak = 0;
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const transcript = e.results[i][0].transcript;
-        if (!e.results[i].isFinal) { showTranscript('Hearing: ' + transcript); continue; }
-        showTranscript('Heard: ' + transcript);
+        if (!e.results[i].isFinal) continue;
         const m = matchWake(transcript);
         if (m) {
           try { rec.onend = null; rec.stop(); } catch (_) {}
@@ -700,24 +570,21 @@
     rec.onend = () => {
       gotEvent = true; clearTimeout(watchdog);
       srSession = null;
-      // A session that ends normally (no hang, no error) but never once
-      // got a result looks, from outside, exactly like healthy quiet
-      // cycling -- onend never used to touch the visible status at all, so
-      // this whole path was completely invisible. Surfacing it every cycle
-      // means the display now visibly moves instead of sitting on "Armed"
-      // forever regardless of whether anything's actually wrong.
+      // A session that ends normally (no hang, no error) but never once got
+      // a result means real audio isn't reaching the engine at all (e.g.
+      // mic permission silently denied in a way this platform tolerates
+      // instead of erroring) -- looks identical to healthy "nobody's spoken
+      // yet" cycling from outside, so only escalate after several in a row.
       if (gotResult) {
         srEmptyStreak = 0;
       } else {
         srEmptyStreak++;
-        console.log('[assistant] SR session ended with zero results (empty streak', srEmptyStreak, ')');
         if (srEmptyStreak >= SR_EMPTY_STREAK_LIMIT) {
           srBroken = true;
           setStatus('Speech recognition heard nothing across ' + srEmptyStreak + ' full cycles — falling back to recorder engine.', true);
           if (!wakeLoopOn) { wakeLoopOn = true; wakeLoopRecorder().finally(() => { wakeLoopOn = false; }); }
           return;
         }
-        showTranscript('Armed — say ' + wakeWord() + ' (cycle ' + srEmptyStreak + ', heard nothing yet)');
       }
       if (wakeEnabled && !srBroken) setTimeout(wakeLoopSR, 500);
     };
@@ -841,6 +708,8 @@
     const origVol = _currentVolume();
     const duckVol = origVol != null ? Math.round(origVol * 0.25) : null;
     let ducked = false;
+    popupStatus('');
+    const { words, spans } = _renderKaraoke(text);
     try {
       const rate = parseFloat(localStorage.getItem('vaTtsRate')) || 1.05;
       const r = await fetch(BASE_PATH + '/api/assistant/tts?device=' + encodeURIComponent(deviceId), {
@@ -862,6 +731,7 @@
       setBotSpeaking(true);
       if (origVol != null) { await _tweenVolume(origVol, duckVol, 350); ducked = true; }
       await player.play();
+      _startKaraoke(words, spans);
       // Race against a hard timeout — some engines/edge cases never fire
       // 'ended'/'error' at all, and without this speak() would hang forever,
       // leaving `speaking` stuck true and silently blocking the wake loop
@@ -888,6 +758,8 @@
       if (ducked) _tweenVolume(duckVol, origVol, 350);
       speaking = false;
       setBotSpeaking(false);
+    } finally {
+      _stopKaraoke();
     }
   }
 
@@ -937,6 +809,7 @@
     }
     busy = true;
     setStatus('Thinking…');
+    popupStatus('Thinking…');
     try {
       const r = await fetch(BASE_PATH + '/api/assistant?device=' + encodeURIComponent(deviceId), {
         method: 'POST',
@@ -955,11 +828,11 @@
       (data.actions || []).forEach(runAction);
       const reply = data.reply || 'Done.';
       setStatus(reply);
-      speak(reply);
+      await speak(reply);
     } catch (e) {
       const msg = e.message || 'Something went wrong.';
       setStatus(msg, true);
-      speak(msg);
+      await speak(msg);
     } finally {
       busy = false;
     }
@@ -971,8 +844,5 @@
   // the OS/browser renegotiate the active audio device (notably Bluetooth
   // speakers switching profiles), which may briefly interrupt audio playing
   // in another tab. Accepted tradeoff for always-on hands-free listening.
-  // Runs the one-time device probe first (~6s, see above) -- delays normal
-  // wake-word startup by that much, an accepted tradeoff for a temporary
-  // diagnostic build only.
-  _probeAllMicDevices().finally(startWake);
+  startWake();
 })();
