@@ -405,7 +405,7 @@ body[data-tab="weather"] .b3 { background: radial-gradient(circle, rgba(62,245,1
    headers -- canvas pixel access silently fails for those (see
    _blurredThumb()'s .catch() in music/script.js), so this restores a live
    blur rather than showing an unblurred image. */
-.lyr-bg.needs-live-blur { filter: blur(36px) brightness(.9) saturate(1.35); }
+.lyr-bg.needs-live-blur { filter: blur(24px) brightness(.75) saturate(1.35); }
 .lyr-bg.art-loaded { opacity: 1; }
 
 /* Small bounce on the play/pause glyph itself whenever it swaps (see
