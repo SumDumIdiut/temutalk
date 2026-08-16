@@ -457,6 +457,18 @@
   const SR_WATCHDOG_MS = 8000;
   const SR_SILENT_STREAK_LIMIT = 3;
   let srSilentStreak = 0;
+  // Distinct from srSilentStreak above -- that one catches a session that
+  // never fires *any* event at all (hung). This one catches a session that
+  // behaves completely normally end-to-end (starts, eventually ends via its
+  // own onend, no error) but never once received a single result, not even
+  // an interim guess, the whole time -- which looks identical to healthy
+  // "nobody's spoken yet" cycling from outside, but if it keeps happening
+  // cycle after cycle it means real audio is never reaching the engine at
+  // all (e.g. mic permission silently denied in a way this platform
+  // tolerates instead of erroring). A generous threshold, since occasional
+  // empty cycles are completely normal whenever the room's actually quiet.
+  const SR_EMPTY_STREAK_LIMIT = 5;
+  let srEmptyStreak = 0;
 
   function wakeLoopSR() {
     window._vaCounters.srCalls++;
@@ -488,8 +500,9 @@
       }
     }, SR_WATCHDOG_MS);
 
+    let gotResult = false;
     rec.onresult = (e) => {
-      gotEvent = true; clearTimeout(watchdog); srSilentStreak = 0;
+      gotEvent = true; gotResult = true; clearTimeout(watchdog); srSilentStreak = 0;
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const transcript = e.results[i][0].transcript;
         if (!e.results[i].isFinal) { showTranscript('Hearing: ' + transcript); continue; }
@@ -529,7 +542,27 @@
     };
     rec.onend = () => {
       gotEvent = true; clearTimeout(watchdog);
-      srSession = null; if (wakeEnabled && !srBroken) setTimeout(wakeLoopSR, 500);
+      srSession = null;
+      // A session that ends normally (no hang, no error) but never once
+      // got a result looks, from outside, exactly like healthy quiet
+      // cycling -- onend never used to touch the visible status at all, so
+      // this whole path was completely invisible. Surfacing it every cycle
+      // means the display now visibly moves instead of sitting on "Armed"
+      // forever regardless of whether anything's actually wrong.
+      if (gotResult) {
+        srEmptyStreak = 0;
+      } else {
+        srEmptyStreak++;
+        console.log('[assistant] SR session ended with zero results (empty streak', srEmptyStreak, ')');
+        if (srEmptyStreak >= SR_EMPTY_STREAK_LIMIT) {
+          srBroken = true;
+          setStatus('Speech recognition heard nothing across ' + srEmptyStreak + ' full cycles — falling back to recorder engine.', true);
+          if (!wakeLoopOn) { wakeLoopOn = true; wakeLoopRecorder().finally(() => { wakeLoopOn = false; }); }
+          return;
+        }
+        showTranscript('Armed — say ' + wakeWord() + ' (cycle ' + srEmptyStreak + ', heard nothing yet)');
+      }
+      if (wakeEnabled && !srBroken) setTimeout(wakeLoopSR, 500);
     };
     try { rec.start(); }
     catch (e) {
