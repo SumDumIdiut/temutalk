@@ -935,39 +935,25 @@ function _blurredThumb(url, maxSize) {
 // image -- .art-loaded (style.css) holds it at opacity:0 until the new
 // image has actually finished loading, so the fade-in always lines up with
 // real pixels on screen instead of fading in a half-decoded frame.
-// overlayId's own background-image is set to the same blurred thumbnail,
-// cover-fit (style.css: background-size:cover), so it fills the overlay
-// edge-to-edge behind the contain-fit <img> -- a square album cover inside
-// a wide viewport otherwise left most of the screen showing nothing but
-// the overlay's plain dark background around a small centered image. Same
-// two-layer shape Spotify's own now-playing background uses: a cropped,
-// blurred fill for the ambient color everywhere, with the complete
-// uncropped photo legible on top of it.
-function _setBgArt(id, overlayId, url) {
+function _setBgArt(id, url) {
   const el = document.getElementById(id);
-  const overlayEl = document.getElementById(overlayId);
   if (!el || el.dataset.artUrl === url) return; // el.src is now a data: URL (see below), not the original -- track it separately
   el.dataset.artUrl = url;
   el.classList.remove('art-loaded');
-  if (!url) { if (overlayEl) overlayEl.style.backgroundImage = ''; return; }
+  if (!url) return;
   _blurredThumb(url, 64).then(dataUrl => {
     el.classList.remove('needs-live-blur');
     el.onload = () => el.classList.add('art-loaded');
     el.src = dataUrl;
-    if (overlayEl) overlayEl.style.backgroundImage = `url(${dataUrl})`;
   }).catch(() => {
     // Some album-art CDN responses don't include CORS headers -- canvas
     // pixel access silently fails for those (same constraint documented at
     // loadArtAccent() above). Falls back to the plain image with a live
-    // CSS blur (.needs-live-blur, style.css) so the sharp layer still
-    // shows *something* rather than staying blank for that track. The
-    // ambient fill layer is skipped here rather than shown unprocessed --
-    // there's no way to blur/dim just an element's own background-image
-    // without a live filter also hitting its (visible, textual) children.
+    // CSS blur (.needs-live-blur, style.css) so the background still shows
+    // *something* rather than staying blank for that track.
     el.classList.add('needs-live-blur');
     el.onload = () => el.classList.add('art-loaded');
     el.src = url;
-    if (overlayEl) overlayEl.style.backgroundImage = '';
   });
 }
 
@@ -978,9 +964,9 @@ function _syncLyrHeader() {
   const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
   const setSrc = (id, val) => { const el = document.getElementById(id); if (el) el.src = val; };
   set('np-lyrics-title', track);   set('np-lyrics-artist', artist);
-  _setBgArt('np-lyrics-bg', 'np-lyrics-section', art);  setSrc('np-lyrics-art', art);
+  _setBgArt('np-lyrics-bg', art);  setSrc('np-lyrics-art', art);
   set('home-lyr-hdr-title', track); set('home-lyr-hdr-artist', artist);
-  _setBgArt('home-lyr-bg', 'home-lyr-overlay', art);    setSrc('home-lyr-hdr-art', art);
+  _setBgArt('home-lyr-bg', art);    setSrc('home-lyr-hdr-art', art);
 }
 
 // Lets a synced lyric line be clicked to jump playback there, same seek
