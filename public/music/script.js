@@ -891,6 +891,34 @@ function toggleTabLyrics() {
   if (tabLyrOpen) { tabLyrCurrentIdx = -1; requestAnimationFrame(loadLyrics); }
 }
 
+// Renders a small, pre-blurred thumbnail instead of relying on a live CSS
+// blur filter -- blurring a full-resolution, full-screen image on every
+// frame of the open/close transition is real, ongoing GPU cost, confirmed
+// laggy on weaker hardware even after cutting the live-blur radius in half
+// already. Blurring a ~64px canvas is nearly free on any hardware, and once
+// stretched to fill the screen it reads the same as blurring the full image
+// would -- blur destroys detail regardless of source resolution, so there's
+// nothing the bigger version was showing that this doesn't.
+function _blurredThumb(url, size) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const c = document.createElement('canvas');
+        c.width = c.height = size;
+        const cx = c.getContext('2d');
+        cx.filter = 'blur(3px)';
+        const s = Math.min(img.naturalWidth, img.naturalHeight);
+        cx.drawImage(img, (img.naturalWidth - s) / 2, (img.naturalHeight - s) / 2, s, s, 0, 0, size, size);
+        resolve(c.toDataURL('image/jpeg', 0.7));
+      } catch (e) { reject(e); }
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
 // Keeps the lyrics overlay's own header (art/title/artist/blurred bg) in
 // sync with the now-playing state -- called at the top of loadLyrics() so
 // both "just opened" and "track changed while open" stay covered by one path.
@@ -900,11 +928,24 @@ function toggleTabLyrics() {
 // real pixels on screen instead of fading in a half-decoded frame.
 function _setBgArt(id, url) {
   const el = document.getElementById(id);
-  if (!el || el.src === url) return;
+  if (!el || el.dataset.artUrl === url) return; // el.src is now a data: URL (see below), not the original -- track it separately
+  el.dataset.artUrl = url;
   el.classList.remove('art-loaded');
   if (!url) return;
-  el.onload = () => el.classList.add('art-loaded');
-  el.src = url;
+  _blurredThumb(url, 64).then(dataUrl => {
+    el.classList.remove('needs-live-blur');
+    el.onload = () => el.classList.add('art-loaded');
+    el.src = dataUrl;
+  }).catch(() => {
+    // Some album-art CDN responses don't include CORS headers -- canvas
+    // pixel access silently fails for those (same constraint documented at
+    // loadArtAccent() above). Falls back to the plain image with a live
+    // CSS blur (.needs-live-blur, style.css) so the background still shows
+    // *something* rather than staying blank for that track.
+    el.classList.add('needs-live-blur');
+    el.onload = () => el.classList.add('art-loaded');
+    el.src = url;
+  });
 }
 
 function _syncLyrHeader() {
