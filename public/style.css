@@ -354,24 +354,25 @@ body[data-tab="weather"] .b3 { background: radial-gradient(circle, rgba(62,245,1
   position: absolute; inset: 0;
   background: #0c0b14;
   /* opacity+scale instead of a hard display:none/flex cut, same easing the
-     tab-switch transition already uses (.view in index.html). visibility
-     (delayed on the way out) keeps it out of the tab order and unclickable
-     while hidden, same as display:none did. will-change promotes it to its
-     own compositor layer so the transition fades/scales a cached bitmap
-     instead of re-rasterizing .lyr-bg's blur every frame. */
-  opacity: 0; visibility: hidden; transform: scale(.97);
+     tab-switch transition already uses (.view in index.html). will-change
+     promotes it to its own compositor layer so the transition fades/scales
+     a cached bitmap instead of re-rasterizing .lyr-bg's blur every frame.
+     pointer-events alone keeps it unclickable while hidden -- this used to
+     also toggle visibility, but transitioning opacity/transform at the
+     exact same moment visibility flips from hidden to visible doesn't
+     reliably animate on the first reveal in every browser (notably
+     Safari/iOS): with no previously-painted frame to interpolate from, it
+     can just snap straight to the end state instead of fading in, which is
+     what "the animation doesn't play" actually was. */
+  opacity: 0; transform: scale(.97);
   pointer-events: none;
   will-change: opacity, transform;
   transition: opacity .28s cubic-bezier(0.4,0,0.2,1),
-              transform .28s cubic-bezier(0.4,0,0.2,1),
-              visibility 0s linear .28s;
+              transform .28s cubic-bezier(0.4,0,0.2,1);
 }
 .lyr-overlay.lyr-open {
-  opacity: 1; visibility: visible; transform: scale(1);
+  opacity: 1; transform: scale(1);
   pointer-events: auto;
-  transition: opacity .28s cubic-bezier(0.4,0,0.2,1),
-              transform .28s cubic-bezier(0.4,0,0.2,1),
-              visibility 0s linear 0s;
 }
 .lyr-bg {
   position: absolute; inset: -24px; z-index: 0;
