@@ -172,9 +172,19 @@
     const settings = (track && track.getSettings) ? track.getSettings() : {};
     navigator.mediaDevices.enumerateDevices().then((devices) => {
       const inputs = devices.filter(d => d.kind === 'audioinput');
+      // Listing every registered input (not just whichever one got auto-
+      // selected) -- a level reading stuck at exactly 0.0000 even while
+      // speaking directly into the mic (confirmed on-device) means real
+      // audio samples aren't reaching the code at all, despite the track
+      // itself reporting live/unmuted. The most likely explanation left is
+      // that the browser defaulted to the wrong one of several registered
+      // inputs (e.g. a virtual/inactive device that still reports as
+      // healthy) instead of the real physical mic -- seeing all of their
+      // labels is needed to tell which one that might be.
       const msg = 'Mic: "' + (track && track.label || '?') + '" muted=' + !!(track && track.muted) +
-        ' state=' + (track && track.readyState) + ' · ' + inputs.length + ' input device(s) on system';
-      console.log('[assistant]', msg, '| settings:', settings, '| all inputs:', inputs.map(d => d.label || d.deviceId));
+        ' state=' + (track && track.readyState) + ' · all inputs: [' +
+        inputs.map((d, i) => i + ':"' + (d.label || d.deviceId.slice(0, 8)) + '"').join(', ') + ']';
+      console.log('[assistant]', msg, '| settings:', settings);
       showTranscript(msg);
       micDiagText = msg;
     }).catch((e) => console.error('[assistant] enumerateDevices failed:', e));
