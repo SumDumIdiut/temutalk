@@ -856,12 +856,19 @@ function _lyrIndexFor(ms) {
   return Math.min(lyrLines.length - 1, Math.floor(ms / durMs * lyrLines.length));
 }
 
+// loadLyrics() runs on the next frame, not inline -- reopening an
+// already-loaded track makes it rebuild the whole lyric-line list's
+// innerHTML synchronously, and doing that in the same tick as the class
+// toggle above blocked the main thread right as the open/close transition
+// needed to actually render frames. On slower hardware that squeezed a
+// 280ms fade into whatever one or two frames the browser managed around
+// the rebuild, i.e. what looked like no animation at all.
 function toggleHomeLyrics() {
   const view = document.getElementById('home-lyr-overlay');
   if (!view) return;
   homeLyrOpen = !homeLyrOpen;
   view.classList.toggle('lyr-open', homeLyrOpen);
-  if (homeLyrOpen) { homeLyrCurrentIdx = -1; loadLyrics(); }
+  if (homeLyrOpen) { homeLyrCurrentIdx = -1; requestAnimationFrame(loadLyrics); }
 }
 
 function toggleTabLyrics() {
@@ -871,7 +878,7 @@ function toggleTabLyrics() {
   tabLyrOpen = !tabLyrOpen;
   view.classList.toggle('lyr-open', tabLyrOpen);
   btn?.classList.toggle('lit', tabLyrOpen);
-  if (tabLyrOpen) { tabLyrCurrentIdx = -1; loadLyrics(); }
+  if (tabLyrOpen) { tabLyrCurrentIdx = -1; requestAnimationFrame(loadLyrics); }
 }
 
 // Keeps the lyrics overlay's own header (art/title/artist/blurred bg) in
