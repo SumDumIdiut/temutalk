@@ -32,6 +32,25 @@
   function glowOn()  { glow.classList.add('on'); }
   function glowOff() { glow.classList.remove('on'); }
 
+  // ── Debug transcript overlay (temporary) ───────────────────────────────
+  // The assistant is headless by design -- every status/error is
+  // console-only, which isn't reachable on a kiosk tablet with no easy
+  // devtools access. This surfaces the same messages on screen (any tab,
+  // same as the wake glow) plus live speech-to-text as it comes in, so
+  // it's possible to tell just by looking whether the mic is picking
+  // anything up at all and what it's actually transcribing.
+  const transcriptEl = document.createElement('div');
+  transcriptEl.id = 'va-transcript';
+  document.body.appendChild(transcriptEl);
+  let _transcriptHideTimer = null;
+  function showTranscript(text) {
+    if (!text) return;
+    transcriptEl.textContent = text;
+    transcriptEl.classList.add('on');
+    clearTimeout(_transcriptHideTimer);
+    _transcriptHideTimer = setTimeout(() => transcriptEl.classList.remove('on'), 8000);
+  }
+
   // ── State ───────────────────────────────────────────────────────────────
   let busy        = false;  // command round-trip in flight
   let speaking    = false;  // TTS playing (don't listen to ourselves)
@@ -47,7 +66,11 @@
 
   // No visual UI beyond the wake glow — status is console-only for
   // debugging; replies/errors are always spoken in full via TTS instead.
-  function setStatus(msg, isErr) { if (msg) console.log('[assistant]', isErr ? 'error:' : 'status:', msg); }
+  function setStatus(msg, isErr) {
+    if (!msg) return;
+    console.log('[assistant]', isErr ? 'error:' : 'status:', msg);
+    showTranscript((isErr ? 'Error: ' : '') + msg);
+  }
   function setListening(on) { listening = on; }
   function setBotSpeaking() { /* no-op — kept for call-site symmetry, no UI to update */ }
 
@@ -315,9 +338,14 @@
       // getUserMedia repeatedly instead of backing off.
       if (!blob) { await sleep(2000); continue; }
       if (busy || speaking || listening) continue;
+      // Fires the moment voice-activity detection actually captured
+      // something, before the transcription round-trip -- confirms the mic
+      // is picking up audio at all even before there's text to show.
+      showTranscript('Transcribing…');
       let text = '';
       try { text = await sttBlob(blob); }
       catch (e) { setStatus(e.message, true); await sleep(5000); continue; }
+      showTranscript('Heard: ' + (text || '(nothing)'));
       const m = matchWake(text);
       if (m) await handleWokenCommand(m.command);
     }
@@ -330,11 +358,17 @@
     srSession = rec;
     rec.lang = navigator.language || 'en-US';
     rec.continuous = true;
-    rec.interimResults = false;
+    // Was false -- turned on so partial results can be shown live via
+    // showTranscript() as they come in (temporary debug aid, see above).
+    // Wake-word matching below still only ever acts on isFinal results,
+    // exactly as before -- this only adds visibility, not new match attempts.
+    rec.interimResults = true;
     rec.onresult = (e) => {
       for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (!e.results[i].isFinal) continue;
-        const m = matchWake(e.results[i][0].transcript);
+        const transcript = e.results[i][0].transcript;
+        if (!e.results[i].isFinal) { showTranscript('Hearing: ' + transcript); continue; }
+        showTranscript('Heard: ' + transcript);
+        const m = matchWake(transcript);
         if (m) {
           try { rec.onend = null; rec.stop(); } catch (_) {}
           srSession = null;
