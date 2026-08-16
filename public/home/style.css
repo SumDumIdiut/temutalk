@@ -161,7 +161,13 @@
 .home-lyr-overlay { z-index: 20; }
 .home-lyr-scrim {
   position: absolute; inset: 0; z-index: 1;
-  background: linear-gradient(180deg, rgba(8,7,14,.6), rgba(8,7,14,.86) 55%, rgba(8,7,14,.96));
+  /* Was .6/.86/.96 -- with most of the screen covered by 86-96% opaque
+     near-black, the background image behind it (whatever its own
+     brightness) could only ever contribute 4-14% of what's visible.
+     Lighter across the board, same top-lighter/bottom-darker shape (more
+     text accumulates toward the bottom, where more contrast still matters
+     most). */
+  background: linear-gradient(180deg, rgba(8,7,14,.3), rgba(8,7,14,.55) 55%, rgba(8,7,14,.75));
 }
 .home-lyr-hdr {
   position: relative; z-index: 2; flex-shrink: 0;
