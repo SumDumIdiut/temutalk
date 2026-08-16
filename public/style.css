@@ -405,6 +405,16 @@ body[data-tab="weather"] .b3 { background: radial-gradient(circle, rgba(62,245,1
      driven by _setBgArt() in music/script.js, which only adds art-loaded
      once the new image has actually finished loading. */
   opacity: 0; transition: opacity .5s ease;
+  /* Fades to transparent at the edges instead of cutting off hard --
+     .lyr-overlay's ambient fill layer behind this is the same source image
+     but scaled completely differently (cover-cropped vs. contain-fit), so
+     their content doesn't line up pixel-for-pixel at any shared boundary;
+     without this a visible rectangular seam showed exactly where the
+     contain-fit image stopped and the differently-scaled fill layer
+     continued. Fading this layer out lets the two blend into each other
+     as a gradient instead of meeting at a hard edge. */
+  -webkit-mask-image: radial-gradient(ellipse 70% 70% at center, #000 35%, transparent 85%);
+          mask-image: radial-gradient(ellipse 70% 70% at center, #000 35%, transparent 85%);
 }
 /* Fallback for the rare track whose art CDN response doesn't include CORS
    headers -- canvas pixel access silently fails for those (see
