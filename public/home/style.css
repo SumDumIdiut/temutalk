@@ -188,7 +188,10 @@
 .home-lyr-bg {
   position: absolute; inset: -24px; z-index: 0;
   width: calc(100% + 48px); height: calc(100% + 48px); object-fit: cover;
-  filter: blur(60px) brightness(.5) saturate(1.35); transform: scale(1.1);
+  /* 60px was heavy to rasterize on weaker kiosk hardware (a filter this
+     large over a full-screen layer is real GPU cost, not just a JS-side
+     concern) -- 36px still reads as a fully soft, abstracted backdrop. */
+  filter: blur(36px) brightness(.5) saturate(1.35); transform: scale(1.1);
   /* Crossfades to a new track's art instead of popping straight to it --
      driven by _setBgArt() in music/script.js, which only adds art-loaded
      once the new image has actually finished loading. */

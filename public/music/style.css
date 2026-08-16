@@ -147,7 +147,10 @@
     #np-lyrics-bg {
       position: absolute; inset: -24px; z-index: 0;
       width: calc(100% + 48px); height: calc(100% + 48px); object-fit: cover;
-      filter: blur(60px) brightness(.5) saturate(1.35); transform: scale(1.1);
+      /* Same 60px->36px reduction as home/style.css .home-lyr-bg -- a blur
+         this large over a full-screen layer is real GPU rasterization
+         cost on weaker kiosk hardware, not just a JS-side concern. */
+      filter: blur(36px) brightness(.5) saturate(1.35); transform: scale(1.1);
       /* Same crossfade-on-load treatment as the Home tab's version
          (home/style.css .home-lyr-bg / _setBgArt() in music/script.js). */
       opacity: 0; transition: opacity .5s ease;
