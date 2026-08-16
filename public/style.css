@@ -390,7 +390,7 @@ body[data-tab="weather"] .b3 { background: radial-gradient(circle, rgba(62,245,1
      even after cutting the live-blur radius from 60px to 36px once
      already. brightness/saturate stay live since per-pixel color math
      (no neighborhood sampling, unlike blur) is comparatively free. */
-  filter: brightness(.5) saturate(1.35);
+  filter: brightness(.75) saturate(1.35);
   /* Crossfades to a new track's art instead of popping straight to it --
      driven by _setBgArt() in music/script.js, which only adds art-loaded
      once the new image has actually finished loading. */
