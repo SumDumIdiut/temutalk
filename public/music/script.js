@@ -126,6 +126,16 @@ function _initBrowserPlayer() {
     },
     volume: vol,
   });
+  // Called immediately, not just later on the next click (see the
+  // document-level listener at the bottom of this function) -- mobile
+  // browsers' autoplay/media-activation policies are strictest about calls
+  // made outside a live user-gesture call stack, and when this device is
+  // initializing for the first time (SDK script still loading), everything
+  // from here on runs from an async callback, not the tap that started it.
+  // Calling it here too, right as the player is constructed, is the
+  // earliest point it can happen and gives mobile Safari/Chrome the best
+  // chance of treating it as gesture-adjacent.
+  browserPlayer.activateElement();
   let _suppressPlay = false;
   browserPlayer.addListener('player_state_changed', state => {
     if (_suppressPlay && state && !state.paused) {
@@ -1465,7 +1475,14 @@ function _useOwnDevice(onReady, attempt) {
     api('/api/transfer', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ device_id: browserPlayer._deviceId, play: true }) });
     return;
   }
-  if (attempt >= 20) { if (onReady) _playErr(); return; } // ~6s -- SDK isn't coming up (unsupported browser, no Premium, etc.); the device picker is still there to pick manually
+  // ~12s (was ~6s) -- a phone on cellular has to fetch+execute the SDK
+  // blob, open a fresh WebSocket to Spotify's Connect infra, and round-trip
+  // this server for a token, all before the SDK even fires 'ready'; 6s was
+  // cutting that off before slower connections finished, dropping straight
+  // to the manual device picker even on devices that would've connected
+  // fine given a bit longer. Real unsupported-browser/no-Premium cases
+  // still fall through to the picker after this, just later.
+  if (attempt >= 40) { if (onReady) _playErr(); return; }
   setTimeout(() => _useOwnDevice(onReady, attempt + 1), 300);
 }
 
