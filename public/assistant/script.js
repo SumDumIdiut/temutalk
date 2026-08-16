@@ -53,6 +53,31 @@
     transcriptEl.classList.add('on');
   }
 
+  // ── Heartbeat (temporary diagnostic) ────────────────────────────────────
+  // Deliberately separate from showTranscript()/setStatus() -- every
+  // previous fix tonight has been individually verified in isolation to
+  // produce a visible message when its specific failure mode trips, yet the
+  // on-device report after every single one has stayed exactly "Armed",
+  // never anything else. That means either this tab still isn't running
+  // today's code (checked -- it is: codecade.co.za serves the current
+  // ASSET_VERSION, matching the latest deploy), or something is dying
+  // silently in a spot none of those specific fixes cover. This counter is
+  // untouched by any wake-loop/engine logic, so it answers the first
+  // question directly (does this script run at all, continuously) and the
+  // engine/call counts answer the second (which engine got picked, and is
+  // it actually still being re-entered or did it run once and stop).
+  const hbEl = document.createElement('div');
+  hbEl.id = 'va-heartbeat';
+  document.body.appendChild(hbEl);
+  let hbSeconds = 0;
+  window._vaCounters = { srCalls: 0, recorderCalls: 0 };
+  setInterval(() => {
+    hbSeconds++;
+    const c = window._vaCounters;
+    hbEl.textContent = 'alive ' + hbSeconds + 's · engine ' + (SR ? 'SR' : 'recorder') +
+      ' · SR#' + c.srCalls + ' rec#' + c.recorderCalls;
+  }, 1000);
+
   // ── State ───────────────────────────────────────────────────────────────
   let busy        = false;  // command round-trip in flight
   let speaking    = false;  // TTS playing (don't listen to ourselves)
@@ -393,6 +418,7 @@
   // Background loop, recorder engine: VAD-gated utterances → STT → wake check.
   async function wakeLoopRecorder() {
     while (wakeEnabled) {
+      window._vaCounters.recorderCalls++;
       if (busy || speaking || listening) { await sleep(300); continue; }
       const blob = await captureUtterance({ startTimeoutMs: 3600000, maxMs: 10000, silenceMs: 1100 });
       if (!wakeEnabled) break;
@@ -433,6 +459,7 @@
   let srSilentStreak = 0;
 
   function wakeLoopSR() {
+    window._vaCounters.srCalls++;
     if (!wakeEnabled || busy || speaking || srBroken) return;
     const rec = new SR();
     srSession = rec;

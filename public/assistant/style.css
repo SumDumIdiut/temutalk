@@ -52,3 +52,22 @@
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
+
+/* Temporary debug aid, separate from #va-transcript on purpose -- see the
+   comment at its creation in script.js. Always visible (no .on toggle),
+   top-left, out of the way of everything else. */
+#va-heartbeat {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 9997;
+  background: rgba(14,16,28,.85);
+  color: rgba(240,242,255,.65);
+  padding: 3px 8px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  pointer-events: none;
+  white-space: nowrap;
+}
