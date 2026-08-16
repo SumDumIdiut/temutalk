@@ -119,43 +119,14 @@
        blurred/darkened album art behind large karaoke-style text. Shares
        fetched/parsed lyrics with the home widget's clipped 3-line view
        (loadLyrics()/lyrLines/lyrTimes in music/script.js). */
+    /* Shared chrome (open/close transition, blur/crossfade) lives in the
+       .lyr-overlay/.lyr-bg classes in style.css -- z-index/border-radius/
+       overflow are the things actually specific to this being a rounded
+       panel inside #app-body rather than a full-viewport takeover. */
     #np-lyrics-section {
-      display: flex; flex-direction: column;
-      position: absolute; inset: 0; z-index: 15;
+      z-index: 15;
       border-radius: var(--radius); overflow: hidden;
-      background: #0c0b14;
-      /* Same opacity+scale open/close treatment as the Home tab's lyrics
-         overlay (home/style.css .home-lyr-overlay) instead of an instant
-         display:none/flex cut. will-change promotes it to its own
-         compositor layer so the transition doesn't re-rasterize
-         #np-lyrics-bg's 60px blur every frame -- that recompute (not the
-         transition itself) was the actual source of the jank. */
-      opacity: 0; visibility: hidden; transform: scale(.97);
-      pointer-events: none;
-      will-change: opacity, transform;
-      transition: opacity .28s cubic-bezier(0.4,0,0.2,1),
-                  transform .28s cubic-bezier(0.4,0,0.2,1),
-                  visibility 0s linear .28s;
     }
-    #np-lyrics-section.lyr-open {
-      opacity: 1; visibility: visible; transform: scale(1);
-      pointer-events: auto;
-      transition: opacity .28s cubic-bezier(0.4,0,0.2,1),
-                  transform .28s cubic-bezier(0.4,0,0.2,1),
-                  visibility 0s linear 0s;
-    }
-    #np-lyrics-bg {
-      position: absolute; inset: -24px; z-index: 0;
-      width: calc(100% + 48px); height: calc(100% + 48px); object-fit: cover;
-      /* Same 60px->36px reduction as home/style.css .home-lyr-bg -- a blur
-         this large over a full-screen layer is real GPU rasterization
-         cost on weaker kiosk hardware, not just a JS-side concern. */
-      filter: blur(36px) brightness(.5) saturate(1.35); transform: scale(1.1);
-      /* Same crossfade-on-load treatment as the Home tab's version
-         (home/style.css .home-lyr-bg / _setBgArt() in music/script.js). */
-      opacity: 0; transition: opacity .5s ease;
-    }
-    #np-lyrics-bg.art-loaded { opacity: 1; }
     #np-lyrics-scrim {
       position: absolute; inset: 0; z-index: 1;
       background: linear-gradient(180deg, rgba(8,7,14,.6), rgba(8,7,14,.86) 55%, rgba(8,7,14,.96));

@@ -342,6 +342,51 @@ body[data-tab="weather"] .b3 { background: radial-gradient(circle, rgba(62,245,1
 .ctrl-btn-play:hover  { border-color: rgba(255,255,255,.4); color: #fff; }
 .ctrl-btn-play:active { transform: translateY(2px); box-shadow: none; }
 
+/* ── Full-screen lyrics overlay ────────────────────────────────────────────
+   Shared by the Home tab's karaoke takeover (.home-lyr-overlay) and the
+   Music tab's full-panel version (#np-lyrics-section) -- was two copies of
+   the identical opacity/transform/blur/crossfade rules differing only in
+   z-index and a border-radius/overflow the Music tab's rounded-panel
+   version needs and the Home tab's full-viewport version doesn't; those
+   stay as small residual rules in home/style.css and music/style.css. */
+.lyr-overlay {
+  display: flex; flex-direction: column;
+  position: absolute; inset: 0;
+  background: #0c0b14;
+  /* opacity+scale instead of a hard display:none/flex cut, same easing the
+     tab-switch transition already uses (.view in index.html). visibility
+     (delayed on the way out) keeps it out of the tab order and unclickable
+     while hidden, same as display:none did. will-change promotes it to its
+     own compositor layer so the transition fades/scales a cached bitmap
+     instead of re-rasterizing .lyr-bg's blur every frame. */
+  opacity: 0; visibility: hidden; transform: scale(.97);
+  pointer-events: none;
+  will-change: opacity, transform;
+  transition: opacity .28s cubic-bezier(0.4,0,0.2,1),
+              transform .28s cubic-bezier(0.4,0,0.2,1),
+              visibility 0s linear .28s;
+}
+.lyr-overlay.lyr-open {
+  opacity: 1; visibility: visible; transform: scale(1);
+  pointer-events: auto;
+  transition: opacity .28s cubic-bezier(0.4,0,0.2,1),
+              transform .28s cubic-bezier(0.4,0,0.2,1),
+              visibility 0s linear 0s;
+}
+.lyr-bg {
+  position: absolute; inset: -24px; z-index: 0;
+  width: calc(100% + 48px); height: calc(100% + 48px); object-fit: cover;
+  /* 60px was heavy to rasterize on weaker kiosk hardware (a filter this
+     large over a full-screen layer is real GPU cost) -- 36px still reads
+     as a fully soft, abstracted backdrop. */
+  filter: blur(36px) brightness(.5) saturate(1.35); transform: scale(1.1);
+  /* Crossfades to a new track's art instead of popping straight to it --
+     driven by _setBgArt() in music/script.js, which only adds art-loaded
+     once the new image has actually finished loading. */
+  opacity: 0; transition: opacity .5s ease;
+}
+.lyr-bg.art-loaded { opacity: 1; }
+
 /* Small bounce on the play/pause glyph itself whenever it swaps (see
    _popIcon() in music/script.js) -- the icon used to just snap between the
    two paths instantly on every single play/pause press, the single most
