@@ -156,26 +156,28 @@
     return micStream;
   }
 
-  // The generic unconstrained request landed on "Default", which measured
-  // an RMS level of exactly 0.0000 on the actual device even while speaking
-  // directly into it (confirmed via the on-screen level readout), despite
-  // the resulting track reporting itself live/unmuted. The 3 registered
-  // inputs this device exposes -- Default / Speakerphone / Headset earpiece
-  // -- are Android's own audio-routing profile names, not 3 separate
-  // physical mics: this tablet almost certainly has one physical mic,
-  // exposed under whichever routing profile is currently "active", and
-  // Default apparently isn't landing on a profile that's actually wired up
-  // right now. Speakerphone is the hands-free/ambient routing (mic + external
-  // speaker, nothing held to an ear) -- the correct one for an
-  // always-listening kiosk -- so request it explicitly by label when
-  // present, instead of leaving the choice to the browser's own default.
+  // Both "Default" and explicitly-requested "Speakerphone" measured the
+  // exact same RMS level of 0.0000 on the actual device, even while
+  // speaking directly into it -- ruling out device selection as the cause,
+  // since two different routing profiles produced an identical result.
+  // What's left, and common enough on some Android/Chrome hardware+driver
+  // combinations to be a well-documented issue class: getUserMedia({audio:
+  // true}) enables WebRTC's built-in audio processing (echo cancellation,
+  // noise suppression, automatic gain control) by default, and on affected
+  // devices that pipeline can occasionally misbehave badly enough to zero
+  // out the signal entirely rather than just cleaning it up. Disabling all
+  // three requests the raw, unprocessed signal instead, bypassing that
+  // pipeline -- combined with (not replacing) the Speakerphone targeting,
+  // since neither has been proven wrong on its own and both are cheap to
+  // request together.
   async function _pickMicConstraints() {
+    const base = { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
     try {
       const devices = await navigator.mediaDevices.enumerateDevices();
       const speakerphone = devices.find(d => d.kind === 'audioinput' && /speakerphone/i.test(d.label));
-      if (speakerphone) return { audio: { deviceId: { exact: speakerphone.deviceId } } };
+      if (speakerphone) return { audio: { ...base, deviceId: { exact: speakerphone.deviceId } } };
     } catch (_) {}
-    return { audio: true };
+    return { audio: base };
   }
 
   // One-time diagnostic the moment mic access is actually granted --
