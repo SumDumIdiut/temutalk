@@ -77,13 +77,36 @@
   function setBotSpeaking() { /* no-op — kept for call-site symmetry, no UI to update */ }
 
   // ── Audio helpers ───────────────────────────────────────────────────────
-  let micStream = null, chimeCtx = null;
+  let micStream = null, chimeCtx = null, micCtx = null;
+
+  // getUserMedia can hang indefinitely on some platforms instead of cleanly
+  // resolving or rejecting (a stuck permission dialog, a driver-level mic
+  // issue) -- confirmed as the likely cause after even the live mic-level
+  // readout inside captureUtterance() (which only ever runs once this
+  // resolves) never appeared on screen at all, meaning execution never got
+  // past this call. Racing it against a timeout turns "hangs forever with
+  // zero feedback" into a real, visible, catchable error.
+  function _withTimeout(promise, ms, label) {
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error((label || 'operation') + ' timed out after ' + ms + 'ms')), ms)),
+    ]);
+  }
 
   async function ensureMic() {
     if (micStream && micStream.active) return micStream;
-    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    micStream = await _withTimeout(navigator.mediaDevices.getUserMedia({ audio: true }), 6000, 'getUserMedia');
     unlockAudio(); // closest thing to a user gesture we get in the headless flow
+    _resumeAllContexts();
     return micStream;
+  }
+  // A suspended AudioContext just never runs its audio graph -- resume() is
+  // the only thing that changes that, and it needs a real (or gesture-
+  // adjacent) trigger to actually take effect under strict autoplay policy.
+  // Called from every point that counts as such a trigger, so any context
+  // that's been created but is still stuck suspended gets another shot.
+  function _resumeAllContexts() {
+    for (const c of [chimeCtx, micCtx]) if (c && c.state === 'suspended') c.resume().catch(() => {});
   }
   function releaseMic() {
     if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
@@ -133,9 +156,16 @@
     return new Promise(async (resolve) => {
       let stream;
       try { stream = await ensureMic(); }
-      catch (_) { setStatus('Mic blocked', true); return resolve(null); }
+      catch (e) { setStatus('Mic blocked: ' + (e && e.message || e), true); return resolve(null); }
 
-      const ac = new (window.AudioContext || window.webkitAudioContext)();
+      // Reused across calls rather than a fresh AudioContext per utterance.
+      // A brand new context needs its own resume() to leave 'suspended'
+      // under strict autoplay policy, and this headless flow has no
+      // guaranteed real user gesture to provide that on every single call --
+      // only the one instance ever gets a real unlock trigger (see
+      // unlockAudio/_resumeAllContexts), so it has to be the same instance
+      // every time or every call after the first would be stuck again.
+      const ac = micCtx || (micCtx = new (window.AudioContext || window.webkitAudioContext)());
       if (ac.state === 'suspended') ac.resume().catch(() => {});
       const rate = ac.sampleRate;
       const src  = ac.createMediaStreamSource(stream);
@@ -155,13 +185,34 @@
         if (finished) return;
         finished = true;
         cancelCapture = null;
+        clearTimeout(audioWatchdog);
         try { src.disconnect(); proc.disconnect(); mute.disconnect(); } catch (_) {}
-        ac.close().catch(() => {});
         resolve(cancelled ? null : blob);
       }
       cancelCapture = () => { cancelled = true; finish(null); };
 
+      // A suspended AudioContext just never runs its audio graph at all --
+      // onaudioprocess wouldn't fire, so nothing above (not even the level
+      // readout) would ever show, indistinguishable from outside "Armed"
+      // with nothing else ever happening again. Confirmed as the likely
+      // explanation after the level readout itself -- unconditional,
+      // updates every 700ms regardless of actual mic level -- was reported
+      // as never appearing at all, meaning execution never reached it.
+      // Closes and drops the shared context on a real stall so the next
+      // attempt builds a fresh one, in case this specific instance (not
+      // just the autoplay policy generally) is what's wedged.
+      let gotAudioEvent = false;
+      const audioWatchdog = setTimeout(() => {
+        if (gotAudioEvent || finished) return;
+        console.error('[assistant] onaudioprocess never fired -- AudioContext stuck at', ac.state);
+        setStatus('Mic capture stalled (audio context ' + ac.state + ') — retrying', true);
+        try { ac.close().catch(() => {}); } catch (_) {}
+        if (micCtx === ac) micCtx = null;
+        finish(null);
+      }, 4000);
+
       proc.onaudioprocess = (e) => {
+        gotAudioEvent = true;
         if (finished) return;
         const input = e.inputBuffer.getChannelData(0);
         const chunk = new Float32Array(input); // copy — the buffer is reused
@@ -461,7 +512,7 @@
   async function startWake() {
     if (!SR) {
       try { await ensureMic(); }
-      catch (_) { wakeEnabled = false; setStatus('Mic blocked — wake word needs mic access.', true); return; }
+      catch (e) { wakeEnabled = false; setStatus('Mic blocked: ' + (e && e.message || e) + ' — wake word needs mic access.', true); return; }
     }
     unlockAudio(); // SR path never calls ensureMic(), so it never got a chance to run this
     setStatus('Armed — say ' + wakeWord());
@@ -504,8 +555,8 @@
       _audioUnlocked = true;
       try {
         chimeCtx = chimeCtx || new (window.AudioContext || window.webkitAudioContext)();
-        if (chimeCtx.state === 'suspended') chimeCtx.resume().catch(() => {});
       } catch (_) {}
+      _resumeAllContexts();
       try {
         const primer = new Audio();
         primer.muted = true;
