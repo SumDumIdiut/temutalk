@@ -504,7 +504,30 @@
       gotEvent = true; clearTimeout(watchdog);
       srSession = null; if (wakeEnabled && !srBroken) setTimeout(wakeLoopSR, 500);
     };
-    try { rec.start(); } catch (_) { clearTimeout(watchdog); setTimeout(wakeLoopSR, 2000); }
+    try { rec.start(); }
+    catch (e) {
+      // rec.start() throwing synchronously (rather than firing the async
+      // onerror above) is a real, distinct failure mode -- some browsers do
+      // this for a permanently-denied/OS-blocked mic permission instead of
+      // ever dispatching an error event. This used to retry silently every
+      // 2s forever with zero visibility -- indistinguishable from outside
+      // "Armed" and nothing else, exactly the reported symptom, and on a
+      // path none of this session's other fixes (all in the async
+      // onresult/onerror/watchdog handlers, or the separate recorder
+      // engine) could ever reach, since none of them run until *after*
+      // start() succeeds.
+      clearTimeout(watchdog);
+      srSilentStreak++;
+      console.error('[assistant] rec.start() threw synchronously:', e && e.message || e, '(streak', srSilentStreak, ')');
+      if (srSilentStreak >= SR_SILENT_STREAK_LIMIT) {
+        srBroken = true;
+        setStatus('Speech recognition failed to start (' + (e && e.message || e) + ') — falling back to recorder engine.', true);
+        if (!wakeLoopOn) { wakeLoopOn = true; wakeLoopRecorder().finally(() => { wakeLoopOn = false; }); }
+      } else {
+        setStatus('Speech recognition failed to start: ' + (e && e.message || e) + ' — retrying (' + srSilentStreak + '/' + SR_SILENT_STREAK_LIMIT + ')…', true);
+        setTimeout(wakeLoopSR, 2000);
+      }
+    }
   }
 
   function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
