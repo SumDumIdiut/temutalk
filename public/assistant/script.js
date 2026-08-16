@@ -140,37 +140,23 @@
     ]);
   }
 
+  // Tried explicit device targeting (matching a "Speakerphone"-labeled
+  // input) and forcing echoCancellation/noiseSuppression/autoGainControl
+  // off during the tablet mic investigation -- neither ever actually fixed
+  // anything there (that turned out to be a hardware fault), and both are
+  // real footguns on other devices: forcing a specific deviceId overrides
+  // whatever mic the browser's own per-site device picker or the OS default
+  // would otherwise use, and bare boolean constraints can make some
+  // browsers reject the whole request outright if the device can't
+  // satisfy them exactly, rather than just falling back gracefully. Back
+  // to the plain, broadly-compatible default -- let the browser/OS handle
+  // device and processing choices.
   async function ensureMic() {
     if (micStream && micStream.active) return micStream;
-    const constraints = await _pickMicConstraints();
-    micStream = await _withTimeout(navigator.mediaDevices.getUserMedia(constraints), 6000, 'getUserMedia');
+    micStream = await _withTimeout(navigator.mediaDevices.getUserMedia({ audio: true }), 6000, 'getUserMedia');
     unlockAudio(); // closest thing to a user gesture we get in the headless flow
     _resumeAllContexts();
     return micStream;
-  }
-
-  // Both "Default" and explicitly-requested "Speakerphone" measured the
-  // exact same RMS level of 0.0000 on the actual device, even while
-  // speaking directly into it -- ruling out device selection as the cause,
-  // since two different routing profiles produced an identical result.
-  // What's left, and common enough on some Android/Chrome hardware+driver
-  // combinations to be a well-documented issue class: getUserMedia({audio:
-  // true}) enables WebRTC's built-in audio processing (echo cancellation,
-  // noise suppression, automatic gain control) by default, and on affected
-  // devices that pipeline can occasionally misbehave badly enough to zero
-  // out the signal entirely rather than just cleaning it up. Disabling all
-  // three requests the raw, unprocessed signal instead, bypassing that
-  // pipeline -- combined with (not replacing) the Speakerphone targeting,
-  // since neither has been proven wrong on its own and both are cheap to
-  // request together.
-  async function _pickMicConstraints() {
-    const base = { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
-    try {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const speakerphone = devices.find(d => d.kind === 'audioinput' && /speakerphone/i.test(d.label));
-      if (speakerphone) return { audio: { ...base, deviceId: { exact: speakerphone.deviceId } } };
-    } catch (_) {}
-    return { audio: base };
   }
 
   // A suspended AudioContext just never runs its audio graph -- resume() is
