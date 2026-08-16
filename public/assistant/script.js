@@ -71,10 +71,30 @@
   document.body.appendChild(hbEl);
   let hbSeconds = 0;
   window._vaCounters = { srCalls: 0, recorderCalls: 0 };
+
+  // Android's own app-level mic permission (Settings > Apps > ... >
+  // Permissions) is a *different* thing from the browser's own per-origin
+  // permission for this specific page -- the OS one can say Allowed while
+  // the browser still silently blocks/never-asks for this exact site, and
+  // the on-page address-bar UI that would normally show that isn't always
+  // reachable (e.g. a kiosk browser with no visible chrome). Querying it
+  // directly here sidesteps needing to find that UI at all -- this is the
+  // actual, direct ground truth getUserMedia()/SpeechRecognition check
+  // against, straight from the browser itself.
+  let micPerm = 'checking…';
+  if (navigator.permissions && navigator.permissions.query) {
+    navigator.permissions.query({ name: 'microphone' }).then((status) => {
+      micPerm = status.state; // 'granted' | 'denied' | 'prompt'
+      status.onchange = () => { micPerm = status.state; };
+    }).catch(() => { micPerm = 'n/a'; });
+  } else {
+    micPerm = 'n/a';
+  }
+
   setInterval(() => {
     hbSeconds++;
     const c = window._vaCounters;
-    hbEl.textContent = 'alive ' + hbSeconds + 's · engine ' + (SR ? 'SR' : 'recorder') +
+    hbEl.textContent = 'alive ' + hbSeconds + 's · mic:' + micPerm + ' · engine ' + (SR ? 'SR' : 'recorder') +
       ' · SR#' + c.srCalls + ' rec#' + c.recorderCalls;
   }, 1000);
 
