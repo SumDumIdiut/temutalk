@@ -353,6 +353,16 @@ body[data-tab="weather"] .b3 { background: radial-gradient(circle, rgba(62,245,1
   display: flex; flex-direction: column;
   position: absolute; inset: 0;
   background: #0c0b14;
+  /* Ambient fill layer -- _setBgArt() (music/script.js) sets this to the
+     same pre-blurred/dimmed thumbnail .lyr-bg uses, just cover-fit instead
+     of contain, so there's color everywhere instead of a small contain-fit
+     image floating in an otherwise plain dark box (a square album cover
+     inside a wide viewport left most of the screen empty otherwise). Same
+     two-layer shape Spotify's own now-playing background uses: a cropped
+     fill for ambient color, with the complete uncropped photo legible on
+     top of it (.lyr-bg below). */
+  background-size: cover;
+  background-position: center;
   /* opacity+scale instead of a hard display:none/flex cut, same easing the
      tab-switch transition already uses (.view in index.html). will-change
      promotes it to its own compositor layer so the transition fades/scales
@@ -379,18 +389,18 @@ body[data-tab="weather"] .b3 { background: radial-gradient(circle, rgba(62,245,1
   /* contain, not cover -- this is the whole album photo blurred, not a
      zoomed-in crop of it. cover+scale(1.1) used to crop off the edges to
      fill the screen edge-to-edge; any letterboxed space around the
-     (fully visible) image just shows .lyr-overlay's own dark background
-     through, which reads fine since everything here is heavily blurred
-     and darkened anyway. */
+     (fully visible) image now shows .lyr-overlay's own cover-fit ambient
+     fill layer through instead of plain dark background (see .lyr-overlay
+     above), so a square cover inside a wide viewport still reads as color
+     everywhere, not a small image floating in a dark box. */
   width: 100%; height: 100%; object-fit: contain;
-  /* Blur is pre-baked into the tiny thumbnail _setBgArt() draws (see
-     music/script.js) instead of a live filter here -- blurring a
-     full-resolution full-screen image on every frame of the open/close
-     transition was real, ongoing GPU cost, still janky on weaker hardware
-     even after cutting the live-blur radius from 60px to 36px once
-     already. brightness/saturate stay live since per-pixel color math
-     (no neighborhood sampling, unlike blur) is comparatively free. */
-  filter: brightness(.75) saturate(1.35);
+  /* Blur/brightness/saturate are all pre-baked into the tiny thumbnail
+     _blurredThumb() draws (music/script.js) instead of a live filter here
+     -- filtering a full-resolution full-screen image on every frame of
+     the open/close transition was real, ongoing GPU cost, still janky on
+     weaker hardware even after cutting the live-blur radius from 60px to
+     36px once already. No filter needed at all now -- see .needs-live-blur
+     below for the one case that still needs one. */
   /* Crossfades to a new track's art instead of popping straight to it --
      driven by _setBgArt() in music/script.js, which only adds art-loaded
      once the new image has actually finished loading. */
@@ -400,7 +410,7 @@ body[data-tab="weather"] .b3 { background: radial-gradient(circle, rgba(62,245,1
    headers -- canvas pixel access silently fails for those (see
    _blurredThumb()'s .catch() in music/script.js), so this restores a live
    blur rather than showing an unblurred image. */
-.lyr-bg.needs-live-blur { filter: blur(36px) brightness(.5) saturate(1.35); }
+.lyr-bg.needs-live-blur { filter: blur(36px) brightness(.75) saturate(1.35); }
 .lyr-bg.art-loaded { opacity: 1; }
 
 /* Small bounce on the play/pause glyph itself whenever it swaps (see
