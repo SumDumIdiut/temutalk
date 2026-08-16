@@ -40,6 +40,10 @@
   let wakeLoopOn  = false;
   let cancelCapture = null; // cancels the in-flight recorder capture
   let srSession   = null;
+  // Set true if SpeechRecognition fails with a permission/hardware error --
+  // falls back to the recorder engine instead of retrying an engine that's
+  // never going to work forever, silently, with no visibility at all.
+  let srBroken    = false;
 
   // No visual UI beyond the wake glow — status is console-only for
   // debugging; replies/errors are always spoken in full via TTS instead.
@@ -303,7 +307,14 @@
       if (busy || speaking || listening) { await sleep(300); continue; }
       const blob = await captureUtterance({ startTimeoutMs: 3600000, maxMs: 10000, silenceMs: 1100 });
       if (!wakeEnabled) break;
-      if (!blob || busy || speaking || listening) continue;
+      // A null blob with no real elapsed time means ensureMic() itself
+      // rejected (mic blocked/missing) rather than a normal silence
+      // timeout -- captureUtterance's own startTimeoutMs already paces the
+      // silence-timeout case, but a hard mic failure resolves instantly,
+      // and with no delay here that turned into a tight loop hammering
+      // getUserMedia repeatedly instead of backing off.
+      if (!blob) { await sleep(2000); continue; }
+      if (busy || speaking || listening) continue;
       let text = '';
       try { text = await sttBlob(blob); }
       catch (e) { setStatus(e.message, true); await sleep(5000); continue; }
@@ -314,7 +325,7 @@
 
   // Background loop, SR engine: continuous recognition, restart on end.
   function wakeLoopSR() {
-    if (!wakeEnabled || busy || speaking) return;
+    if (!wakeEnabled || busy || speaking || srBroken) return;
     const rec = new SR();
     srSession = rec;
     rec.lang = navigator.language || 'en-US';
@@ -332,8 +343,30 @@
         }
       }
     };
-    rec.onerror = () => {};
-    rec.onend = () => { srSession = null; if (wakeEnabled) setTimeout(wakeLoopSR, 500); };
+    // Used to be a no-op -- any SpeechRecognition error, including a
+    // denied/missing mic, was silently swallowed and the loop just kept
+    // retrying forever with zero visibility. getUserMedia (which shows a
+    // real, visible permission prompt) is only ever called on the recorder
+    // engine below; SR handles microphone access internally, which doesn't
+    // necessarily surface any prompt the user can actually see or respond
+    // to on every platform -- exactly "doesn't work, never got the prompt."
+    // 'no-speech'/'aborted' are routine (nothing said in the timeout
+    // window, or a deliberate .stop()) and not worth acting on. The rest
+    // mean this device's SpeechRecognition engine genuinely isn't going to
+    // work -- fall back to the recorder engine instead, which does call
+    // getUserMedia and gives that permission prompt an actual chance to fire.
+    rec.onerror = (e) => {
+      if (e.error === 'no-speech' || e.error === 'aborted') return;
+      console.error('[assistant] SpeechRecognition error:', e.error);
+      if (e.error === 'not-allowed' || e.error === 'audio-capture' || e.error === 'service-not-allowed') {
+        srBroken = true;
+        setStatus('Speech recognition unavailable (' + e.error + ') — falling back to recorder engine.', true);
+        try { rec.onend = null; } catch (_) {}
+        srSession = null;
+        if (!wakeLoopOn) { wakeLoopOn = true; wakeLoopRecorder().finally(() => { wakeLoopOn = false; }); }
+      }
+    };
+    rec.onend = () => { srSession = null; if (wakeEnabled && !srBroken) setTimeout(wakeLoopSR, 500); };
     try { rec.start(); } catch (_) { setTimeout(wakeLoopSR, 2000); }
   }
 
