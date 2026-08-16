@@ -143,8 +143,34 @@
     micStream = await _withTimeout(navigator.mediaDevices.getUserMedia({ audio: true }), 6000, 'getUserMedia');
     unlockAudio(); // closest thing to a user gesture we get in the headless flow
     _resumeAllContexts();
+    _logMicDiagnostics(micStream);
     return micStream;
   }
+
+  // One-time diagnostic the moment mic access is actually granted --
+  // permission reporting 'granted' (confirmed via the heartbeat) only
+  // proves the browser is *allowed* to use a microphone, not that a real,
+  // working one is attached/selected behind that permission. A track can be
+  // granted and still report itself muted if the OS/hardware has silenced
+  // input, and a device with multiple registered audio inputs could be
+  // defaulting to a dead/virtual one instead of the physical mic. Shows
+  // exactly which device got selected and whether it self-reports muted,
+  // which no permission check alone can reveal.
+  let _micDiagShown = false;
+  function _logMicDiagnostics(stream) {
+    if (_micDiagShown) return;
+    _micDiagShown = true;
+    const track = stream.getAudioTracks()[0];
+    const settings = (track && track.getSettings) ? track.getSettings() : {};
+    navigator.mediaDevices.enumerateDevices().then((devices) => {
+      const inputs = devices.filter(d => d.kind === 'audioinput');
+      const msg = 'Mic: "' + (track && track.label || '?') + '" muted=' + !!(track && track.muted) +
+        ' state=' + (track && track.readyState) + ' · ' + inputs.length + ' input device(s) on system';
+      console.log('[assistant]', msg, '| settings:', settings, '| all inputs:', inputs.map(d => d.label || d.deviceId));
+      showTranscript(msg);
+    }).catch((e) => console.error('[assistant] enumerateDevices failed:', e));
+  }
+
   // A suspended AudioContext just never runs its audio graph -- resume() is
   // the only thing that changes that, and it needs a real (or gesture-
   // adjacent) trigger to actually take effect under strict autoplay policy.
