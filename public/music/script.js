@@ -1396,6 +1396,26 @@ function onPlayer(data) {
   if (data.repeat_state) { repeatState = data.repeat_state; renderRepeat(); }
 }
 
+// Shared by action()'s play/pause/next/previous branches and _spotifySeek()
+// -- browserPlayer existing and being ready doesn't mean it's the ACTIVE
+// device (e.g. a real phone/desktop Spotify app could be), so all of them
+// need the same "confirm via a live getCurrentState() check, then fall back
+// to REST" guard, with the same "fall back on ANY rejection, not just a
+// falsy state" fix (a rejected getCurrentState()/local-action promise used
+// to have no .catch() anywhere, so the whole attempt could vanish silently
+// -- this was the actual cause of clicking a lyric line not moving the
+// song). logTag is optional and only adds console.error diagnostics when
+// given -- seek passes one since that's the path this got debugged through;
+// the others stay silent on the local attempt failing, matching their
+// pre-existing behavior.
+function _withActiveDevice(localFn, fallbackFn, logTag) {
+  if (!browserPlayer || !browserPlayerReady) { fallbackFn(); return; }
+  browserPlayer.getCurrentState().then(state => {
+    if (!state) { fallbackFn(); return; }
+    localFn().catch(e => { if (logTag) console.error(`[${logTag}] local action rejected, falling back to REST:`, e); fallbackFn(); });
+  }).catch(e => { if (logTag) console.error(`[${logTag}] getCurrentState() rejected, falling back to REST:`, e); fallbackFn(); });
+}
+
 // ── Override action ───────────────────────────────────────────────────────────
 function action(name) {
   if (activeService === 'youtube') { ytAction(name); return; }
@@ -1403,32 +1423,19 @@ function action(name) {
   if (browserPlayer && browserPlayerReady) {
     if (name === 'play') {
       browserPlayer.activateElement();
-      // Falls back to the REST path on ANY rejection now, not just a falsy
-      // state -- getCurrentState()/resume() rejecting used to leave this
-      // .then() chain never firing, so the play button silently did nothing.
-      const fallbackPlay = () => api('/api/transfer', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ device_id: browserPlayer._deviceId }) })
-        .then(() => setTimeout(() => browserPlayer.resume(), 600))
-        .catch(() => api('/api/player/play', { method: 'POST' }));
-      browserPlayer.getCurrentState().then(state => {
-        if (state) browserPlayer.resume().catch(fallbackPlay);
-        else fallbackPlay();
-      }).catch(fallbackPlay);
+      _withActiveDevice(
+        () => browserPlayer.resume(),
+        () => api('/api/transfer', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ device_id: browserPlayer._deviceId }) })
+          .then(() => setTimeout(() => browserPlayer.resume(), 600))
+          .catch(() => api('/api/player/play', { method: 'POST' })),
+      );
       return;
     }
     if (name === 'pause' || name === 'next' || name === 'previous') {
-      // Same "confirm this device is actually active before using the fast
-      // local path" guard as _spotifySeek() -- browserPlayer being ready
-      // doesn't mean it's the device that's actually playing. Also falls
-      // back to REST on a rejection (not just a falsy state), for the same
-      // reason as the play branch above.
-      const fallbackAction = () => api('/api/player/' + name, { method: 'POST' });
-      browserPlayer.getCurrentState().then(state => {
-        if (!state) { fallbackAction(); return; }
-        const p = name === 'pause' ? browserPlayer.pause()
-                : name === 'next'  ? browserPlayer.nextTrack()
-                : browserPlayer.previousTrack();
-        p.catch(fallbackAction);
-      }).catch(fallbackAction);
+      _withActiveDevice(
+        () => name === 'pause' ? browserPlayer.pause() : name === 'next' ? browserPlayer.nextTrack() : browserPlayer.previousTrack(),
+        () => api('/api/player/' + name, { method: 'POST' }),
+      );
       return;
     }
   }
@@ -1489,17 +1496,10 @@ function _spotifySeek(ms) {
   // 4xx/5xx response). That combination meant a real seek failure and a
   // successful one were indistinguishable from the outside -- both looked
   // like "the lyric line highlighted and then nothing happened."
-  const restFallback = () => fetch(BASE_PATH + '/api/player/seek?device=' + deviceId + '&ms=' + ms, { method: 'POST' })
+  const restFallback = () => fetch(_apiUrl('/api/player/seek?ms=' + ms), { method: 'POST' })
     .then(r => { if (!r.ok) return r.json().catch(() => null).then(b => console.error('[seek] REST seek failed:', r.status, b)); })
     .catch(e => console.error('[seek] REST seek request failed:', e));
-  if (browserPlayer && browserPlayerReady) {
-    browserPlayer.getCurrentState().then(state => {
-      if (state) browserPlayer.seek(ms).catch(e => { console.error('[seek] local SDK seek rejected, falling back to REST:', e); restFallback(); });
-      else restFallback();
-    }).catch(e => { console.error('[seek] getCurrentState() rejected, falling back to REST:', e); restFallback(); });
-    return;
-  }
-  restFallback();
+  _withActiveDevice(() => browserPlayer.seek(ms), restFallback, 'seek');
 }
 
 // ── Override seekTo ───────────────────────────────────────────────────────────

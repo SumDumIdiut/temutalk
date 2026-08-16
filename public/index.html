@@ -220,8 +220,8 @@
        Music tab's own #np-lyrics-section. Shares fetched/parsed lyrics data
        (loadLyrics()/lyrLines/lyrTimes in music/script.js) with that panel
        since it's the same track's lyrics. -->
-  <div class="home-lyr-overlay" id="home-lyr-overlay">
-    <img class="home-lyr-bg" id="home-lyr-bg" src="" alt="">
+  <div class="home-lyr-overlay lyr-overlay" id="home-lyr-overlay">
+    <img class="home-lyr-bg lyr-bg" id="home-lyr-bg" src="" alt="">
     <div class="home-lyr-scrim"></div>
     <div class="lyr-clock-top">
       <div class="lyr-clock-time js-clock-time">--:--</div>
@@ -1094,8 +1094,15 @@ fetch(BASE_PATH + '/api/config?device=' + deviceId)
   .catch(() => { document.getElementById('w-desc').textContent = 'Unavailable'; wxRequestLocation(); });
 
 // ── Shared helpers ────────────────────────────────────────────────────────
+// Every local API call includes ?device= -- split out so callers that need
+// the raw fetch() Response (e.g. to check res.ok, which api() itself
+// discards by resolving straight to the parsed body) can still build the
+// same URL instead of reimplementing this.
+function _apiUrl(path) {
+  return BASE_PATH + path + (path.includes('?') ? '&' : '?') + 'device=' + deviceId;
+}
 function api(path, opts = {}) {
-  return fetch(BASE_PATH + path + (path.includes('?') ? '&' : '?') + 'device=' + deviceId, opts).then(r => r.json());
+  return fetch(_apiUrl(path), opts).then(r => r.json());
 }
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function fmt(ms) { const s = Math.floor(ms / 1000); return Math.floor(s / 60) + ':' + (s % 60).toString().padStart(2, '0'); }
