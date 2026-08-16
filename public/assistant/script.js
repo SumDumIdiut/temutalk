@@ -98,12 +98,19 @@
   // second, too fast to actually read off a tablet screen. This line never
   // gets overwritten by anything else, so there's no time pressure to catch it.
   let micDiagText = '';
+  // Separate from micDiagText above -- both are set independently
+  // (_probeAllMicDevices() runs once at startup, before the wake loop's own
+  // ensureMic() call ever runs and sets micDiagText) and both need to
+  // survive on screen at once; sharing one variable meant the second one to
+  // fire silently erased the first before it could be read.
+  let probeText = '';
 
   setInterval(() => {
     hbSeconds++;
     const c = window._vaCounters;
     hbEl.textContent = 'alive ' + hbSeconds + 's · mic:' + micPerm + ' · engine ' + (SR ? 'SR' : 'recorder') +
-      ' · SR#' + c.srCalls + ' rec#' + c.recorderCalls + (micDiagText ? '\n' + micDiagText : '');
+      ' · SR#' + c.srCalls + ' rec#' + c.recorderCalls +
+      (probeText ? '\n' + probeText : '') + (micDiagText ? '\n' + micDiagText : '');
   }, 1000);
 
   // ── State ───────────────────────────────────────────────────────────────
@@ -213,6 +220,66 @@
       showTranscript(msg);
       micDiagText = msg;
     }).catch((e) => console.error('[assistant] enumerateDevices failed:', e));
+  }
+
+  // One-time startup probe (temporary diagnostic) -- neither device
+  // selection (Default vs. Speakerphone) nor disabling built-in audio
+  // processing has produced a level that actually responds to real speech
+  // on the actual device (0.0000, then a flat unresponsive 0.0001). Rather
+  // than keep guessing one device at a time across separate deploy-and-
+  // reload cycles, this tests every registered audio input in turn for 2s
+  // each, tracking the peak RMS level seen on each one, so a single test
+  // session (just keep talking for the ~6s this takes) shows definitively
+  // whether *any* of them actually hears anything. Runs once before the
+  // normal wake loop starts.
+  function _probeOneDevice(deviceInfo) {
+    return new Promise((resolve) => {
+      let stream, ac, src, proc, mute;
+      const cleanup = () => {
+        try { src && src.disconnect(); proc && proc.disconnect(); mute && mute.disconnect(); } catch (_) {}
+        if (ac) ac.close().catch(() => {});
+        if (stream) stream.getTracks().forEach(t => t.stop());
+      };
+      navigator.mediaDevices.getUserMedia({
+        audio: {
+          deviceId: { exact: deviceInfo.deviceId },
+          echoCancellation: false, noiseSuppression: false, autoGainControl: false,
+        },
+      }).then((s) => {
+        stream = s;
+        ac = new (window.AudioContext || window.webkitAudioContext)();
+        if (ac.state === 'suspended') ac.resume().catch(() => {});
+        src = ac.createMediaStreamSource(stream);
+        proc = ac.createScriptProcessor(2048, 1, 1);
+        mute = ac.createGain(); mute.gain.value = 0;
+        let peak = 0;
+        proc.onaudioprocess = (e) => {
+          const input = e.inputBuffer.getChannelData(0);
+          let sum = 0;
+          for (let i = 0; i < input.length; i++) sum += input[i] * input[i];
+          const rms = Math.sqrt(sum / input.length);
+          if (rms > peak) peak = rms;
+        };
+        src.connect(proc); proc.connect(mute); mute.connect(ac.destination);
+        setTimeout(() => { cleanup(); resolve(peak); }, 2000);
+      }).catch(() => { cleanup(); resolve(-1); });
+    });
+  }
+  async function _probeAllMicDevices() {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const inputs = devices.filter(d => d.kind === 'audioinput');
+      const results = [];
+      for (const d of inputs) {
+        showTranscript('Probing mics (keep talking)… ' + (results.length + 1) + '/' + inputs.length + ': ' + d.label);
+        const peak = await _probeOneDevice(d);
+        results.push(d.label + '=' + (peak < 0 ? 'ERR' : peak.toFixed(4)));
+      }
+      const msg = 'Probe peaks: ' + results.join('  ');
+      console.log('[assistant]', msg);
+      probeText = msg;
+      showTranscript(msg);
+    } catch (e) { console.error('[assistant] mic probe failed:', e); }
   }
 
   // A suspended AudioContext just never runs its audio graph -- resume() is
@@ -904,5 +971,8 @@
   // the OS/browser renegotiate the active audio device (notably Bluetooth
   // speakers switching profiles), which may briefly interrupt audio playing
   // in another tab. Accepted tradeoff for always-on hands-free listening.
-  startWake();
+  // Runs the one-time device probe first (~6s, see above) -- delays normal
+  // wake-word startup by that much, an accepted tradeoff for a temporary
+  // diagnostic build only.
+  _probeAllMicDevices().finally(startWake);
 })();
