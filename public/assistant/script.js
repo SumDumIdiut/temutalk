@@ -8,8 +8,8 @@
 // is synthesized server-side (POST /api/assistant/tts, local Piper install)
 // and played back through a plain <audio> element, so no client needs
 // anything installed for voice replies to work. Device actions (radio,
-// timers, chat, navigation) are executed here using the globals the tab
-// scripts already define (playStation, addTimer, ws, …).
+// timers, navigation) are executed here using the globals the tab scripts
+// already define (playStation, addTimer, …).
 //
 // Speech-to-text engines, best first:
 //   1. Web Speech API (Chrome/Edge with Google STT)
@@ -771,10 +771,6 @@
               if (typeof updateHomeTimers === 'function') updateHomeTimers();
             }
           }
-          break;
-        case 'send_chat':
-          if (typeof ws !== 'undefined' && ws && ws.readyState === WebSocket.OPEN)
-            ws.send(JSON.stringify({ type: 'chat:msg', room: a.room || 'global', text: a.text }));
           break;
         case 'navigate':
           if (typeof navigate === 'function') navigate(a.tab);

@@ -28,7 +28,6 @@
   <link rel="stylesheet" href="/finance/style.css">
   <link rel="stylesheet" href="/timer/style.css">
   <link rel="stylesheet" href="/system/style.css">
-  <link rel="stylesheet" href="/chat/style.css">
   <link rel="stylesheet" href="/assistant/style.css">
   <style>
     /* ── SPA view system ─────────────────────────────────────────────────── */
@@ -261,7 +260,6 @@
 <div class="view" id="view-weather"></div>
 <div class="view" id="view-system"></div>
 <div class="view" id="view-timer"></div>
-<div class="view" id="view-chat" style="overflow:hidden;"></div>
 
 <!-- ══════════════════ NAV ══════════════════ -->
 <nav class="nav">
@@ -293,10 +291,6 @@
   <button class="nav-item" data-tab="timer" onclick="navigate('timer')">
     <div class="nav-pill"><svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61l1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42A7.93 7.93 0 0 0 12 4c-4.42 0-8 3.58-8 8s3.57 8 8 8 8-3.58 8-8c0-1.82-.62-3.5-1.65-4.85l.68-.76zM12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/></svg></div>
     <span class="nav-label">Timer</span>
-  </button>
-  <button class="nav-item" data-tab="chat" onclick="navigate('chat')">
-    <div class="nav-pill"><svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg></div>
-    <span class="nav-label">Chat</span>
   </button>
   <button class="nav-item" data-tab="system" onclick="navigate('system')">
     <div class="nav-pill"><svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M20 18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z"/></svg></div>
@@ -336,8 +330,7 @@ const BASE_PATH = window.__BASE_PATH__ || '';
 // text that got selected some other way (e.g. browser "Select All"), so
 // those are blocked here too. Form fields opt back in to all three, same as
 // they opt back in to user-select in CSS -- otherwise typing, pasting, and
-// right-click-paste into e.g. the Spotify credential fields or chat's
-// message box would break.
+// right-click-paste into e.g. the Spotify credential fields would break.
 function _isFormField(el) {
   return !!el.closest('input, textarea, [contenteditable="true"]');
 }
@@ -426,7 +419,7 @@ function clearCreds() {
 // kiosk display left open across a deploy would otherwise keep silently
 // running the old code indefinitely. Defers (instead of reloading
 // mid-keystroke) while a text field is actively focused, so an in-progress
-// chat message or credential entry isn't lost.
+// credential entry isn't lost.
 function _checkAssetVersion(v) {
   if (!window.__ASSET_V || String(v) === String(window.__ASSET_V)) return;
   const tryReload = () => {
@@ -452,8 +445,8 @@ async function ensureTab(tab) {
 }
 
 // ── Navigation ────────────────────────────────────────────────────────────
-const TAB_IDX = { home: 0, music: 1, radio: 2, finance: 3, news: 4, weather: 5, timer: 6, chat: 7, system: 8 };
-const TAB_TITLES = { home: 'TemuTalk', music: 'TemuTalk - Music', radio: 'TemuTalk - Radio', finance: 'TemuTalk - Finance', news: 'TemuTalk - News', weather: 'TemuTalk - Weather', timer: 'TemuTalk - Timer', chat: 'TemuTalk - Chat', system: 'TemuTalk - System' };
+const TAB_IDX = { home: 0, music: 1, radio: 2, finance: 3, news: 4, weather: 5, timer: 6, system: 7 };
+const TAB_TITLES = { home: 'TemuTalk', music: 'TemuTalk - Music', radio: 'TemuTalk - Radio', finance: 'TemuTalk - Finance', news: 'TemuTalk - News', weather: 'TemuTalk - Weather', timer: 'TemuTalk - Timer', system: 'TemuTalk - System' };
 let curTab = 'home';
 document.title = TAB_TITLES.home;
 
@@ -468,9 +461,8 @@ async function navigate(tab) {
   const $new = document.getElementById('view-' + tab);
 
   // Blur whatever's focused in the tab we're leaving. Views are hidden via
-  // opacity/transform, not removed from the DOM, so a focused field (e.g.
-  // chat's message box, which intentionally re-focuses itself after Send)
-  // would otherwise silently keep real DOM focus while off-screen -- then
+  // opacity/transform, not removed from the DOM, so a focused field would
+  // otherwise silently keep real DOM focus while off-screen -- then
   // mobile browsers pop the keyboard back up the instant that same field
   // becomes visible again on a later visit, with no field actually tapped.
   if (document.activeElement && $old.contains(document.activeElement)) {
@@ -520,7 +512,6 @@ async function navigate(tab) {
   if (tab === 'system')  { renderThemePanel(); if (typeof loadDeviceName === 'function') loadDeviceName(); }
   if (tab === 'radio') initRadioMap();
   if (tab === 'news' && !newsLoaded) loadNews();
-  if (tab === 'chat') ensureTab('chat').then(() => { if (typeof chatInit === 'function') chatInit(); });
   // Keep URL clean so hard refresh always lands on home
   if (location.search.includes('tab=')) {
     const u = new URL(location.href);
@@ -1240,7 +1231,6 @@ function wsConnect() {
       }
       if (m.type === 'asset-version') _checkAssetVersion(m.v);
       if (m.type === 'mse-broadcaster-status') mseSetBroadcasterOnline(m.online, m.mimeType);
-      if (m.type && m.type.startsWith('chat:') && typeof chatOnMessage === 'function') chatOnMessage(m);
       if ((m.type === 'live-list' || m.type === 'live-channel-ended') && typeof liveOnMessage === 'function') liveOnMessage(m);
       if (m.type === 'radio-remote' && typeof radioOnRemote === 'function') radioOnRemote(m);
     } catch {}
@@ -1284,7 +1274,6 @@ document.addEventListener('fullscreenchange', () => {
 <script src="/system/script.js"></script>
 <script src="/radio/script.js"></script>
 <script src="/news/script.js"></script>
-<script src="/chat/script.js"></script>
 <script src="/assistant/script.js"></script>
 
 <!-- Deep-link (after all tab scripts are loaded) -->
@@ -1296,17 +1285,7 @@ const _oauthErr = _qs.get('error');
 
 // Pre-warm music view in background so it's ready when user taps
 ensureTab('music').then(() => {
-  if (_oauthErr && _oauthErr.startsWith('discord_')) {
-    ensureTab('chat').then(() => {
-      const msg = _oauthErr === 'discord_state_mismatch'    ? 'Auth session expired — please try again.' :
-                  _oauthErr === 'discord_not_configured'    ? 'Discord login isn\'t set up on this server yet.' :
-                  _oauthErr === 'discord_auth_failed'       ? 'Discord authorisation failed — please try again.' :
-                  'Discord auth error: ' + _oauthErr.slice(8).replace(/_/g, ' ');
-      const el = document.getElementById('chat-login-err');
-      if (el) el.textContent = msg;
-      navigate('chat');
-    });
-  } else if (_oauthErr) {
+  if (_oauthErr) {
     const msg = _oauthErr === 'invalid_client'    ? 'Invalid Client ID or Redirect URI mismatch — check your Spotify app settings.' :
                 _oauthErr === 'state_mismatch'    ? 'Auth session expired — please try again.' :
                 _oauthErr === 'auth_failed'       ? 'Spotify authorisation failed — check your Client ID and Secret.' :
