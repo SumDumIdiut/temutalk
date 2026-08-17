@@ -159,8 +159,21 @@
    .lyr-overlay/.lyr-bg classes in style.css -- z-index is the one thing
    that's actually specific to sitting inside #view-home's stacking context. */
 .home-lyr-overlay { z-index: 20; }
+/* #view-home (the containing block above) starts at var(--nav-w), not the
+   true viewport edge -- fine back when the nav was an opaque panel, but
+   now that it's transparent (see .nav in style.css) that left var(--nav-w)
+   was reading as a plain dark gap where the vivid art background should
+   continue. position:fixed instead of the shared .lyr-bg base class's
+   absolute escapes #view-home's box entirely and sizes against the real
+   viewport, so the blurred art now extends the full width, behind the nav
+   too, instead of stopping at its edge. A home-only override, not a change
+   to the shared .lyr-bg rule itself -- the Music tab's #np-lyrics-section
+   is a deliberately-contained rounded panel (border-radius+overflow:hidden
+   in music/style.css), not a full-viewport takeover, and would lose that
+   clipping entirely if its background escaped to fixed positioning too. */
+.home-lyr-overlay .lyr-bg { position: fixed; inset: -24px; }
 .home-lyr-scrim {
-  position: absolute; inset: 0; z-index: 1;
+  position: fixed; inset: 0; z-index: 1;
   /* Was .6/.86/.96 -- with most of the screen covered by 86-96% opaque
      near-black, the background image behind it (whatever its own
      brightness) could only ever contribute 4-14% of what's visible.
