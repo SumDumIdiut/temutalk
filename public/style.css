@@ -201,14 +201,12 @@ body[data-tab="weather"] .b3 { background: radial-gradient(circle, rgba(62,245,1
 }
 
 /* ── Left Sidebar Nav ───────────────────────────────────────────────────── */
-/* Same glass recipe as .card (var(--surface) + var(--glass-border), see
-   above) layered over an explicit dark base instead of var(--surface)
-   alone -- a card can rely on the page's own dark background behind it,
-   but the nav sits directly in front of the constantly-shifting animated
-   blobs for its entire height, so it needs a base that isn't itself
-   theme-variable to stay legible. The layer on top still is, so Glass
-   opacity/Border strength/accent-tint (System tab) all visibly affect it
-   now instead of the sidebar being a fixed, untouchable panel. */
+/* Same glass recipe as .card -- var(--surface) alone, no separate dark
+   backing layer -- so the animated background blobs (and album-art-driven
+   colours when "Auto-colour from album art" is on) actually show through
+   behind the icons instead of stopping at a solid panel. backdrop-filter
+   still softens whatever's behind into a frosted-glass blur rather than a
+   sharp, distracting background right behind small icon/label text. */
 .nav {
   position: fixed;
   top: 0; left: 0; bottom: 0;
@@ -218,8 +216,7 @@ body[data-tab="weather"] .b3 { background: radial-gradient(circle, rgba(62,245,1
   flex-direction: column;
   align-items: center;
   padding: 14px 0 18px;
-  background-color: rgba(6,7,14,.88);
-  background-image: linear-gradient(var(--surface), var(--surface));
+  background: var(--surface);
   border-right: 2px solid var(--glass-border);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
@@ -562,11 +559,11 @@ body[data-tab="weather"] .b3 { background: radial-gradient(circle, rgba(62,245,1
     --surface-highest: rgba(44,46,62,.92);
   }
   * { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
-  /* No blur here (disabled above, for perf), so needs to stay solid --
-     still layers the (already-redefined-above, more opaque) var(--surface)
-     on top of the same dark base as the desktop rule, just without blur
-     softening it. */
-  .nav { background-color: rgba(6,8,16,.9) !important; background-image: linear-gradient(var(--surface), var(--surface)) !important; }
+  /* var(--surface) is already redefined more opaque just above specifically
+     to compensate for no blur here (disabled for perf) -- same background
+     as the desktop rule, that redefinition does the legibility work blur
+     would otherwise have done. */
+  .nav { background: var(--surface) !important; }
   /* Pause drifting blobs on touch — static gradient still shows, no per-frame cost */
   .blob { animation-play-state: paused; }
 }
