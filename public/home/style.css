@@ -150,57 +150,31 @@
 .home-mini-ctrls { display: flex; align-items: center; gap: 9px; }
 
 /* Full-screen karaoke takeover (toggleHomeLyrics() in music/script.js) --
-   covers the whole #view-home (which is already position:fixed, so it's a
-   valid containing block for this) instead of the old 3-line strip clipped
-   inside the music card. Same big Spotify-style presentation as the Music
-   tab's #np-lyrics-section: blurred/darkened album art behind large bold
-   text, current line scaled up and bright, synced lines clickable to seek.
-   Shared chrome (open/close transition, blur/crossfade) lives in the
-   .lyr-overlay/.lyr-bg classes in style.css -- z-index is the one thing
-   that's actually specific to sitting inside #view-home's stacking context. */
-/* #view-home (the containing block .lyr-overlay's position:absolute
-   resolves against, see style.css) starts at var(--nav-w), not the true
-   viewport edge -- fine back when the nav was an opaque panel, but now
-   that it's transparent (see .nav in style.css) that left var(--nav-w)
-   was reading as a plain dark gap where the vivid art background should
-   continue.
+   a body-level sibling now (see the comment at #home-lyr-overlay in
+   index.html), not nested inside #view-home, so the shared .lyr-overlay
+   base class's plain position:absolute; inset:0 (style.css) already covers
+   the true full viewport correctly on its own -- no override needed here
+   beyond z-index. Same big Spotify-style presentation as the Music tab's
+   #np-lyrics-section: blurred/darkened album art behind large bold text,
+   current line scaled up and bright, synced lines clickable to seek.
 
-   Tried escaping it with position:fixed twice, on .lyr-bg alone and then
-   on the whole overlay -- neither actually worked. #view-home itself has
-   will-change:opacity,transform (.view.v-on, index.html, added for the
-   tab-switch transition), and per spec that alone -- no active transform
-   value needed -- makes an element a containing block for ANY
-   position:fixed descendant, at ANY depth. Every position:fixed inside
-   #view-home was getting re-trapped at that same nav-offset box no matter
-   how many layers deep, which is also why the first attempt's own
-   Playwright check looked like it worked (measured x:-4, close enough to
-   0 to read as "fixed") -- that was .lyr-bg's inset:-24px plus its
-   scale(1.1) transform visually growing the box outward from its own
-   center, landing near the true edge by coincidence at that specific
-   viewport width, not because it had actually escaped anything.
-
-   Pure position:absolute math instead, with no reliance on escaping a
-   containing block at all: #view-home's own offset (var(--nav-w) on the
-   left on desktop, var(--nav-h) on the bottom in the mobile bottom-bar
-   layout -- these two swap roles at that breakpoint, see the comment on
-   .view in index.html) is a known, fixed quantity, so it can just be
-   subtracted back out directly. left/width compensate the desktop case,
-   height compensates the mobile one; whichever offset is 0 at a given
-   breakpoint makes its own half of this a no-op, so one rule covers both
-   without a separate override.
-
-   The three content rows below get that same var(--nav-w) added to their
-   own left padding to land in exactly the same visual position as
-   before -- only the background moved. Home-only (not a shared
-   .lyr-overlay change) -- the Music tab's #np-lyrics-section is a
-   deliberately-contained rounded panel (border-radius + overflow:hidden
-   in music/style.css), not a full-viewport takeover. */
-.home-lyr-overlay {
-  z-index: 20;
-  left: calc(-1 * var(--nav-w));
-  width: calc(100% + var(--nav-w));
-  height: calc(100% + var(--nav-h));
-}
+   Three failed attempts before landing on the DOM move (all still in git
+   history if the reasoning's ever needed again): position:fixed on just
+   .lyr-bg, then on the whole overlay -- both kept getting re-trapped
+   inside #view-home's box because #view-home has will-change:opacity,
+   transform (.view.v-on, added for the tab-switch animation), which per
+   spec alone makes an element a containing block for any position:fixed
+   descendant regardless of depth. Then pure position:absolute math
+   (subtracting #view-home's known nav-offset back out) -- correctly sized
+   and positioned by every measurement, confirmed via a live on-device
+   diagnostic, and STILL not visible: #view-home's overflow:hidden was
+   clipping the actual rendered pixels to its own box the whole time,
+   independent of the element's own (correctly computed) position and
+   size. getBoundingClientRect() only reports layout geometry, never
+   whether an ancestor is clipping it -- confirming "positioned right"
+   is not the same thing as confirming "visible". Moving it out of
+   #view-home entirely sidesteps that clipping instead of fighting it. */
+.home-lyr-overlay { z-index: 20; }
 /* .lyr-clock-top (music/style.css) is shared with the Music tab's
    contained panel, which doesn't need this -- same var(--nav-w) content
    offset as .home-lyr-hdr/.home-lyr-body above, scoped to this overlay only. */

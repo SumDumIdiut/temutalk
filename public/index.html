@@ -213,43 +213,55 @@
        np-album hidden el") -- not a display element, don't remove. -->
   <div style="display:none;"><div id="home-np-album"></div></div>
 
-  <!-- Full-screen karaoke takeover (toggleHomeLyrics() in music/script.js) --
-       covers the whole Home view instead of the old cramped 3-line strip
-       inside the music card, same big Spotify-style presentation as the
-       Music tab's own #np-lyrics-section. Shares fetched/parsed lyrics data
-       (loadLyrics()/lyrLines/lyrTimes in music/script.js) with that panel
-       since it's the same track's lyrics. -->
-  <div class="home-lyr-overlay lyr-overlay" id="home-lyr-overlay">
-    <img class="home-lyr-bg lyr-bg" id="home-lyr-bg" src="" alt="">
-    <div class="home-lyr-scrim"></div>
-    <div class="lyr-clock-top">
-      <div class="lyr-clock-time js-clock-time">--:--</div>
-      <button class="home-lyr-close ctrl-btn ctrl-btn-lg" onclick="toggleHomeLyrics()" title="Close lyrics">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+
+</div>
+
+<!-- Full-screen karaoke takeover (toggleHomeLyrics() in music/script.js) --
+     covers the whole viewport, not just #view-home -- it used to be nested
+     inside #view-home (which has overflow:hidden, needed for the rest of
+     that tab's layout) and relied on that overflow to clip it back down
+     while closed instead of an explicit hide. That overflow:hidden turned
+     out to also clip this overlay's own rendering to #view-home's own
+     nav-offset box even once positioned to extend past it -- getBoundingClientRect()
+     still reported the full, uncropped size, which is what made the
+     previous fix look correct in testing despite not actually being
+     visible past that clip on a real device. Moved out to a body-level
+     sibling (matching #bg's own placement) sidesteps that clipping
+     entirely, at the cost of needing an explicit close call in navigate()
+     below instead of getting it for free from #view-home's display:none.
+     Same big Spotify-style presentation as the Music tab's own
+     #np-lyrics-section. Shares fetched/parsed lyrics data
+     (loadLyrics()/lyrLines/lyrTimes in music/script.js) with that panel
+     since it's the same track's lyrics. -->
+<div class="home-lyr-overlay lyr-overlay" id="home-lyr-overlay">
+  <img class="home-lyr-bg lyr-bg" id="home-lyr-bg" src="" alt="">
+  <div class="home-lyr-scrim"></div>
+  <div class="lyr-clock-top">
+    <div class="lyr-clock-time js-clock-time">--:--</div>
+    <button class="home-lyr-close ctrl-btn ctrl-btn-lg" onclick="toggleHomeLyrics()" title="Close lyrics">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+    </button>
+  </div>
+  <div class="home-lyr-hdr">
+    <img class="home-lyr-hdr-art" id="home-lyr-hdr-art" src="" alt="">
+    <div class="home-lyr-hdr-meta">
+      <div class="home-lyr-hdr-title" id="home-lyr-hdr-title">--</div>
+      <div class="home-lyr-hdr-artist" id="home-lyr-hdr-artist"></div>
+      <div class="lyr-progress"><div class="lyr-progress-fill" id="home-lyr-progress-fill"></div></div>
+    </div>
+    <div class="lyr-ctrls">
+      <button class="ctrl-btn" onclick="action('previous')" title="Previous" tabindex="-1">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+      </button>
+      <button class="ctrl-btn ctrl-btn-lg ctrl-btn-play" onclick="togglePlay()" tabindex="-1">
+        <svg width="23" height="23" viewBox="0 0 24 24" fill="currentColor" id="home-lyr-play-icon"><path d="M8 5v14l11-7z"/></svg>
+      </button>
+      <button class="ctrl-btn" onclick="action('next')" title="Next" tabindex="-1">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
       </button>
     </div>
-    <div class="home-lyr-hdr">
-      <img class="home-lyr-hdr-art" id="home-lyr-hdr-art" src="" alt="">
-      <div class="home-lyr-hdr-meta">
-        <div class="home-lyr-hdr-title" id="home-lyr-hdr-title">--</div>
-        <div class="home-lyr-hdr-artist" id="home-lyr-hdr-artist"></div>
-        <div class="lyr-progress"><div class="lyr-progress-fill" id="home-lyr-progress-fill"></div></div>
-      </div>
-      <div class="lyr-ctrls">
-        <button class="ctrl-btn" onclick="action('previous')" title="Previous" tabindex="-1">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
-        </button>
-        <button class="ctrl-btn ctrl-btn-lg ctrl-btn-play" onclick="togglePlay()" tabindex="-1">
-          <svg width="23" height="23" viewBox="0 0 24 24" fill="currentColor" id="home-lyr-play-icon"><path d="M8 5v14l11-7z"/></svg>
-        </button>
-        <button class="ctrl-btn" onclick="action('next')" title="Next" tabindex="-1">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-        </button>
-      </div>
-    </div>
-    <div class="home-lyr-body" id="home-lyr-track"></div>
   </div>
-
+  <div class="home-lyr-body" id="home-lyr-track"></div>
 </div>
 
 <!-- ══════════════════ OTHER VIEWS (lazy-loaded) ══════════════════ -->
@@ -453,6 +465,15 @@ document.title = TAB_TITLES.home;
 async function navigate(tab) {
   if (tab === curTab) return;
   await ensureTab(tab);
+
+  // The lyrics overlay now lives outside #view-home (see index.html's own
+  // comment at #home-lyr-overlay) so its full-viewport background isn't
+  // clipped by that view's overflow:hidden -- it no longer gets hidden for
+  // free by #view-home's own display:none, so it needs an explicit close
+  // here or it would stay floating over whichever tab is navigated to next.
+  if (curTab === 'home' && typeof homeLyrOpen !== 'undefined' && homeLyrOpen && typeof toggleHomeLyrics === 'function') {
+    toggleHomeLyrics();
+  }
 
   document.title = TAB_TITLES[tab] || 'TemuTalk';
   document.body.dataset.tab = tab;
