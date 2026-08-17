@@ -201,6 +201,14 @@ body[data-tab="weather"] .b3 { background: radial-gradient(circle, rgba(62,245,1
 }
 
 /* ── Left Sidebar Nav ───────────────────────────────────────────────────── */
+/* Same glass recipe as .card (var(--surface) + var(--glass-border), see
+   above) layered over an explicit dark base instead of var(--surface)
+   alone -- a card can rely on the page's own dark background behind it,
+   but the nav sits directly in front of the constantly-shifting animated
+   blobs for its entire height, so it needs a base that isn't itself
+   theme-variable to stay legible. The layer on top still is, so Glass
+   opacity/Border strength/accent-tint (System tab) all visibly affect it
+   now instead of the sidebar being a fixed, untouchable panel. */
 .nav {
   position: fixed;
   top: 0; left: 0; bottom: 0;
@@ -210,10 +218,11 @@ body[data-tab="weather"] .b3 { background: radial-gradient(circle, rgba(62,245,1
   flex-direction: column;
   align-items: center;
   padding: 14px 0 18px;
-  background: rgba(6,7,14,.95);
-  border-right: 2px solid rgba(255,255,255,.1);
-  backdrop-filter: blur(36px);
-  -webkit-backdrop-filter: blur(36px);
+  background-color: rgba(6,7,14,.88);
+  background-image: linear-gradient(var(--surface), var(--surface));
+  border-right: 2px solid var(--glass-border);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
 }
 
 .nav-item {
@@ -237,7 +246,7 @@ body[data-tab="weather"] .b3 { background: radial-gradient(circle, rgba(62,245,1
 .nav-pill {
   width: 52px;
   height: 38px;
-  border-radius: 16px;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -246,20 +255,31 @@ body[data-tab="weather"] .b3 { background: radial-gradient(circle, rgba(62,245,1
 .nav-item:hover .nav-pill { transform: scale(1.1); background: var(--surface-hi); }
 .nav-item:active .nav-pill { transform: scale(.9); }
 
+/* Default (no per-section override below, e.g. Home/News) -- was a
+   hardcoded snapshot of --primary's original default purple, so it never
+   actually followed the accent colour picker (System tab) even though
+   .nav-item.active's own text colour already did (var(--primary) above).
+   Deriving from the same --primary-* tokens the accent picker writes
+   fixes that mismatch. */
 .nav-item.active .nav-pill {
-  background: linear-gradient(135deg, rgba(176,159,252,.32), rgba(248,124,196,.16));
-  box-shadow: 0 0 20px rgba(176,159,252,.36), inset 0 1px 0 rgba(255,255,255,.18);
-  border: 1.5px solid rgba(176,159,252,.28);
+  background: linear-gradient(135deg, var(--primary-glow), var(--primary-dim));
+  box-shadow: 0 0 20px var(--primary-glow), inset 0 1px 0 rgba(255,255,255,.18);
+  border: 1.5px solid var(--primary-dim);
 }
 
-/* Per-section accent colours */
-[data-tab="music"].active    { color: #f87cc4; }
+/* Per-section accent colours -- deliberately fixed brand colours per tab,
+   not meant to follow the user's accent picker (unlike the default pill
+   above), same as each tab's own in-view branding. Routed through the
+   matching named tokens where one already exists (used the same way
+   elsewhere, e.g. finance/style.css's var(--green)) instead of repeating
+   the literal value. */
+[data-tab="music"].active    { color: var(--pink); }
 [data-tab="music"].active    .nav-pill { background: rgba(248,124,196,.26); box-shadow: 0 0 20px rgba(248,124,196,.38); border-color: rgba(248,124,196,.3); }
-[data-tab="timer"].active    { color: #ff9f4a; }
+[data-tab="timer"].active    { color: var(--orange); }
 [data-tab="timer"].active    .nav-pill { background: rgba(255,159,74,.26); box-shadow: 0 0 20px rgba(255,159,74,.38); border-color: rgba(255,159,74,.3); }
-[data-tab="finance"].active  { color: #3ef5a8; }
+[data-tab="finance"].active  { color: var(--green); }
 [data-tab="finance"].active  .nav-pill { background: rgba(62,245,168,.26); box-shadow: 0 0 20px rgba(62,245,168,.38); border-color: rgba(62,245,168,.3); }
-[data-tab="system"].active   { color: #42c8ff; }
+[data-tab="system"].active   { color: var(--sky); }
 [data-tab="system"].active   .nav-pill { background: rgba(66,200,255,.26); box-shadow: 0 0 20px rgba(66,200,255,.38); border-color: rgba(66,200,255,.3); }
 [data-tab="radio"].active    { color: #ee80ff; }
 [data-tab="radio"].active    .nav-pill { background: rgba(238,128,255,.26); box-shadow: 0 0 20px rgba(238,128,255,.38); border-color: rgba(238,128,255,.3); }
@@ -542,7 +562,11 @@ body[data-tab="weather"] .b3 { background: radial-gradient(circle, rgba(62,245,1
     --surface-highest: rgba(44,46,62,.92);
   }
   * { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
-  .nav { background: rgba(6,8,16,.97) !important; }
+  /* No blur here (disabled above, for perf), so needs to stay solid --
+     still layers the (already-redefined-above, more opaque) var(--surface)
+     on top of the same dark base as the desktop rule, just without blur
+     softening it. */
+  .nav { background-color: rgba(6,8,16,.9) !important; background-image: linear-gradient(var(--surface), var(--surface)) !important; }
   /* Pause drifting blobs on touch — static gradient still shows, no per-frame cost */
   .blob { animation-play-state: paused; }
 }
@@ -580,7 +604,7 @@ body.no-blob-motion .blob { animation-play-state: paused; }
     align-items: stretch;
     padding: 6px max(6px, env(safe-area-inset-left)) calc(6px + var(--safe-b)) max(6px, env(safe-area-inset-right));
     border-right: none;
-    border-top: 2px solid rgba(255,255,255,.1);
+    border-top: 2px solid var(--glass-border);
     overflow-x: auto;
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
@@ -656,7 +680,7 @@ body.no-blob-motion .blob { animation-play-state: paused; }
     align-items: center;
     padding: 8px 4px 8px max(4px, env(safe-area-inset-left));
     border-top: none;
-    border-right: 2px solid rgba(255,255,255,.1);
+    border-right: 2px solid var(--glass-border);
     overflow-y: auto;
     overflow-x: hidden;
     scrollbar-width: none;
