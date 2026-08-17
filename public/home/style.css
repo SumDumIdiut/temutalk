@@ -158,22 +158,55 @@
    Shared chrome (open/close transition, blur/crossfade) lives in the
    .lyr-overlay/.lyr-bg classes in style.css -- z-index is the one thing
    that's actually specific to sitting inside #view-home's stacking context. */
-.home-lyr-overlay { z-index: 20; }
-/* #view-home (the containing block above) starts at var(--nav-w), not the
-   true viewport edge -- fine back when the nav was an opaque panel, but
-   now that it's transparent (see .nav in style.css) that left var(--nav-w)
+/* #view-home (the containing block .lyr-overlay's position:absolute
+   resolves against, see style.css) starts at var(--nav-w), not the true
+   viewport edge -- fine back when the nav was an opaque panel, but now
+   that it's transparent (see .nav in style.css) that left var(--nav-w)
    was reading as a plain dark gap where the vivid art background should
-   continue. position:fixed instead of the shared .lyr-bg base class's
-   absolute escapes #view-home's box entirely and sizes against the real
-   viewport, so the blurred art now extends the full width, behind the nav
-   too, instead of stopping at its edge. A home-only override, not a change
-   to the shared .lyr-bg rule itself -- the Music tab's #np-lyrics-section
-   is a deliberately-contained rounded panel (border-radius+overflow:hidden
-   in music/style.css), not a full-viewport takeover, and would lose that
-   clipping entirely if its background escaped to fixed positioning too. */
-.home-lyr-overlay .lyr-bg { position: fixed; inset: -24px; }
+   continue.
+
+   Tried escaping it with position:fixed twice, on .lyr-bg alone and then
+   on the whole overlay -- neither actually worked. #view-home itself has
+   will-change:opacity,transform (.view.v-on, index.html, added for the
+   tab-switch transition), and per spec that alone -- no active transform
+   value needed -- makes an element a containing block for ANY
+   position:fixed descendant, at ANY depth. Every position:fixed inside
+   #view-home was getting re-trapped at that same nav-offset box no matter
+   how many layers deep, which is also why the first attempt's own
+   Playwright check looked like it worked (measured x:-4, close enough to
+   0 to read as "fixed") -- that was .lyr-bg's inset:-24px plus its
+   scale(1.1) transform visually growing the box outward from its own
+   center, landing near the true edge by coincidence at that specific
+   viewport width, not because it had actually escaped anything.
+
+   Pure position:absolute math instead, with no reliance on escaping a
+   containing block at all: #view-home's own offset (var(--nav-w) on the
+   left on desktop, var(--nav-h) on the bottom in the mobile bottom-bar
+   layout -- these two swap roles at that breakpoint, see the comment on
+   .view in index.html) is a known, fixed quantity, so it can just be
+   subtracted back out directly. left/width compensate the desktop case,
+   height compensates the mobile one; whichever offset is 0 at a given
+   breakpoint makes its own half of this a no-op, so one rule covers both
+   without a separate override.
+
+   The three content rows below get that same var(--nav-w) added to their
+   own left padding to land in exactly the same visual position as
+   before -- only the background moved. Home-only (not a shared
+   .lyr-overlay change) -- the Music tab's #np-lyrics-section is a
+   deliberately-contained rounded panel (border-radius + overflow:hidden
+   in music/style.css), not a full-viewport takeover. */
+.home-lyr-overlay {
+  z-index: 20;
+  left: calc(-1 * var(--nav-w));
+  width: calc(100% + var(--nav-w));
+  height: calc(100% + var(--nav-h));
+}
+/* .lyr-clock-top (music/style.css) is shared with the Music tab's
+   contained panel, which doesn't need this -- same var(--nav-w) content
+   offset as .home-lyr-hdr/.home-lyr-body above, scoped to this overlay only. */
+.home-lyr-overlay .lyr-clock-top { padding-left: calc(var(--nav-w) + 20px); }
 .home-lyr-scrim {
-  position: fixed; inset: 0; z-index: 1;
+  position: absolute; inset: 0; z-index: 1;
   /* Was .6/.86/.96 -- with most of the screen covered by 86-96% opaque
      near-black, the background image behind it (whatever its own
      brightness) could only ever contribute 4-14% of what's visible.
@@ -184,7 +217,7 @@
 }
 .home-lyr-hdr {
   position: relative; z-index: 2; flex-shrink: 0;
-  display: flex; align-items: center; gap: 18px; padding: 22px 30px 16px;
+  display: flex; align-items: center; gap: 18px; padding: 22px 30px 16px calc(var(--nav-w) + 30px);
 }
 .home-lyr-hdr-art  { width: 60px; height: 60px; border-radius: 12px; object-fit: cover; flex-shrink: 0; background: rgba(255,255,255,.08); box-shadow: 0 6px 20px rgba(0,0,0,.5); }
 .home-lyr-hdr-art[src=""] { visibility: hidden; }
@@ -196,7 +229,7 @@
 .home-lyr-close:active { transform: translateY(-50%) scale(.9); }
 .home-lyr-body {
   position: relative; z-index: 2; flex: 1; min-height: 0; overflow-y: auto;
-  padding: 12px 48px 48vh; scrollbar-width: none;
+  padding: 12px 48px 48vh calc(var(--nav-w) + 48px); scrollbar-width: none;
 }
 .home-lyr-body::-webkit-scrollbar { display: none; }
 .home-lyr-ln {
