@@ -1570,8 +1570,12 @@ function _spotifySeek(ms) {
 }
 
 // ── Override seekTo ───────────────────────────────────────────────────────────
+// currentTarget (not a hardcoded #fp-bar lookup) so the same handler works
+// from any progress-bar instance -- e.g. the Home mini-player's bar, which
+// already had the same cursor:pointer/hover-grow affordance as the full
+// player bar's #fp-bar but nothing wired up behind the click.
 function seekTo(e) {
-  const rect = document.getElementById('fp-bar').getBoundingClientRect();
+  const rect = e.currentTarget.getBoundingClientRect();
   progMs = Math.floor(Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)) * durMs);
   _syncProgAnchor(progMs);
   renderProg();
