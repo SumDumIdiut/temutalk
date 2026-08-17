@@ -195,7 +195,9 @@
     .np-lyr-line.active { color: #fff; transform: scale(1.045); }
     .np-lyr-line.past   { color: rgba(255,255,255,.2); }
     .np-lyr-line.lyr-note { display: flex; align-items: center; padding: 14px 0; }
-    .np-lyr-line.lyr-note .lyr-note-svg { width: 26px; height: 26px; }
+    /* Same optical-alignment nudge as the home widget's version (see
+       home/style.css) scaled to this icon's slightly smaller size. */
+    .np-lyr-line.lyr-note .lyr-note-svg { width: 26px; height: 26px; margin-left: -6.5px; }
     .np-lyr-status { position: relative; z-index: 2; padding: 40vh 26px 0; text-align: center; color: rgba(255,255,255,.55); font-size: 15px; font-weight: 700; }
 
     /* Instrumental-gap note icon -- shared look with the home widget's, a

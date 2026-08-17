@@ -202,7 +202,12 @@
    a pulsing glow while it's the active line, same as the sung lines light
    up by going bold/white. */
 .home-lyr-ln.lyr-note { display: flex; align-items: center; padding: 15px 0; }
-.home-lyr-ln.lyr-note .lyr-note-svg { width: 28px; height: 28px; }
+/* The note glyph's own drawn stroke sits inset within its 24x24 viewBox
+   (roughly centered, ~6/24 empty on each side) -- box measurements line up
+   exactly with the text lines around it, but the visible ink still reads
+   as indented next to lyric text's much smaller left-side-bearing. Nudges
+   the whole icon left to compensate, checked against the real render. */
+.home-lyr-ln.lyr-note .lyr-note-svg { width: 28px; height: 28px; margin-left: -7px; }
 .lyr-note-svg { color: var(--text-muted); opacity: .4; transition: color .35s ease, opacity .35s ease; }
 .active .lyr-note-svg { color: var(--primary); opacity: 1; filter: drop-shadow(0 0 5px var(--primary-glow)); animation: lyr-note-pulse 1.3s ease-in-out infinite; }
 @keyframes lyr-note-pulse {
