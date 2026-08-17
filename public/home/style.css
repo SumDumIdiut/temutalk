@@ -150,31 +150,20 @@
 .home-mini-ctrls { display: flex; align-items: center; gap: 9px; }
 
 /* Full-screen karaoke takeover (toggleHomeLyrics() in music/script.js) --
-   a body-level sibling now (see the comment at #home-lyr-overlay in
+   a body-level sibling (see the comment at #home-lyr-overlay in
    index.html), not nested inside #view-home, so the shared .lyr-overlay
    base class's plain position:absolute; inset:0 (style.css) already covers
-   the true full viewport correctly on its own -- no override needed here
-   beyond z-index. Same big Spotify-style presentation as the Music tab's
-   #np-lyrics-section: blurred/darkened album art behind large bold text,
-   current line scaled up and bright, synced lines clickable to seek.
+   the true full viewport on its own. Same big Spotify-style presentation
+   as the Music tab's #np-lyrics-section: blurred/darkened album art behind
+   large bold text, current line scaled up and bright, synced lines
+   clickable to seek.
 
-   Three failed attempts before landing on the DOM move (all still in git
-   history if the reasoning's ever needed again): position:fixed on just
-   .lyr-bg, then on the whole overlay -- both kept getting re-trapped
-   inside #view-home's box because #view-home has will-change:opacity,
-   transform (.view.v-on, added for the tab-switch animation), which per
-   spec alone makes an element a containing block for any position:fixed
-   descendant regardless of depth. Then pure position:absolute math
-   (subtracting #view-home's known nav-offset back out) -- correctly sized
-   and positioned by every measurement, confirmed via a live on-device
-   diagnostic, and STILL not visible: #view-home's overflow:hidden was
-   clipping the actual rendered pixels to its own box the whole time,
-   independent of the element's own (correctly computed) position and
-   size. getBoundingClientRect() only reports layout geometry, never
-   whether an ancestor is clipping it -- confirming "positioned right"
-   is not the same thing as confirming "visible". Moving it out of
-   #view-home entirely sidesteps that clipping instead of fighting it. */
-.home-lyr-overlay { z-index: 20; }
+   overflow:hidden is required here: .lyr-bg (style.css) deliberately
+   overscans its own container (inset:-24px + scale(1.1), to push the
+   blur's soft edge past whatever clips it) and needs something to clip it
+   back down to the viewport edge now that #view-home's own overflow:hidden
+   no longer sits above it in the DOM. */
+.home-lyr-overlay { z-index: 20; overflow: hidden; }
 /* .lyr-clock-top (music/style.css) is shared with the Music tab's
    contained panel, which doesn't need this -- same var(--nav-w) content
    offset as .home-lyr-hdr/.home-lyr-body above, scoped to this overlay only. */
