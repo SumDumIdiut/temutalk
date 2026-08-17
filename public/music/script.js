@@ -879,6 +879,43 @@ function toggleHomeLyrics() {
   homeLyrOpen = !homeLyrOpen;
   view.classList.toggle('lyr-open', homeLyrOpen);
   if (homeLyrOpen) { homeLyrCurrentIdx = -1; requestAnimationFrame(loadLyrics); }
+  if (homeLyrOpen) setTimeout(_lyrDiag, 400); else _lyrDiagRemove();
+}
+
+// Temporary on-screen diagnostic -- the nav-transparency fix for this
+// overlay (see home/style.css) checks out locally every time it's been
+// tried (three attempts now) but hasn't shown up on the actual device
+// after a genuine hard refresh, so local reproduction clearly isn't
+// matching whatever's really happening there. Surfaces the actual computed
+// values directly instead of guessing at a fourth local repro. Remove once
+// this is actually resolved.
+function _lyrDiag() {
+  _lyrDiagRemove();
+  const overlay = document.getElementById('home-lyr-overlay');
+  const viewHome = document.getElementById('view-home');
+  const nav = document.querySelector('.nav');
+  if (!overlay || !viewHome || !nav) return;
+  const or = overlay.getBoundingClientRect();
+  const vr = viewHome.getBoundingClientRect();
+  const vcs = getComputedStyle(viewHome);
+  const ncs = getComputedStyle(nav);
+  const navW = getComputedStyle(document.documentElement).getPropertyValue('--nav-w').trim();
+  const el = document.createElement('div');
+  el.id = 'lyr-diag';
+  el.style.cssText = 'position:fixed;top:8px;left:8px;z-index:99999;background:rgba(0,0,0,.9);color:#0f0;font:11px/1.4 monospace;padding:8px 10px;border-radius:6px;max-width:90vw;white-space:pre-wrap;pointer-events:none;';
+  el.textContent =
+    'nav-w: ' + navW + '\n' +
+    'overlay rect: left=' + or.left.toFixed(1) + ' width=' + or.width.toFixed(1) + '\n' +
+    'view-home rect: left=' + vr.left.toFixed(1) + ' width=' + vr.width.toFixed(1) + '\n' +
+    'view-home overflow: ' + vcs.overflow + '\n' +
+    'nav bg: ' + ncs.backgroundColor + '\n' +
+    'nav backdrop-filter: ' + (ncs.backdropFilter || ncs.webkitBackdropFilter || '(none)') + '\n' +
+    'window.innerWidth: ' + window.innerWidth;
+  document.body.appendChild(el);
+}
+function _lyrDiagRemove() {
+  const el = document.getElementById('lyr-diag');
+  if (el) el.remove();
 }
 
 function toggleTabLyrics() {
