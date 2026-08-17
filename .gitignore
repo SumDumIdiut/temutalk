@@ -28,5 +28,9 @@ server.log
 # Python
 __pycache__/
 *.pyc
-.chat-state.json
 telemetry/
+
+# Orphaned now that lib/chat.js is removed, but the file itself may still
+# exist on disk (old runtime data) -- keep ignored so it never gets
+# accidentally committed.
+.chat-state.json

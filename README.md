@@ -36,7 +36,7 @@ can keep using the menu while it runs.
 
 ### Web control panel
 
-`install.sh` also starts a small HTTPS control panel, reachable from any device on the same LAN at `https://<this machine's IP>:9090/` (option 7 toggles it, or it's printed on the TUI status line). It lets you start/stop the Node server+tunnel independently of the TUI, plus chat moderation, device monitoring, and account management.
+`install.sh` also starts a small HTTPS control panel, reachable from any device on the same LAN at `https://<this machine's IP>:9090/` (option 7 toggles it, or it's printed on the TUI status line). It lets you start/stop the Node server+tunnel independently of the TUI, plus monitor connected devices.
 
 It's gated behind a per-install access token, auto-generated on first start and saved to `.run/panel-token` (gitignored, never leaves the device). Traffic is TLS-encrypted, sessions are HMAC-signed cookies that reset on every panel restart, and repeated wrong-token attempts get rate-limited and temporarily locked out. No setup is "unbreachable," but this is real auth + real encryption, not security theater — see the comment at the top of `control-panel.js` for the exact model.
 

@@ -1,8 +1,6 @@
 // ── Device name ──────────────────────────────────────────────────────────
 // A per-device label (persisted server-side, keyed by deviceId) shown in
-// Radio's "Play on…" device list instead of whichever chat/Discord account
-// happens to be signed in on that device -- devices and chat identities are
-// independent concepts and this was conflating the two.
+// Radio's "Play on…" device list instead of a generic device ID.
 function loadDeviceName() {
   const input = document.getElementById('device-name-input');
   if (!input) return;

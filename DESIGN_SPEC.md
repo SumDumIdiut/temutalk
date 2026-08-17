@@ -4,7 +4,7 @@
 
 TemuTalk is a personal, multi-device web application combining music
 playback control, internet radio, weather, financial and news data, a
-voice assistant, and a real-time chat/live-broadcast system. It is
+voice assistant, and a real-time live-broadcast system. It is
 designed as a single-page application backed by a single-file Node.js
 server, intended for a small, known set of devices rather than public
 signup.
@@ -37,7 +37,7 @@ A single Express application providing:
 - REST endpoints, namespaced per feature area (music, radio, weather,
   finance, news, assistant).
 - A WebSocket hub for real-time state push (player state, live broadcast
-  rosters, chat).
+  rosters).
 
 ### 3.2 Frontend
 
@@ -88,8 +88,8 @@ A headless interaction surface (no persistent visible UI) that:
    unavailable.
 2. Sends the transcribed request to the server, which runs a tool-use
    loop against a locally hosted language model to decide on an action
-   (playing radio, setting a timer, sending a chat message, navigating a
-   tab, or answering a factual question).
+   (playing radio, setting a timer, navigating a tab, or answering a
+   factual question).
 3. Synthesizes the reply server-side using a bundled, portable
    text-to-speech engine and streams the resulting audio back for
    playback.
@@ -130,8 +130,8 @@ the client where the provider's own flow does not require it.
 
 ## 6. Administration
 
-An administrative console — chat moderation, device management, account
-management, and a remote terminal — is provided as part of the shared
+An administrative console — device management and a remote terminal — is
+provided as part of the shared
 Dev Panel service (see the top-level `DESIGN_SPEC.md`, section 6). Access
 is gated by possession of a physical key file rather than a password; the
 server stores only a cryptographic hash of the key's content.

@@ -83,7 +83,6 @@ const setupSpotifyRoutes    = require('./lib/spotify');
 const setupDataRoutes       = require('./lib/data');
 const setupStreamRoutes     = require('./lib/stream');
 const setupWebSocket        = require('./lib/ws');
-const chat                  = require('./lib/chat');
 const setupYtMusicRoutes    = require('./lib/yt-music');
 const setupAppleMusicRoutes = require('./lib/apple-music');
 const setupAssistantRoutes  = require('./lib/assistant');
@@ -249,7 +248,6 @@ router.get('/api/devices/online', (req, res) => {
       deviceId: id,
       self: id === selfId,
       name: devices.get(id)?.name || ('Device-' + id.slice(0, 6)),
-      avatarUrl: chat.chatGetAvatarUrl(id),
       radio: state.radioNowPlaying.get(id) || null,
     });
   }
@@ -261,7 +259,6 @@ router.get('/api/devices/online', (req, res) => {
 setupSpotifyRoutes(router, REDIRECT_URI, MAIN_BASE);
 setupDataRoutes(router, WEATHER_CITY);
 const { broadcastLiveList } = setupStreamRoutes(router, MAIN_BASE, BASE_PATH);
-chat.setupChatRoutes(router, resolveDevice, BASE_PATH, MAIN_BASE);
 setupYtMusicRoutes(router, MAIN_BASE);
 setupAppleMusicRoutes(router);
 setupAssistantRoutes(router, resolveDevice, WEATHER_CITY);
