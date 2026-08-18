@@ -1219,36 +1219,10 @@ function setChip(ok) {
 
 const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
 let ws, wsReady = false;
-
-// Temporary on-screen diagnostic -- "the music widget never updates" can't
-// be reproduced locally (needs a real Spotify session actually playing
-// something), and this runs on a kiosk tablet with no convenient devtools
-// access, so this surfaces the same info a console would directly on
-// screen instead of guessing blind. Remove once the cause is confirmed.
-const _wsDiag = { connects: 0, lastOpenAt: 0, lastCloseAt: 0, lastMsgType: '-', lastMsgAt: 0, lastPlayer: null };
-function _wsDiagRender() {
-  let el = document.getElementById('ws-diag');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'ws-diag';
-    el.style.cssText = 'position:fixed;bottom:8px;right:8px;z-index:99999;background:rgba(0,0,0,.85);color:#0f0;font:10px/1.4 monospace;padding:7px 9px;border-radius:6px;max-width:280px;white-space:pre-wrap;pointer-events:none;';
-    document.body.appendChild(el);
-  }
-  const ago = t => t ? ((Date.now() - t) / 1000).toFixed(1) + 's ago' : 'never';
-  el.textContent =
-    'ws-diag: deviceId=' + deviceId.slice(0, 8) + '\n' +
-    'connects=' + _wsDiag.connects + ' open=' + wsReady + '\n' +
-    'lastOpen=' + ago(_wsDiag.lastOpenAt) + ' lastClose=' + ago(_wsDiag.lastCloseAt) + '\n' +
-    'lastMsg=' + _wsDiag.lastMsgType + ' (' + ago(_wsDiag.lastMsgAt) + ')\n' +
-    'lastPlayer=' + (_wsDiag.lastPlayer ? JSON.stringify(_wsDiag.lastPlayer) : 'none');
-}
-setInterval(_wsDiagRender, 1000);
-
 function wsConnect() {
   ws = new WebSocket(wsProto + '//' + location.host + BASE_PATH + '/');
   ws.onopen = () => {
     wsReady = true;
-    _wsDiag.connects++; _wsDiag.lastOpenAt = Date.now(); _wsDiagRender();
     ws.send(JSON.stringify({ type: 'join', deviceId }));
     if (typeof liveInit === 'function') liveInit(ws);
   };
@@ -1262,11 +1236,6 @@ function wsConnect() {
     }
     try {
       const m = JSON.parse(e.data);
-      _wsDiag.lastMsgType = m.type; _wsDiag.lastMsgAt = Date.now();
-      if (m.type === 'player') {
-        _wsDiag.lastPlayer = { authenticated: m.authenticated, active: m.active, hasItem: !!m.item, error: m.error?.status || m.error?.message || null };
-      }
-      _wsDiagRender();
       if (m.type === 'status') {
         setChip(m.authenticated);
         ensureTab('music').then(() => {
@@ -1289,7 +1258,6 @@ function wsConnect() {
   };
   ws.onclose = ws.onerror = () => {
     wsReady = false;
-    _wsDiag.lastCloseAt = Date.now(); _wsDiagRender();
     setChip(false);
     setTimeout(wsConnect, 3000);
   };
