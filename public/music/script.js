@@ -879,6 +879,7 @@ function toggleHomeLyrics() {
   homeLyrOpen = !homeLyrOpen;
   view.classList.toggle('lyr-open', homeLyrOpen);
   if (homeLyrOpen) { homeLyrCurrentIdx = -1; requestAnimationFrame(loadLyrics); }
+  document.body.classList.toggle('nav-invert', homeLyrOpen || tabLyrOpen);
 }
 
 function toggleTabLyrics() {
@@ -889,6 +890,7 @@ function toggleTabLyrics() {
   view.classList.toggle('lyr-open', tabLyrOpen);
   btn?.classList.toggle('lit', tabLyrOpen);
   if (tabLyrOpen) { tabLyrCurrentIdx = -1; requestAnimationFrame(loadLyrics); }
+  document.body.classList.toggle('nav-invert', homeLyrOpen || tabLyrOpen);
 }
 
 // Renders a small, pre-blurred thumbnail instead of relying on a live CSS
