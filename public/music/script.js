@@ -589,8 +589,63 @@ function closeAddToPlaylistModal() {
 }
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') closeAddToPlaylistModal();
+  if (e.key === 'Escape') { closeAddToPlaylistModal(); closeCreatePlaylistModal(); }
 });
+
+// ── Create / delete playlists ──────────────────────────────────────────────
+function openCreatePlaylistModal() {
+  const modal = document.getElementById('create-playlist-modal');
+  const input = document.getElementById('cpm-name-input');
+  const status = document.getElementById('cpm-status');
+  if (!modal || !input) return;
+  input.value = '';
+  if (status) status.textContent = '';
+  modal.classList.add('open');
+  input.focus();
+}
+function closeCreatePlaylistModal() {
+  document.getElementById('create-playlist-modal')?.classList.remove('open');
+}
+function submitCreatePlaylist() {
+  const input  = document.getElementById('cpm-name-input');
+  const status = document.getElementById('cpm-status');
+  const btn    = document.getElementById('cpm-submit-btn');
+  const name   = input?.value.trim();
+  if (!name) { if (status) status.textContent = 'Enter a name first.'; return; }
+  if (btn) btn.disabled = true;
+  if (status) status.textContent = 'Creating…';
+  api('/api/playlists', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }),
+  }).then(p => {
+    if (btn) btn.disabled = false;
+    if (p.error) { if (status) status.textContent = p.error; return; }
+    libSidebarCache.playlists = null;
+    closeCreatePlaylistModal();
+    setLibTab('playlists');
+    openPlaylist(p.id);
+  }).catch(() => {
+    if (btn) btn.disabled = false;
+    if (status) status.textContent = 'Could not create playlist — check your connection.';
+  });
+}
+
+// Spotify has no true delete for a user's own library -- this unfollows,
+// same as the server route (see its own comment in lib/spotify.js).
+function deleteCurrentPlaylist() {
+  if (!vplUri) return;
+  const id   = vplUri.split(':').pop();
+  const name = document.getElementById('vpl-name')?.textContent || 'this playlist';
+  if (!confirm('Delete "' + name + '"? This can\'t be undone from here.')) return;
+  const btn = document.getElementById('vpl-delete-btn');
+  if (btn) btn.disabled = true;
+  api('/api/playlist/' + id, { method: 'DELETE' }).then(r => {
+    if (r.error) { if (btn) btn.disabled = false; alert(r.error); return; }
+    libSidebarCache.playlists = null;
+    allPlaylists = allPlaylists.filter(p => p.id !== id);
+    goBack();
+    setLibTab('playlists');
+  }).catch(() => { if (btn) btn.disabled = false; alert('Could not delete playlist — check your connection.'); });
+}
 
 function addCurrentTrackToPlaylist(btnEl, playlistId) {
   if (!currentTrackId) return;
@@ -681,6 +736,8 @@ function openPlaylist(id) {
       .map((item, originalIdx) => ({ item, originalIdx }))
       .filter(x => x.item?.track);
     document.getElementById('vpl-sub').textContent = (info.owner ? ownerLabel(info) + ' · ' : '') + items.length + ' songs';
+    const delBtn = document.getElementById('vpl-delete-btn');
+    if (delBtn) delBtn.title = (info.owner?.id && info.owner.id === _meId) ? 'Delete playlist' : 'Remove from library';
     document.getElementById('vpl-tracks').innerHTML = items.map(({ item, originalIdx }, displayIdx) => {
       const t = item.track;
       return '<div class="det-track" data-uri="' + vplUri + '" data-off="' + originalIdx + '" onclick="playContext(this.dataset.uri,+this.dataset.off)">' +
@@ -768,6 +825,14 @@ let libTab = 'playlists';
 let discoverLoaded = false, libArtistsCache = null;
 
 let libSidebarCache = {};
+
+// Prepended to the cached Playlists sidebar list -- reuses .sl-item's own
+// layout/hover chrome so it sits flush with the real rows below it instead
+// of looking like a separate control bolted on top.
+const SL_NEW_PLAYLIST_ROW =
+  '<div class="sl-item sl-add-item" onclick="openCreatePlaylistModal()">' +
+  '<div class="sl-add-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg></div>' +
+  '<div class="sl-item-info"><div class="sl-item-name">New Playlist</div></div></div>';
 
 // ── Stats tab ─────────────────────────────────────────────────────────────
 let statsLoaded = false, statsRange = 'medium_term';
@@ -1672,12 +1737,13 @@ function setLibTab(tab) {
     if (libSidebarCache.playlists) { el.innerHTML = libSidebarCache.playlists; return; }
     api('/api/playlists').then(d => {
       allPlaylists = d.items || [];
-      libSidebarCache.playlists = allPlaylists.map(p =>
+      const rows = allPlaylists.map(p =>
         '<div class="sl-item" data-id="' + p.id + '" onclick="openPlaylist(this.dataset.id)">' +
         '<img src="' + (p.images?.[0]?.url || '') + '" alt="" loading="lazy">' +
         '<div class="sl-item-info"><div class="sl-item-name">' + esc(p.name) + '</div>' +
         '<div class="sl-item-sub">Playlist · ' + esc(ownerLabel(p)) + '</div></div></div>'
       ).join('') || '<div style="color:var(--text-muted);font-size:13px;padding:8px;">No playlists</div>';
+      libSidebarCache.playlists = SL_NEW_PLAYLIST_ROW + rows;
       el.innerHTML = libSidebarCache.playlists;
     }).catch(() => {});
   } else if (tab === 'artists') {
