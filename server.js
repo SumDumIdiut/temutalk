@@ -12,10 +12,8 @@ require('dotenv').config();
 
 const express    = require('express');
 const https      = require('https');
-const http       = require('http');
 const WebSocket  = require('ws');
 const selfsigned = require('selfsigned');
-const net        = require('net');
 const fs         = require('fs');
 const os         = require('os');
 const path       = require('path');
@@ -112,25 +110,7 @@ const router     = express.Router();
 const mainServer = https.createServer(tlsOpts, app);
 const wss        = new WebSocket.Server({ noServer: true });
 
-// Route WebSocket upgrades: /panel/* → panel internal server; everything else → wss
 mainServer.on('upgrade', (req, socket, head) => {
-  if (req.url.startsWith(`${BASE_PATH}/panel/`)) {
-    const panelPort  = parseInt(process.env.PANEL_PORT || '9090', 10) + 1;
-    const targetPath = req.url.slice(`${BASE_PATH}/panel`.length) || '/';
-    const upstream   = net.connect(panelPort, '127.0.0.1', () => {
-      let hdrs = '';
-      for (const [k, v] of Object.entries(req.headers)) hdrs += `${k}: ${v}\r\n`;
-      upstream.write(`GET ${targetPath} HTTP/1.1\r\n${hdrs}x-panel-base: /panel\r\n\r\n`);
-      if (head && head.length) upstream.write(head);
-      upstream.pipe(socket);
-      socket.pipe(upstream);
-    });
-    upstream.on('error', () => socket.destroy());
-    socket.on('error',   () => upstream.destroy());
-    socket.on('close',   () => upstream.destroy());
-    upstream.on('close', () => socket.destroy());
-    return;
-  }
   wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
 });
 
@@ -143,20 +123,6 @@ app.use((req, res, next) => {
 router.use(express.json({ limit: '4mb' }));
 router.use(express.urlencoded({ extended: true, limit: '4mb' }));
 router.use(telemetry.httpMiddleware(resolveDevice));
-
-// ─── Control panel proxy (/panel → localhost:PORT+1) ─────────────────────────
-router.use('/panel', (req, res) => {
-  const panelPort = parseInt(process.env.PANEL_PORT || '9090', 10) + 1;
-  const bodyBuf   = req.body && Object.keys(req.body).length ? Buffer.from(JSON.stringify(req.body)) : null;
-  const headers   = { ...req.headers, 'x-panel-base': '/panel', host: 'localhost' };
-  if (bodyBuf) { headers['content-type'] = 'application/json'; headers['content-length'] = bodyBuf.length; }
-  const proxy = http.request(
-    { hostname: '127.0.0.1', port: panelPort, path: req.url || '/', method: req.method, headers },
-    (pr) => { res.writeHead(pr.statusCode, pr.headers); pr.pipe(res); }
-  );
-  proxy.on('error', () => res.status(502).send('Control panel offline'));
-  if (bodyBuf) proxy.end(bodyBuf); else proxy.end();
-});
 
 // ─── SPA shell (versioned) ────────────────────────────────────────────────────
 // Serves public/index.html with every local <script src>/<link href> stamped

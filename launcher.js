@@ -186,53 +186,11 @@ const cfCfg = EXTERNAL_TUNNEL ? null : writeCfConfig();
 inf('starting server...');
 let server = startServer();
 let tunnel = null;
-let panel  = null;
-
-// Admin panel is owned externally (the consolidated portal/dev-panel.js,
-// which ported in everything control-panel.js used to do) -- skip
-// self-managing this legacy standalone panel entirely in that case, same
-// pattern as EXTERNAL_TUNNEL above. Without this, control-panel.js's
-// internal companion server binds PORT+1 (9090+1 = 9091), which collides
-// with dev-panel.js's own default port -- confirmed live: this fought
-// dev-panel.js for port 9091 indefinitely, with launcher.js's own crash
-// monitor immediately respawning it every few seconds after being killed.
-const EXTERNAL_PANEL = !!process.env.EXTERNAL_PANEL;
-
-function startPanel() {
-  if (EXTERNAL_PANEL) return null;
-  if (!fs.existsSync(path.join(DIR, 'control-panel.js'))) return null;
-  const port = process.env.PANEL_PORT || '9090';
-  const logFile = fs.openSync(path.join(LOGS_DIR, 'panel.log'), 'a');
-  const proc = spawn(process.execPath, [path.join(DIR, 'control-panel.js')], {
-    cwd: DIR, stdio: ['ignore', logFile, logFile],
-    env: {
-      ...process.env,
-      PANEL_PORT: port,
-      INSTALL_SH: path.join(DIR, 'install.sh'),
-      USB_MOUNT: usbMount || '',
-    },
-  });
-  try { fs.writeFileSync(path.join(DIR, '.run', 'panel.pid'), String(proc.pid)); } catch {}
-  return proc;
-}
 
 setTimeout(() => {
   if (server.exitCode !== null)
     die('server.js exited immediately — check the output above');
   log(`server running  PID ${server.pid}`);
-
-  if (EXTERNAL_PANEL) {
-    log('admin panel managed externally — skipping self-managed control panel');
-  } else {
-    inf('starting control panel...');
-  }
-  panel = startPanel();
-  if (panel) {
-    setTimeout(() => {
-      if (panel && panel.exitCode === null) ok(`control panel running  PID ${panel.pid}`);
-      else log('control panel failed to start — check control-panel.js');
-    }, 1500);
-  }
 
   if (EXTERNAL_TUNNEL) {
     log('tunnel managed externally — skipping self-managed tunnel');
@@ -296,12 +254,10 @@ function checkForUpdate() {
     if (!needPull && !isNewCommit) return;
 
     lastAppliedCommit = headCommit;
-    log(`restarting server + panel (commit ${headCommit.slice(0,7)})`);
+    log(`restarting server (commit ${headCommit.slice(0,7)})`);
     server.kill();
     server = startServer();
     log(`server restarted  PID ${server.pid}`);
-    if (panel) { try { panel.kill(); } catch {} }
-    panel = startPanel();
   } catch {}
 }
 
@@ -318,21 +274,6 @@ setInterval(() => {
     log('tunnel died — restarting');
     tunnel = startTunnel(cfCfg);
   }
-  if (panel && panel.exitCode !== null) {
-    const port = process.env.PANEL_PORT || '9090';
-    try {
-      // If something else already grabbed the port (e.g. TUI restart), adopt it
-      const pid = parseInt(execFileSync('fuser', [`${port}/tcp`], { encoding: 'utf8' }).trim(), 10);
-      if (pid) {
-        log(`control panel: port ${port} held by PID ${pid} — adopting`);
-        try { fs.writeFileSync(path.join(DIR, '.run', 'panel.pid'), String(pid)); } catch {}
-        panel = { pid, exitCode: null, kill: () => { try { process.kill(pid); } catch {} } };
-      } else { throw new Error(); }
-    } catch {
-      log('control panel crashed — restarting');
-      panel = startPanel();
-    }
-  }
 }, 5000);
 
 setInterval(checkForUpdate, 60_000);
@@ -342,17 +283,15 @@ function shutdown() {
   console.log('\n  Shutting down...');
   try { server?.kill(); } catch {}
   try { tunnel?.kill(); } catch {}
-  try { panel?.kill(); } catch {}
-  try { fs.unlinkSync(path.join(DIR, '.run', 'panel.pid')); } catch {}
   console.log('  Done.\n');
   process.exit(0);
 }
 process.on('SIGINT',  shutdown);
 process.on('SIGTERM', shutdown);
 
-// ── SIGUSR1: hot-restart server only — panel stays alive
+// ── SIGUSR1: hot-restart server ─────────────────────────────────────────────
 process.on('SIGUSR1', () => {
-  log('SIGUSR1 — restarting server (panel unchanged)...');
+  log('SIGUSR1 — restarting server...');
   if (server) { try { server.kill(); } catch {} }
   server = startServer();
   log(`server restarted  PID ${server.pid}`);
