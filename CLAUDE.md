@@ -12,7 +12,7 @@ bash install.sh
 node launcher.js
 ```
 
-`install.sh` installs dependencies, enrolls the USB key, starts the control panel, and drops into a TUI. `launcher.js` checks for remote updates every 60 seconds and auto-pulls + restarts the server when one is found.
+`install.sh` installs dependencies, enrolls the USB key, and drops into a TUI. `launcher.js` checks for remote updates every 60 seconds and auto-pulls + restarts the server when one is found.
 
 The server runs on HTTPS (default port 3001). It auto-generates a self-signed TLS cert on first run (`.cert-key.pem` / `.cert-cert.pem`). The browser requires a one-time "accept certificate" click.
 
@@ -69,7 +69,6 @@ Direct `fetch` calls in tab scripts must append `?device=` manually.
 | `server.js` | Entire backend: Express routes, WebSocket |
 | `launcher.js` | Production wrapper: kills port, starts server, manages Cloudflare tunnel, auto-restarts, auto-updates |
 | `install.sh` | Installer + TUI: installs deps, enrolls USB key, starts/stops all components |
-| `control-panel.js` | HTTPS web control panel (port 9090), gated by USB key file |
 | `lib/stream.js` | Live-broadcast roster (`broadcastLiveList`, `GET /api/live`) — see "Live broadcast" above |
 | `lib/assistant.js` | Voice assistant backend: `POST /api/assistant` — tool-use loop on a local Ollama model (weather, finance, news, Spotify, radio) returning `{ reply, actions }`; needs Ollama running with a tool-calling model (`OLLAMA_URL` / `ASSISTANT_MODEL` in `.env`, default llama3.1). Also `POST /api/assistant/stt` (whisper.cpp) and `POST /api/assistant/tts` (Piper, via `lib/tts.js`) |
 | `lib/tts.js` | Server-side text-to-speech: shells out to a local Piper install (`bin/linux/piper`, bundled by `install.sh`) and returns WAV bytes. Runs server-side so no client device needs anything installed for voice replies (unlike the browser's `speechSynthesis`, which e.g. needs `speech-dispatcher`/`espeak-ng` installed system-wide on Linux Firefox to produce any audio) |

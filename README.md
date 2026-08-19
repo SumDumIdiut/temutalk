@@ -34,11 +34,10 @@ every app, TemuTalk included, not just this one.
 Starting the server backgrounds everything (PIDs tracked in `.run/`), so you
 can keep using the menu while it runs.
 
-### Web control panel
-
-`install.sh` also starts a small HTTPS control panel, reachable from any device on the same LAN at `https://<this machine's IP>:9090/` (option 7 toggles it, or it's printed on the TUI status line). It lets you start/stop the Node server+tunnel independently of the TUI, plus monitor connected devices.
-
-It's gated behind a per-install access token, auto-generated on first start and saved to `.run/panel-token` (gitignored, never leaves the device). Traffic is TLS-encrypted, sessions are HMAC-signed cookies that reset on every panel restart, and repeated wrong-token attempts get rate-limited and temporarily locked out. No setup is "unbreachable," but this is real auth + real encryption, not security theater — see the comment at the top of `control-panel.js` for the exact model.
+TemuTalk no longer has its own standalone control panel — remote
+admin/monitoring across the whole codecade stack lives in the shared
+`install.sh`-managed dev panel instead (see
+[codecade-install](https://github.com/SumDumIdiut/codecade-install)).
 
 ### Windows
 
@@ -93,7 +92,6 @@ See [CLAUDE.md](CLAUDE.md) for the full internals reference (file-by-file breakd
 
 | Path | Purpose |
 |---|---|
-| `control-panel.js` | HTTPS web control panel (token auth), started by the shared `install.sh` (see [codecade-install](https://github.com/SumDumIdiut/codecade-install)) |
 | `server.js` | Entire backend |
 | `launcher.js` | Production wrapper: process supervision, tunnel, auto-update |
 | `public/` | The SPA — shell, per-tab views/scripts/styles |
