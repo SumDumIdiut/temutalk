@@ -1075,9 +1075,15 @@ function loadLyrics() {
   lyrLoadedFor = key;
   lyrLines = []; lyrTimes = [];
   _setLyrStatus('Loading lyrics...');
+  // duration disambiguates same-title re-releases/remasters far more
+  // reliably than album name does -- lrclib.net treats it as a fuzzy
+  // "closest match" hint, never a hard filter, unlike album (see the
+  // reasoning in lib/data.js's /api/lyrics route).
+  const durationS = durMs > 1 ? Math.round(durMs / 1000) : 0;
   const url = BASE_PATH + '/api/lyrics?artist=' + encodeURIComponent(artist) +
               '&track=' + encodeURIComponent(track) +
-              (album ? '&album=' + encodeURIComponent(album) : '');
+              (album ? '&album=' + encodeURIComponent(album) : '') +
+              (durationS ? '&duration=' + durationS : '');
   fetch(url).then(r => r.json()).then(d => {
     if (key !== lyrLoadedFor) return; // track changed again while this was in flight
     if (d.synced) {
