@@ -292,36 +292,44 @@ body[data-tab="weather"] .b3 { background: radial-gradient(circle, rgba(62,245,1
    the Home lyrics overlay (or the Music tab's own full-panel version)
    bleeds under it -- toggled in toggleHomeLyrics()/toggleTabLyrics()
    (music/script.js).
-   mix-blend-mode:difference was the first approach (a literal per-pixel
-   inverse of whatever's behind each icon) but doesn't actually work here:
-   position:fixed alone -- which .nav needs, to stay put regardless of
-   scroll -- already promotes it to its own GPU compositing layer in
+   mix-blend-mode:difference (a literal per-pixel inverse) doesn't work
+   here: position:fixed alone -- which .nav needs, to stay put regardless
+   of scroll -- already promotes it to its own GPU compositing layer in
    Chromium, and mix-blend-mode can't blend across that layer boundary to
-   reach the real page content behind it. Confirmed with isolated test
-   pages before concluding this is a genuine engine limitation, not a
-   fixable CSS ordering issue.
-   A dark edge behind each icon sidesteps that (drop-shadow doesn't need
-   to read anything behind the element) without touching color -- a first
-   pass forced every icon to plain white, which read as flat/washed out
-   next to the accent-colored active pill instead of legible. A second
-   pass kept the original colors but used a soft blurred shadow, which
-   wasn't enough contrast for var(--text-muted)'s lighter grey against a
-   bright backdrop (a blur spreads the same amount of "ink" over a wider,
-   fainter ring instead of a solid edge). Four zero-blur 1px-offset
-   shadows (up/down/left/right) draw a solid pixel-thin outline around the
-   actual glyph shape instead -- the same technique game/map-pin icons
-   use for exactly this "legible over unpredictable art" problem -- so it
-   reads as a crisp stroke rather than a smudge, at any icon color. Same
-   idea .ctrl-btn already uses (see its own comment) for this exact
-   overlay, just as a filter instead of a box-shadow since there's no
-   button chrome/background here to hang a shadow off of. */
-body.nav-invert .nav-icon,
+   reach the real page content behind it. A drop-shadow outline was tried
+   next, in two passes (forced-white, then original-color-plus-crisp-
+   stroke) -- both technically legible but read as a fussy, slightly
+   grubby edge rather than something actually designed, especially
+   against bright art.
+   Settling on a small solid chip behind each icon/label instead --
+   same "always dark, ignore the site theme" reasoning the lyrics clock
+   and scrim already use elsewhere in this exact overlay (legibility
+   over arbitrary album art matters more here than following whatever
+   theme is active), just applied per-icon instead of full-screen. A
+   flat backing behind a plain-colored icon reads as an intentional
+   design element (a real toolbar chip) rather than a legibility hack
+   bolted onto a transparent icon, and it's trivially guaranteed to
+   contrast against literally anything since it doesn't depend on
+   reading, inverting, or outlining whatever's behind it at all. */
+body.nav-invert .nav-pill {
+  background: rgba(10, 9, 16, .6);
+}
+/* Layered as a second background under the existing accent gradient
+   (comma-separated background-image list, not a replacement) so the
+   active tab keeps its own accent-glow identity, just anchored on the
+   same dark backing every other icon gets. Higher specificity than the
+   plain .nav-pill rule above so it doesn't get flattened by it. */
+body.nav-invert .nav-item.active .nav-pill {
+  background: linear-gradient(135deg, var(--primary-glow), var(--primary-dim)), rgba(10, 9, 16, .6);
+}
+body.nav-invert .nav-icon {
+  color: #fff;
+}
 body.nav-invert .nav-label {
-  filter:
-    drop-shadow(1px 0 0 rgba(0,0,0,.85))
-    drop-shadow(-1px 0 0 rgba(0,0,0,.85))
-    drop-shadow(0 1px 0 rgba(0,0,0,.85))
-    drop-shadow(0 -1px 0 rgba(0,0,0,.85));
+  color: #fff;
+  background: rgba(10, 9, 16, .6);
+  border-radius: 5px;
+  padding: 1px 6px;
 }
 
 /* ── Buttons ────────────────────────────────────────────────────────────── */
