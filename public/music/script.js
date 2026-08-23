@@ -9,6 +9,19 @@ let _credsSynced = false;
 let _progAnchorMs = 0, _progAnchorAt = 0;
 function _syncProgAnchor(ms) { _progAnchorMs = ms; _progAnchorAt = Date.now(); }
 
+// Restarts (or stops) the local 500ms playhead ticker to match the current
+// `playing` flag, anchored at the current progMs. Shared by onPlayer() (a
+// fresh poll -- the authoritative source, including external pause/play
+// from another Spotify client) and togglePlay() (this device's own button,
+// which flips `playing` optimistically ahead of the next poll) -- without
+// this in togglePlay() too, pressing pause here changed the icon instantly
+// but left the playhead visibly ticking until the next poll caught up.
+function _syncTicker() {
+  clearInterval(ticker);
+  _syncProgAnchor(progMs);
+  if (playing) ticker = setInterval(() => { progMs = Math.min(_progAnchorMs + (Date.now() - _progAnchorAt), durMs); renderProg(); }, 500);
+}
+
 // Tracks the most recent local seek so onPlayer() can tell a genuinely stale
 // pre-seek snapshot (still in flight from before our seek landed on
 // Spotify's side) apart from a real position -- without this, a poll that
@@ -1514,9 +1527,7 @@ function onPlayer(data) {
   const looksStale   = sinceLocalSeek < 2500 && Math.abs(reportedMs - _lastLocalSeekMs) > 2500;
   if (!looksStale) progMs = reportedMs;
   durMs   = data.item.duration_ms || 1;
-  clearInterval(ticker);
-  _syncProgAnchor(progMs);
-  if (playing) ticker = setInterval(() => { progMs = Math.min(_progAnchorMs + (Date.now() - _progAnchorAt), durMs); renderProg(); }, 500);
+  _syncTicker();
   renderProg();
   setPlayIcons(playing);
   if (data.device?.volume_percent != null) {
@@ -1615,6 +1626,7 @@ function togglePlay() {
   if (activeService === 'apple')   { _appleTogglePlay(); return; }
   if (browserPlayer) browserPlayer.activateElement();
   playing = !playing; setPlayIcons(playing); action(playing ? 'play' : 'pause');
+  _syncTicker();
 }
 
 // Only takes the fast local SDK path if this device's own player is
