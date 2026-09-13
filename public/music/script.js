@@ -1084,7 +1084,7 @@ function loadLyrics() {
   const album  = document.getElementById('home-np-album')?.textContent.trim()  || '';
   if (!track || track === String.fromCharCode(8212)) { _setLyrStatus('Nothing playing'); return; }
   const key = track + '::' + artist;
-  if (key === lyrLoadedFor) { _buildHomeLyrTrack(); _buildTabLyrList(); _renderOpenLyrViews(); return; }
+  if (key === lyrLoadedFor) { _renderOpenLyrViews(); return; }
   lyrLoadedFor = key;
   lyrLines = []; lyrTimes = [];
   _setLyrStatus('Loading lyrics...');
