@@ -1109,13 +1109,18 @@ function loadLyrics() {
       lyrTimes = [];
     } else {
       _setLyrStatus('No lyrics found');
+      lyrLoadedFor = ''; // retry on the next poll tick
       return;
     }
     homeLyrCurrentIdx = -1; tabLyrCurrentIdx = -1;
     _buildHomeLyrTrack();
     _buildTabLyrList();
     _renderOpenLyrViews();
-  }).catch(() => { if (key === lyrLoadedFor) _setLyrStatus('Could not load lyrics'); });
+  }).catch(() => {
+    if (key !== lyrLoadedFor) return;
+    _setLyrStatus('Could not load lyrics');
+    lyrLoadedFor = ''; // retry on the next poll tick
+  });
 }
 
 function _renderOpenLyrViews() {
@@ -1512,8 +1517,8 @@ function onPlayer(data) {
   if (trackId && trackId !== currentTrackId) {
     currentTrackId = trackId;
     api('/api/like-status?ids=' + trackId).then(res => { if (Array.isArray(res)) updateLikeBtn(res[0]); }).catch(() => {});
-    if (homeLyrOpen || tabLyrOpen) loadLyrics();
   }
+  if (homeLyrOpen || tabLyrOpen) loadLyrics();
 
   playing = data.is_playing;
   // Spotify's own /player state can take a beat to reflect a seek that was
