@@ -1,6 +1,6 @@
 # TemuTalk Speaker
 
-A self-hosted smart-hub web app — Spotify control, weather, crypto, news, a radio map, and a kitchen timer — all in one HTTPS server with zero build step. Designed to run from a flash drive or any spare Linux box and stay reachable from anywhere via a Cloudflare Tunnel.
+A self-hosted smart-hub web app — Spotify control, weather, crypto, news, a radio map, a kitchen timer, and a voice assistant — all in one HTTPS server with zero build step. Runs from a flash drive or any spare Linux box and stays reachable from anywhere via a Cloudflare Tunnel.
 
 ## Features
 
@@ -10,7 +10,9 @@ A self-hosted smart-hub web app — Spotify control, weather, crypto, news, a ra
 - **Finance** — Live crypto prices (CoinGecko).
 - **News** — Headlines feed.
 - **Timer** — Kitchen timer tab.
+- **Voice assistant** — Wake-word listening starts automatically on page load (no toggle). Speech-to-text via the Web Speech API, with a `whisper.cpp` fallback; replies are synthesized server-side by a bundled Piper install (so no client needs anything installed locally) and played back through a plain `<audio>` element, with each word highlighted in sync as it's spoken. Runs a tool-use loop against a local Ollama model to actually take actions (play a radio station, set a timer, navigate tabs) — needs Ollama running with a tool-calling model (`OLLAMA_URL` / `ASSISTANT_MODEL` in `.env`, default `llama3.1`).
 - **System** — Theme engine (accent colour, blobs, fonts, glass opacity, corner radius, clock format — all CSS custom properties, persisted in `localStorage`), plus host system stats.
+- **Live broadcast** — A listener can tap their own browser's audio output and share it with others in a channel over the existing WebSocket connection (`lib/stream.js`'s `broadcastLiveList`).
 - **Multi-device** — Each browser tab gets its own UUID identity; the server tracks Spotify tokens per device in `devices.json`.
 
 ## Quick start
@@ -69,18 +71,19 @@ cp .env.example .env
 | `BASE_URL` | Public base URL, used for Spotify's redirect URI (default `https://codecade.co.za`) |
 | `SESSION_SECRET` | Auto-generated random secret |
 | `WEATHER_CITY` | Default city shown in the Weather tab |
+| `OLLAMA_URL` / `ASSISTANT_MODEL` | Local Ollama endpoint + tool-calling model for the voice assistant |
 
 **Spotify** isn't configured here — client ID/secret are entered per-device in the browser at OAuth time and never persisted server-side beyond the PKCE handshake. Create an app at the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) and set its Redirect URI to `<your BASE_URL>/callback`.
 
 The server auto-generates a self-signed TLS certificate (`.cert-key.pem` / `.cert-cert.pem`) on first run. Your browser will need to accept it once.
 
-## Architecture
+## Architecture, in more detail
 
 **Single-file server** (`server.js`) — Express + HTTPS + WebSocket on one port. Serves the SPA from `public/`, exposes REST APIs, proxies Spotify/weather/crypto/radio/lyrics/map-tile requests (keeping API keys server-side), and runs the WebSocket hub for real-time player state.
 
 **SPA shell** (`public/index.html`) — One shell file for the whole app. The home tab renders inline for an immediate first paint. Every other tab (`music`, `radio`, `weather`, `finance`, `news`, `timer`, `system`) lazy-loads its `view.html` fragment into a pre-existing container on first visit. Each tab has its own `style.css` (loaded eagerly) and `script.js` (loaded once, executes at page load).
 
-**Playback** is entirely client-side: Spotify via the Web Playback SDK, radio via a plain `<audio>` element — nothing plays through the server's own audio output, so there's no server-side audio pipeline to manage. (An earlier server-side "Cast" feature captured the host machine's own audio via PulseAudio/ffmpeg/Icecast and re-streamed it — removed once Spotify and radio playback both moved client-side, since it only ever captured silence. A separate, still-live "live broadcast" feature lets a listener tap their own browser's audio output and share it with others in a channel — see `lib/ws.js`'s `live-start`/`live-join` handlers and `lib/stream.js`'s `broadcastLiveList`.) A legacy WebRTC/MSE broadcaster also still exists in `lib/ws.js` (`mse-broadcaster-ready` etc.) as a documented but currently-unused fallback mechanism.
+**Playback** is entirely client-side: Spotify via the Web Playback SDK, radio via a plain `<audio>` element — nothing plays through the server's own audio output, so there's no server-side audio pipeline to manage. (An earlier server-side "Cast" feature captured the host machine's own audio via PulseAudio/ffmpeg/Icecast and re-streamed it — removed once Spotify and radio playback both moved client-side, since it only ever captured silence. The still-live "live broadcast" feature above is unrelated — it taps a *listener's own* browser audio, not the host's.) A legacy WebRTC/MSE broadcaster also still exists in `lib/ws.js` (`mse-broadcaster-ready` etc.) as a documented but currently-unused fallback mechanism.
 
 **Connectivity** — `launcher.js` starts `server.js` and a Cloudflare Tunnel (`cloudflared`), restarts either if they crash, and polls `origin/main` every 60s to auto-pull and restart on updates.
 
@@ -94,7 +97,11 @@ See [CLAUDE.md](CLAUDE.md) for the full internals reference (file-by-file breakd
 |---|---|
 | `server.js` | Entire backend |
 | `launcher.js` | Production wrapper: process supervision, tunnel, auto-update |
+| `lib/assistant.js` | Voice assistant backend — tool-use loop on a local Ollama model |
+| `lib/tts.js` | Server-side text-to-speech via bundled Piper |
+| `lib/stream.js` | Live-broadcast roster (`broadcastLiveList`, `GET /api/live`) |
 | `public/` | The SPA — shell, per-tab views/scripts/styles |
+| `public/assistant/` | Voice assistant UI — wake-word listening, exchange popup, edge-glow feedback |
 | `Start.sh` / `Start.bat` / `Start.py` | Legacy platform-specific entry points |
 | `Setup.sh` / `Download.sh` / `Check-Update.sh` | Legacy single-purpose scripts, superseded by `install.sh` |
 | `devices.json` | Per-device Spotify tokens (gitignored, auto-created) |
@@ -108,6 +115,8 @@ See [CLAUDE.md](CLAUDE.md) for the full internals reference (file-by-file breakd
 
 **TLS warning in browser** — expected on first connect; the server uses a self-signed cert. Accept it once per browser.
 
+**Voice assistant doesn't respond** — check that Ollama is running and reachable at `OLLAMA_URL` with `ASSISTANT_MODEL` pulled locally; the assistant tool-use loop needs a genuinely tool-calling-capable model, not just any local model.
+
 ## External services used
 
 All proxied through `server.js` to keep API keys server-side and avoid CORS:
@@ -118,3 +127,4 @@ All proxied through `server.js` to keep API keys server-side and avoid CORS:
 - lrclib.net — synced lyrics
 - radio-browser.info — station search
 - CartoCDN — map tiles (LRU-cached server-side, up to 8000 tiles)
+- Local Ollama instance — voice assistant tool-use loop
