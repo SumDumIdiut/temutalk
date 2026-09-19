@@ -1,0 +1,67 @@
+<main class="page fin-page">
+
+  <!-- ── Header ──────────────────────────────────────────────────────────── -->
+  <div class="fin-header">
+    <div class="fin-title">Markets</div>
+    <div class="fin-tabs">
+      <button class="fin-tab on" data-sec="crypto"  onclick="finSwitch('crypto')">Crypto</button>
+      <button class="fin-tab"    data-sec="stocks"  onclick="finSwitch('stocks')">Stocks</button>
+      <button class="fin-tab"    data-sec="rates"   onclick="finSwitch('rates')">Rates</button>
+    </div>
+    <div class="fin-hdr-right">
+      <span id="fin-updated" class="fin-updated"></span>
+      <button class="fin-icon-btn" onclick="finRefresh()">↻</button>
+    </div>
+  </div>
+
+  <!-- ── CRYPTO ───────────────────────────────────────────────────────────── -->
+  <div class="fin-panel" id="fin-crypto">
+    <div id="crypto-list-wrap">
+      <input class="fin-search-inp" id="crypto-search-inp" placeholder="Search coins…" autocomplete="off" oninput="cryptoSearchFilter(this.value)" style="margin-bottom:10px">
+      <div id="crypto-list"><div class="fin-loading">Loading…</div></div>
+    </div>
+    <div id="crypto-det-wrap" style="display:none">
+      <button class="fin-back" onclick="cryptoClose()">← Coins</button>
+      <div id="crypto-det"></div>
+    </div>
+  </div>
+
+  <!-- ── STOCKS ───────────────────────────────────────────────────────────── -->
+  <div class="fin-panel" id="fin-stocks" style="display:none">
+    <div id="stocks-list-wrap">
+      <div class="fin-search-wrap">
+        <input class="fin-search-inp" id="stock-search-inp" placeholder="Search symbol or company…"
+          autocomplete="off" oninput="stockSearchDebounced()"
+          onblur="setTimeout(()=>{const d=document.getElementById('stock-search-drop');if(d)d.style.display='none'},200)">
+        <div class="fin-search-drop" id="stock-search-drop" style="display:none"></div>
+      </div>
+      <div id="stock-watchlist"></div>
+    </div>
+    <div id="stock-det-wrap" style="display:none">
+      <button class="fin-back" onclick="stockClose()">← Watchlist</button>
+      <div id="stock-det"></div>
+    </div>
+  </div>
+
+  <!-- ── RATES ────────────────────────────────────────────────────────────── -->
+  <div class="fin-panel" id="fin-rates" style="display:none">
+    <div id="rates-list-wrap">
+      <div class="fin-rates-base-bar">
+        <span class="fin-label">Base</span>
+        <select class="fin-select" id="rates-base" onchange="loadRates()">
+          <option>USD</option><option>EUR</option><option>GBP</option>
+          <option>JPY</option><option>ZAR</option><option>AUD</option>
+          <option>CAD</option><option>CHF</option><option>CNY</option>
+          <option>INR</option><option>BRL</option><option>MXN</option>
+        </select>
+      </div>
+      <input class="fin-search-inp" id="rates-search-inp" placeholder="Search currencies…" autocomplete="off" oninput="ratesSearchFilter(this.value)" style="margin-bottom:10px">
+      <div id="rates-list"><div class="fin-loading">Loading…</div></div>
+    </div>
+    <div id="rates-det-wrap" style="display:none">
+      <button class="fin-back" onclick="ratesClose()">← Rates</button>
+      <div id="rates-det"></div>
+    </div>
+  </div>
+
+</main>

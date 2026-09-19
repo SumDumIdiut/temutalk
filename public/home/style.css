@@ -1,0 +1,260 @@
+/* ── Home ────────────────────────────────────────────────────────────────── */
+/* Home fills viewport — no scroll, cards stretch */
+#view-home .page { max-width: none; width: 100%; height: 100%; min-height: 0; box-sizing: border-box; padding: 0 28px; display: flex; flex-direction: column; }
+
+/* ── Home topbar ── */
+.home-topbar { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px 0; flex-shrink: 0; }
+
+/* ── Hero clock ── */
+.home-hero { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 0 20px; }
+.home-greeting { font-size: 13px; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; }
+.home-time { font-size: clamp(80px, 12vw, 150px); font-weight: 200; font-variant-numeric: tabular-nums; letter-spacing: -6px; line-height: 1; color: var(--text); background: linear-gradient(135deg, var(--text) 0%, var(--primary) 60%, var(--pink) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.home-datestr { font-size: clamp(16px, 2vw, 22px); color: var(--text-dim); font-weight: 400; margin-top: 14px; letter-spacing: .2px; }
+
+/* ── Widgets row ── */
+.home-widgets { display: flex; gap: 14px; padding: 20px 20px 28px; flex-shrink: 0; }
+
+.home-mini-card {
+  background: var(--surface);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 2px solid var(--glass-border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  box-shadow: var(--card-shadow);
+  transition: transform .18s, box-shadow .18s, border-color .18s;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.home-mini-card:hover  { transform: translateY(-3px); box-shadow: var(--card-shadow-hover); }
+.home-mini-card:active { transform: translateY(0); }
+
+/* Shared widget header row (label + chevron), used by both weather and music */
+.home-mini-wx-hdr, .home-mini-music-hdr, .home-mini-timer-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.home-mini-wx-lbl, .home-mini-music-lbl, .home-mini-timer-lbl {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* ── Mini weather ── */
+.home-mini-wx { display: flex; flex-direction: column; justify-content: center; min-width: 190px; border-top: 4px solid #60a5fa; flex: 1; }
+.home-mini-wx:hover { border-color: rgba(96,165,250,.7); }
+.home-mini-wx-main { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.home-mini-wx-icon { display: flex; flex-shrink: 0; color: var(--text); }
+.home-mini-wx-temp { font-size: 28px; font-weight: 800; line-height: 1; letter-spacing: -.5px; }
+.home-mini-wx-desc { font-size: 12.5px; font-weight: 600; color: var(--text-dim); }
+.home-mini-wx-city { font-size: 11px; color: var(--text-muted); margin-top: 2px; opacity: .8; }
+
+/* Dynamic condition tint — id/class targets the real live card (.home-mini-wx,
+   #home-wx-card), which the previous version of this file didn't (it aimed
+   at a .home-wx class that no longer exists in the markup), so this had
+   silently never applied. */
+/* Each state used to fade a fully opaque hand-picked hex into var(--surface).
+   That meant the visible card was mostly the opaque color, not the user's
+   actual theme surface -- cranking the glass-opacity/tint sliders in System
+   did nothing here, unlike every other card on the site. Switched to a
+   low-alpha color wash layered on top of the real var(--surface) (painted
+   first so it composites over, fading to fully transparent well inside the
+   card so --surface always shows through on the right): the identity tint
+   stays recognizable but never dominates, and now genuinely tracks the
+   user's theme instead of overriding it. */
+.home-mini-wx.wx-sunny  { background: linear-gradient(140deg,rgba(251,191,36,.16) 0%,transparent 60%),var(--surface); border-top-color: #fbbf24; }
+.home-mini-wx.wx-cloudy { background: linear-gradient(140deg,rgba(96,165,250,.16) 0%,transparent 60%),var(--surface); }
+.home-mini-wx.wx-rain   { background: linear-gradient(140deg,rgba(56,189,248,.16) 0%,transparent 60%),var(--surface); border-top-color: #38bdf8; }
+.home-mini-wx.wx-storm  { background: linear-gradient(140deg,rgba(192,132,252,.16) 0%,transparent 60%),var(--surface); border-top-color: #c084fc; }
+.home-mini-wx.wx-snow   { background: linear-gradient(140deg,rgba(224,242,254,.16) 0%,transparent 60%),var(--surface); border-top-color: #e0f2fe; }
+
+/* ── Mini timers (floats above the weather card when any are running) ── */
+.home-mini-timer { position: absolute; bottom: calc(100% + 10px); left: 0; right: 0; z-index: 10; border-top: 4px solid #fb923c; cursor: pointer; padding: 14px 18px; }
+.home-mini-timer:hover { border-color: rgba(251,146,60,.6); }
+.home-timer-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.home-timer-row:last-child { border-bottom: none; }
+.home-timer-row-name { font-size: 13px; font-weight: 600; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.home-timer-row-val { font-size: 15px; font-weight: 800; color: var(--orange); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+.home-timer-row-paused { color: var(--text-muted); }
+
+/* ── Mini music / radio ── */
+/* Weather's tinted look is 100% reliable because its background comes from
+   a fixed, hand-picked color per condition (wx-sunny/wx-rain/etc, pure
+   CSS, no network dependency). Music's tint (tintMusicCard, in index.html)
+   instead depends on an async image fetch + canvas pixel-read succeeding
+   against whatever CDN happens to be serving that particular track's
+   art -- if that silently fails for any reason (slow load, a CORS quirk
+   on one of Spotify's several image CDN domains, etc: the code swallows
+   the error) the card was left completely flat with none of the "glowing
+   card" look weather always has. This CSS gradient is the same guaranteed
+   baseline weather gets; tintMusicCard's inline style (higher specificity)
+   still overrides it with the real album-art color whenever it succeeds. */
+/* Weather's 140deg/65% gradient was tuned for its near-square card, where
+   the diagonal fade completes gracefully within the visible box. Music's
+   card is ~5x wider than tall, so that same angle/stop is dominated by the
+   horizontal run and visibly flattens out around 65% of the way across --
+   looks like the glow "disappearing" partway along the top edge instead of
+   washing the whole card. A shallower angle + a stop pushed well past 100%
+   keeps the fade gradual and incomplete across the full visible width,
+   regardless of how wide the card ends up being. */
+/* No separate colored box-shadow glow -- weather never actually had one
+   either (checked its computed style directly: just var(--card-shadow)/
+   var(--card-shadow-hover), same as every other card). What read as
+   weather's "glow" was always just its background tint; adding an actual
+   halo on top of music's tint was a literal glow, stronger than weather's
+   and stacking further on :hover, which is what kept reading as too much
+   no matter how far the opacity got dialed down. Dropped it entirely --
+   music now uses the exact same box-shadow as the base .home-mini-card,
+   with only the border-top color and background tint carrying the theme. */
+/* Same fix as the weather states above: was a fully opaque hex fading into
+   var(--surface), so the theme's actual surface color/opacity never showed
+   through and the pink read as much stronger than every other widget. Now a
+   low-alpha wash over the real var(--surface), same as weather. */
+.home-mini-music {
+  flex: 1;
+  border-top: 4px solid #f472b6;
+  overflow: hidden;
+  background: linear-gradient(100deg,rgba(244,114,182,.14) 0%,transparent 55%),var(--surface);
+}
+.home-mini-music:hover { border-color: rgba(244,114,182,.6); }
+.home-mini-music.radio-active { border-top-color: #e879f9; background: linear-gradient(100deg,rgba(232,121,249,.14) 0%,transparent 55%),var(--surface); }
+.home-mini-music.radio-active:hover { border-color: rgba(232,121,249,.6); }
+
+/* Empty state (no recent plays) */
+.home-mini-empty { display: flex; align-items: center; gap: 10px; padding: 6px 0 2px; color: var(--text-muted); }
+.home-mini-empty svg { flex-shrink: 0; opacity: .5; }
+.home-mini-empty span { font-size: 12.5px; font-weight: 600; }
+
+/* Now-playing -- single row (art+info | controls+progress), matching the
+   music tab's #player-bar miniplayer layout instead of stacking art,
+   progress, and controls in three separate rows. */
+.home-np-row  { display: flex; align-items: center; gap: 22px; }
+.home-np-info { display: flex; align-items: center; gap: 16px; flex: 0 0 auto; min-width: 0; max-width: 46%; }
+.home-np-center { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 9px; }
+
+.home-mini-art { width: 76px; height: 76px; border-radius: 16px; object-fit: cover; flex-shrink: 0; background: var(--surface-hi); box-shadow: 0 6px 20px rgba(0,0,0,.45); }
+.home-mini-track { font-size: 21px; font-weight: 800; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -.2px; }
+.home-mini-artist { font-size: 16px; font-weight: 600; color: var(--text-dim); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Widens with the card instead of capping out at a fixed narrow width --
+   this row used to leave most of a wide widget card looking empty in the
+   middle once weather/timer weren't also on-screen to share the row. */
+.home-mini-prog-row { display: flex; align-items: center; gap: 10px; width: 100%; max-width: 900px; }
+.home-mini-time { font-size: 10.5px; font-weight: 700; color: var(--text-muted); font-variant-numeric: tabular-nums; flex-shrink: 0; min-width: 28px; }
+.home-mini-time:last-child { text-align: right; }
+
+.home-mini-ctrls { display: flex; align-items: center; gap: 9px; }
+
+/* Full-screen karaoke takeover (toggleHomeLyrics() in music/script.js) --
+   a body-level sibling (see the comment at #home-lyr-overlay in
+   index.html), not nested inside #view-home, so the shared .lyr-overlay
+   base class's plain position:absolute; inset:0 (style.css) already covers
+   the true full viewport on its own. Same big Spotify-style presentation
+   as the Music tab's #np-lyrics-section: blurred/darkened album art behind
+   large bold text, current line scaled up and bright, synced lines
+   clickable to seek.
+
+   overflow:hidden is required here: .lyr-bg (style.css) deliberately
+   overscans its own container (inset:-24px + scale(1.1), to push the
+   blur's soft edge past whatever clips it) and needs something to clip it
+   back down to the viewport edge now that #view-home's own overflow:hidden
+   no longer sits above it in the DOM. */
+.home-lyr-overlay { z-index: 20; overflow: hidden; }
+/* .lyr-clock-top (music/style.css) is shared with the Music tab's
+   contained panel, which doesn't need this -- same var(--nav-w) content
+   offset as .home-lyr-hdr/.home-lyr-body above, scoped to this overlay only. */
+.home-lyr-overlay .lyr-clock-top { padding-left: calc(var(--nav-w) + 20px); }
+.home-lyr-scrim {
+  position: absolute; inset: 0; z-index: 1;
+  /* Was .6/.86/.96 -- with most of the screen covered by 86-96% opaque
+     near-black, the background image behind it (whatever its own
+     brightness) could only ever contribute 4-14% of what's visible.
+     Lighter across the board, same top-lighter/bottom-darker shape (more
+     text accumulates toward the bottom, where more contrast still matters
+     most). */
+  background: linear-gradient(180deg, rgba(8,7,14,.3), rgba(8,7,14,.55) 55%, rgba(8,7,14,.75));
+}
+.home-lyr-hdr {
+  position: relative; z-index: 2; flex-shrink: 0;
+  display: flex; align-items: center; gap: 18px; padding: 22px 30px 16px calc(var(--nav-w) + 30px);
+}
+.home-lyr-hdr-art  { width: 60px; height: 60px; border-radius: 12px; object-fit: cover; flex-shrink: 0; background: rgba(255,255,255,.08); box-shadow: 0 6px 20px rgba(0,0,0,.5); }
+.home-lyr-hdr-art[src=""] { visibility: hidden; }
+.home-lyr-hdr-meta  { flex: 1; min-width: 0; }
+.home-lyr-hdr-title { font-size: 18px; font-weight: 800; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.home-lyr-hdr-artist{ font-size: 15px; font-weight: 600; color: rgba(255,255,255,.55); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Position only -- chrome comes from the shared .ctrl-btn/.ctrl-btn-lg classes. */
+.home-lyr-close { position: absolute; top: 50%; right: 30px; transform: translateY(-50%); }
+.home-lyr-close:active { transform: translateY(-50%) scale(.9); }
+.home-lyr-body {
+  position: relative; z-index: 2; flex: 1; min-height: 0; overflow-y: auto;
+  padding: 12px 48px 48vh calc(var(--nav-w) + 48px); scrollbar-width: none;
+}
+.home-lyr-body::-webkit-scrollbar { display: none; }
+.home-lyr-ln {
+  padding: 12px 0; font-size: 25px; font-weight: 800; line-height: 1.3;
+  letter-spacing: -.2px; color: rgba(255,255,255,.35);
+  transition: color .35s ease, transform .35s ease;
+  transform-origin: left center;
+}
+.home-lyr-ln[onclick] { cursor: pointer; }
+.home-lyr-ln[onclick]:hover:not(.active) { color: rgba(255,255,255,.65); }
+.home-lyr-ln.active { color: #fff; transform: scale(1.045); }
+.home-lyr-ln.past   { color: rgba(255,255,255,.2); }
+
+/* Instrumental-gap "note" line -- a real drawn icon (shared .lyr-note-svg
+   with the music tab's full view) instead of a text glyph, lighting up with
+   a pulsing glow while it's the active line, same as the sung lines light
+   up by going bold/white. */
+.home-lyr-ln.lyr-note { display: flex; align-items: center; padding: 15px 0; }
+/* The note glyph's own drawn stroke sits inset within its 24x24 viewBox
+   (roughly centered, ~6/24 empty on each side) -- box measurements line up
+   exactly with the text lines around it, but the visible ink still reads
+   as indented next to lyric text's much smaller left-side-bearing. Nudges
+   the whole icon left to compensate, checked against the real render. */
+.home-lyr-ln.lyr-note .lyr-note-svg { width: 28px; height: 28px; margin-left: -7px; }
+.lyr-note-svg { color: var(--text-muted); opacity: .4; transition: color .35s ease, opacity .35s ease; }
+.active .lyr-note-svg { color: var(--primary); opacity: 1; filter: drop-shadow(0 0 5px var(--primary-glow)); animation: lyr-note-pulse 1.3s ease-in-out infinite; }
+@keyframes lyr-note-pulse {
+  0%, 100% { filter: drop-shadow(0 0 3px var(--primary-glow)); transform: scale(1); }
+  50%      { filter: drop-shadow(0 0 9px var(--primary-glow)); transform: scale(1.18); }
+}
+
+/* Recent tracks list */
+.home-mini-recent-row { display: flex; align-items: center; gap: 9px; padding: 6px 0; border-bottom: 1px solid var(--border); cursor: pointer; border-radius: 8px; transition: background .12s; }
+.home-mini-recent-row:hover { background: var(--surface-hi); }
+.home-mini-recent-row:last-child { border-bottom: none; }
+.home-mini-recent-art { width: 30px; height: 30px; border-radius: 6px; object-fit: cover; flex-shrink: 0; background: var(--surface-hi); }
+.home-mini-recent-name { font-size: 12.5px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.home-mini-recent-sub { font-size: 11px; font-weight: 500; color: var(--text-muted); }
+
+/* Radio-playing state */
+.home-radio-pulse { width: 8px; height: 8px; border-radius: 50%; background: #e879f9; flex-shrink: 0; animation: rmap-pulse 1.4s ease-in-out infinite; }
+.home-radio-stop { margin-left: auto; background: rgba(232,121,249,.12); border: 1.5px solid rgba(232,121,249,.3); border-radius: 999px; color: #e879f9; font-size: 12px; font-weight: 700; padding: 5px 14px; cursor: pointer; transition: background .15s, box-shadow .15s; flex-shrink: 0; -webkit-tap-highlight-color: transparent; }
+.home-radio-stop:hover { background: rgba(232,121,249,.22); box-shadow: 0 0 14px rgba(232,121,249,.22); }
+
+/* ── Mobile ── */
+/* #view-home .page's own padding/width rules are more specific than
+   style.css's generic mobile .page override (id + class beats class
+   alone), so they win regardless of viewport -- needs its own mobile pass
+   here instead. Same for the widgets row's side-by-side cards, sized for a
+   wide dashboard display, not a ~360-400px phone width. */
+@media (max-width: 720px) {
+  #view-home .page { padding: 0 14px; }
+  .home-topbar { padding: 10px 6px 0; }
+  .home-hero   { padding: 0 6px; }
+  .home-widgets { flex-direction: column; padding: 14px 6px 18px; gap: 10px; }
+  .home-mini-wx { min-width: 0; }
+  .home-mini-art { width: 56px; height: 56px; }
+  /* The single-row miniplayer layout (art+info | controls+progress) needs
+     real horizontal room -- track name, three buttons, and a progress bar
+     all fighting for space on a ~360px phone just overlap instead of
+     shrinking sensibly. Stack the two zones back into rows here, same idea
+     as the pre-miniplayer layout. */
+  .home-np-row { flex-direction: column; align-items: stretch; gap: 10px; }
+  .home-np-info { max-width: none; }
+}
